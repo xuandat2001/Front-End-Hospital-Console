@@ -4,6 +4,7 @@ import { mockCurrentUser, mockWorkspace } from "../mocks/mockSession";
 import { mockDepartments, mockRooms, mockStaff, mockAdmissions, mockSurgeries } from "../mocks/mockHospital";
 import { mockEmergencyNotifications, mockEmergencyRequests, mockEmergencyResources, mockEmergencySummary, mockEmergencyTimeline } from "../mocks/mockEmergency";
 import { mockKnowledgeAnswers, mockKnowledgeDocuments } from "../mocks/mockKnowledge";
+import { mockPatientCensus, mockPatientPerformance, mockPatientReports } from "../mocks/mockIntelligence";
 import { mockMedicalRecords, mockPatients } from "../mocks/mockPatients";
 import { mockMessagesByConversation, mockConversations } from "../mocks/mockMessaging";
 import { mockOverviewDashboard } from "../mocks/mockDashboard";
@@ -38,8 +39,14 @@ function list(data) {
   return ok(data, { count: Array.isArray(data) ? data.length : undefined });
 }
 
+function searchParams(path) {
+  const [, query = ""] = path.split("?");
+  return new URLSearchParams(query);
+}
+
 function findPatientByEllyId(ellyId) {
-  return mockPatients.find((patient) => patient.ellyId === decodeURIComponent(ellyId));
+  const decoded = decodeURIComponent(ellyId || "").toLowerCase();
+  return mockPatients.find((patient) => patient.ellyId.toLowerCase() === decoded) || null;
 }
 
 function getConversationId(path) {
@@ -55,6 +62,29 @@ function buildMessage(conversationId, content) {
     content,
     createdAt: new Date().toISOString(),
   };
+}
+
+function patientMatchesId(patient, id) {
+  return [patient._id, patient.id, patient.ellyId].filter(Boolean).includes(id);
+}
+
+function admissionsForPatient(patientId) {
+  return mockAdmissions.filter(
+    (admission) =>
+      admission.patientId === patientId ||
+      admission.patientEllyId === patientId ||
+      admission.patient?._id === patientId ||
+      admission.patient?.ellyId === patientId,
+  );
+}
+
+function surgeriesForPatient(patientId) {
+  return mockSurgeries.filter(
+    (surgery) =>
+      surgery.patientId === patientId ||
+      surgery.patientEllyId === patientId ||
+      surgery.patient?.ellyId === patientId,
+  );
 }
 
 export async function mockApiRequest(path, options = {}) {
@@ -73,21 +103,36 @@ export async function mockApiRequest(path, options = {}) {
   if (pathname.startsWith("/staff")) return list(mockStaff);
   if (pathname === "/rooms/occupancy") return ok(mockRooms);
   if (pathname.startsWith("/rooms")) return list(mockRooms);
+
+  if (pathname.startsWith("/admissions/patient/")) {
+    return list(admissionsForPatient(decodeURIComponent(pathname.split("/")[3] || "")));
+  }
+  if (pathname === "/admissions/with-patient") return list(mockAdmissions);
   if (pathname.startsWith("/admissions")) return list(mockAdmissions);
+
+  if (pathname.startsWith("/surgeries/patient/")) {
+    return list(surgeriesForPatient(decodeURIComponent(pathname.split("/")[3] || "")));
+  }
   if (pathname.startsWith("/surgeries")) return list(mockSurgeries);
 
-  if (pathname === "/patients") return list(mockPatients);
+  if (pathname === "/patients") {
+    const ellyId = searchParams(path).get("ellyId")?.trim().toLowerCase();
+    const data = ellyId
+      ? mockPatients.filter((patient) => patient.ellyId.toLowerCase() === ellyId)
+      : mockPatients;
+    return list(data);
+  }
   if (pathname.startsWith("/patients/elly/") && pathname.endsWith("/medical-records")) {
-    const ellyId = pathname.split("/")[3];
+    const ellyId = decodeURIComponent(pathname.split("/")[3] || "");
     return ok(mockMedicalRecords.filter((record) => record.patientEllyId === ellyId));
   }
   if (pathname.startsWith("/patients/elly/")) {
     const patient = findPatientByEllyId(pathname.split("/").pop());
-    return ok({ patient: patient || mockPatients[0] });
+    return ok({ patient, medicalProfile: patient?.medicalProfile || null });
   }
   if (pathname.startsWith("/patients/")) {
-    const id = pathname.split("/").pop();
-    return ok(mockPatients.find((patient) => patient._id === id || patient.id === id) || mockPatients[0]);
+    const id = decodeURIComponent(pathname.split("/").pop() || "");
+    return ok(mockPatients.find((patient) => patientMatchesId(patient, id)) || null);
   }
 
   if (pathname === "/bookings" && method === "GET") return list(mockAppointments);
@@ -146,7 +191,20 @@ export async function mockApiRequest(path, options = {}) {
   }
   if (pathname === "/ai/knowledge/documents") return ok(mockKnowledgeDocuments);
 
+  if (pathname === "/intelligence/patient-census") return ok(mockPatientCensus);
+  if (pathname === "/intelligence/patient-performance") return ok(mockPatientPerformance);
+  if (pathname === "/intelligence/patient-reports") return ok(mockPatientReports);
+  if (pathname.startsWith("/intelligence/analytics/overview")) {
+    return ok({
+      ...mockOverviewDashboard,
+      generatedAt: new Date().toISOString(),
+      patientCensus: mockPatientCensus,
+    });
+  }
+  if (pathname.startsWith("/intelligence/insights")) return ok([]);
+  if (pathname.startsWith("/intelligence/recommendations")) return ok([]);
   if (pathname.startsWith("/intelligence")) return ok(mockOverviewDashboard);
+
   if (pathname.startsWith("/reports")) return list(mockReports);
   if (pathname.startsWith("/diagnostics")) return list([]);
   if (pathname.startsWith("/icu")) {

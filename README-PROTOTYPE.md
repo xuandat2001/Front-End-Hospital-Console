@@ -36,10 +36,14 @@ npm run preview
 2. Set the root directory to `Front-end-prototype`.
 3. Set build command to `npm install && npm run build`.
 4. Set publish directory to `dist`.
-5. Add environment variables:
+5. Add a rewrite rule for SPA refresh/direct routes:
+   - Source: `/*`
+   - Destination: `/index.html`
+   - Action: Rewrite
+6. Add environment variables:
    - `VITE_USE_MOCK_DATA=true`
    - `VITE_DISABLE_API=true`
-6. Deploy.
+7. Deploy.
 
 ## What Is Mocked
 

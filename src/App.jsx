@@ -13,6 +13,7 @@ import useRegistrationStore from "./hooks/useRegistrationStore";
 import HospitalAccessPage from "./pages/hospital-access/HospitalAccessPage";
 import DiagnosticsPopup from "./pages/diagnostics/DiagnosticsPopup";
 import ToastContainer from "./components/Toast";
+import ErrorBoundary from "./components/ErrorBoundary";
 import useSessionStore from "./store/useSessionStore";
 import usePatientSearchStore from "./store/usePatientSearchStore";
 import { PERMISSIONS } from "./constant/rbac";
@@ -259,6 +260,17 @@ function HospitalDashboardApp() {
     });
   };
 
+  const handlePrototypeSectionReset = () => {
+    setActiveDomain("overview");
+    setActiveSubsection(null);
+    setActiveFunction("command");
+    setActiveCenterTab("dashboard");
+    setEmergencyNavigation(null);
+    setReturnNavigation(null);
+    setIsNavigationOpen(false);
+    clearActiveEllyId();
+  };
+
   const handleRegistrationRequestOpen = (registrationData) => {
     if (!registrationData) return;
 
@@ -329,23 +341,28 @@ function HospitalDashboardApp() {
       />
 
       <main className="dashboard-main" id="main-content">
-        <DashboardContent
-          activeModule={activeModule}
-          activeFunction={activeFunction}
-          activeCenterTab={activeCenterTab}
-          onModuleChange={handleModuleChange}
-          onCenterTabChange={handleCenterTabChange}
-          emergencyRealtime={emergencyRealtime}
-          registrationRealtime={registrationRealtime}
-          emergencyNavigation={emergencyNavigation}
-          onNavigationOpen={() => setIsNavigationOpen(true)}
-          onNotificationsOpen={handleNotificationsOpen}
-          onNotificationsBack={handleNotificationsBack}
-          onEmergencyRequestOpen={handleEmergencyRequestOpen}
-          onRegistrationRequestOpen={handleRegistrationRequestOpen}
-          onRoomSelect={handleRoomSelect}
-          selectedRoomId={selectedRoomId}
-        />
+        <ErrorBoundary
+          resetKeys={[activeDomain, activeFunction, activeCenterTab]}
+          onReset={handlePrototypeSectionReset}
+        >
+          <DashboardContent
+            activeModule={activeModule}
+            activeFunction={activeFunction}
+            activeCenterTab={activeCenterTab}
+            onModuleChange={handleModuleChange}
+            onCenterTabChange={handleCenterTabChange}
+            emergencyRealtime={emergencyRealtime}
+            registrationRealtime={registrationRealtime}
+            emergencyNavigation={emergencyNavigation}
+            onNavigationOpen={() => setIsNavigationOpen(true)}
+            onNotificationsOpen={handleNotificationsOpen}
+            onNotificationsBack={handleNotificationsBack}
+            onEmergencyRequestOpen={handleEmergencyRequestOpen}
+            onRegistrationRequestOpen={handleRegistrationRequestOpen}
+            onRoomSelect={handleRoomSelect}
+            selectedRoomId={selectedRoomId}
+          />
+        </ErrorBoundary>
       </main>
 
       <RightRail
