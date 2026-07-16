@@ -1,0 +1,406 @@
+import { useEffect, useMemo, useState } from "react";
+import {
+  Activity,
+  AlertTriangle,
+  Bed,
+  ChevronRight,
+  ClipboardCheck,
+  ShieldCheck,
+  Sparkles,
+  Users,
+} from "lucide-react";
+import MiniLineChart from "../graphs/MiniLineChart";
+import MiniPieChart from "../graphs/MiniPieChart";
+import { workspacePages } from "../../data";
+import { staffService } from "../../services/core-modules/staffApi";
+import { roomService } from "../../services/core-modules/roomApi";
+import { admissionService } from "../../services/core-modules/hospitalApi";
+import { patientService } from "../../services/core-modules/patientApi";
+
+const ROOM_COLORS = [
+  "var(--primary)",
+  "var(--success)",
+  "var(--warning)",
+  "var(--accent)",
+];
+
+function OperationsDashboard({ activeFunction }) {
+  const [patients, setPatients] = useState([]);
+  const [doctors, setDoctors] = useState([]);
+  const [rooms, setRooms] = useState([]);
+  const [admissions, setAdmissions] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAll = async () => {
+      setLoading(true);
+      try {
+        const [patRes, docRes, roomRes, admRes] = await Promise.allSettled([
+          patientService.getAllPatients(),
+          staffService.getAllStaff(),
+          roomService.getAllRooms(),
+          admissionService.getAllAdmissions(),
+        ]);
+
+        if (patRes.status === "fulfilled") {
+          setPatients(patRes.value.data || []);
+        }
+        if (docRes.status === "fulfilled") {
+          setDoctors(docRes.value.data || []);
+        }
+        if (roomRes.status === "fulfilled") {
+          setRooms(roomRes.value.data || []);
+        }
+        if (admRes.status === "fulfilled") {
+          setAdmissions(admRes.value.data || []);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAll();
+  }, []);
+
+  const totalPatients = patients.length;
+  const availableStaff = doctors.filter((d) => d.status === "AVAILABLE").length;
+  const totalStaff = doctors.length;
+
+  const openBeds = rooms.reduce(
+    (sum, r) => sum + Math.max(0, (r.capacity || 0) - (r.occupiedBeds || 0)),
+    0
+  );
+  const totalBeds = rooms.reduce((sum, r) => sum + (r.capacity || 0), 0);
+  const occupiedBeds = totalBeds - openBeds;
+  const occupancyPct = totalBeds ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
+
+  const activeAdmissions = admissions.filter(
+    (a) => a.currentStatus && a.currentStatus !== "DISCHARGED"
+  ).length;
+
+  const roomSlices = useMemo(() => {
+    const grouped = {};
+
+    rooms.forEach((room) => {
+      const type = room.roomType || "OTHER";
+      grouped[type] ||= { capacity: 0, occupied: 0 };
+      grouped[type].capacity += room.capacity || 0;
+      grouped[type].occupied += room.occupiedBeds || 0;
+    });
+
+    return Object.entries(grouped)
+      .filter(([, value]) => value.capacity > 0)
+      .map(([type, value], index) => ({
+        label: type.replace("_", " "),
+        value: value.occupied,
+        color: ROOM_COLORS[index % ROOM_COLORS.length],
+      }));
+  }, [rooms]);
+
+  const last7Days = useMemo(() => {
+    const now = new Date();
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(now);
+      date.setDate(date.getDate() - (6 - index));
+      return date.toDateString();
+    });
+  }, []);
+
+  const admissionsTrend = useMemo(
+    () =>
+      last7Days.map(
+        (day) =>
+          admissions.filter(
+            (admission) =>
+              admission.admittedAt &&
+              new Date(admission.admittedAt).toDateString() === day
+          ).length
+      ),
+    [admissions, last7Days]
+  );
+
+  const latestAdmissions = useMemo(
+    () =>
+      [...admissions]
+        .sort(
+          (a, b) =>
+            new Date(b.admittedAt || 0) - new Date(a.admittedAt || 0)
+        )
+        .slice(0, 3),
+    [admissions]
+  );
+
+  const title = workspacePages[activeFunction]?.title || "Command Overview";
+  const staffCoverage = totalStaff
+    ? Math.round((availableStaff / totalStaff) * 100)
+    : 0;
+
+  const metrics = [
+    { label: "Total Patients", value: totalPatients, icon: Users },
+    { label: "Staff Coverage", value: `${staffCoverage}%`, icon: ShieldCheck },
+    { label: "Bed Utilization", value: `${occupancyPct}%`, icon: Bed },
+    { label: "Active Admissions", value: activeAdmissions, icon: Activity },
+  ];
+
+  const drivers = [
+    {
+      title: "Improving patient flow",
+      detail: `${activeAdmissions} active admissions across the hospital`,
+      level: "Low",
+    },
+    {
+      title: "Managing bed capacity",
+      detail: `${openBeds} beds open with ${occupancyPct}% occupancy`,
+      level: occupancyPct > 85 ? "High" : "Medium",
+    },
+    {
+      title: "Optimizing coverage",
+      detail: `${availableStaff} staff currently available`,
+      level: "Low",
+    },
+  ];
+
+  const recommendations = [
+    {
+      title: "Prepare monitored beds",
+      detail: "Capacity plan generated by Elly",
+      tone: "mint",
+    },
+    {
+      title: "Review stable transfers",
+      detail: "Free high-acuity capacity",
+      tone: "purple",
+    },
+    {
+      title: "Confirm evening staffing",
+      detail: "Coverage review recommended",
+      tone: "gold",
+    },
+  ];
+
+  if (loading) {
+    return (
+      <div className="dashboard-loading" aria-live="polite">
+        <span />
+        <p>Loading command overview...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overview-scroll">
+      <h1 className="sr-only">{title}</h1>
+      <div className="overview-grid">
+        <section className="dashboard-card overview-revenue-card">
+          <h2>Total Capacity</h2>
+          <div className="capacity-summary">
+            <MiniPieChart
+              centerLabel={`${occupancyPct}%\nfilled`}
+              showLegend={false}
+              slices={roomSlices}
+            />
+            <div className="capacity-metrics">
+              <p>
+                <span className="metric-marker is-blue" />
+                Open Beds
+                <strong>{openBeds}</strong>
+              </p>
+              <p>
+                <span className="metric-marker is-mint" />
+                Staff Ready
+                <strong>{availableStaff}</strong>
+              </p>
+              <p>
+                <span className="metric-marker is-gold" />
+                Admissions
+                <strong>{activeAdmissions}</strong>
+              </p>
+            </div>
+          </div>
+          <div className="capacity-department-strip" aria-label="Occupied beds by department">
+            {roomSlices.slice(0, 4).map((slice) => (
+              <span key={slice.label}>
+                <i style={{ backgroundColor: slice.color }} />
+                {slice.label}
+                <strong>{slice.value}</strong>
+              </span>
+            ))}
+          </div>
+          <div className="capacity-target">
+            <span style={{ width: `${Math.min(occupancyPct, 100)}%` }} />
+          </div>
+          <small>{occupancyPct}% of total bed capacity</small>
+        </section>
+
+        <section className="dashboard-card overview-forecast-card">
+          <div className="card-title-row">
+            <h2>AI-Powered Forecast</h2>
+            <Sparkles size={17} strokeWidth={1.8} />
+          </div>
+          <div className="forecast-chart">
+            <MiniLineChart
+              data={admissionsTrend.length ? admissionsTrend : [0]}
+              variant="purple"
+            />
+          </div>
+          <div className="forecast-stats">
+            <p>
+              Queue trend
+              <strong>+2.2%</strong>
+            </p>
+            <p>
+              Open beds
+              <strong>{openBeds}</strong>
+            </p>
+            <p>
+              Risk
+              <strong>{occupancyPct > 85 ? "High" : "Stable"}</strong>
+            </p>
+          </div>
+        </section>
+
+        <section className="dashboard-card overview-financial-card">
+          <div className="card-title-row">
+            <h2>Key Hospital Metrics</h2>
+            <span>Live</span>
+          </div>
+          <div className="metric-trends">
+            {metrics.map((metric, index) => {
+              const MetricIcon = metric.icon;
+              return (
+                <div key={metric.label}>
+                  <span className={`metric-icon metric-${index}`}>
+                    <MetricIcon size={15} strokeWidth={1.9} />
+                  </span>
+                  <p>
+                    {metric.label}
+                    <strong>{metric.value}</strong>
+                  </p>
+                  <div aria-hidden="true">
+                    <MiniLineChart
+                      data={[2 + index, 4, 3 + index, 6, 5 + index, 7]}
+                      variant={index % 2 ? "purple" : "green"}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="dashboard-card overview-drivers-card">
+          <h2>Key Operational Driver AI Analysis</h2>
+          <div className="driver-list">
+            {drivers.map((item, index) => (
+              <div key={item.title}>
+                <span className={`driver-icon driver-${index}`}>
+                  {index === 1 ? (
+                    <AlertTriangle size={17} strokeWidth={1.8} />
+                  ) : (
+                    <Sparkles size={17} strokeWidth={1.8} />
+                  )}
+                </span>
+                <p>
+                  <strong>{item.title}</strong>
+                  <small>{item.detail}</small>
+                </p>
+                <button
+                  aria-label={`${item.title} priority: ${item.level}`}
+                  className="status-control"
+                  data-level={item.level.toLowerCase()}
+                  type="button"
+                >
+                  {item.level}
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="dashboard-card overview-recommendations-card">
+          <h2>Strategic Recommendations</h2>
+          <div className="recommendation-list">
+            {recommendations.map((item) => (
+              <button key={item.title} type="button">
+                <i data-tone={item.tone}>
+                  <ClipboardCheck size={17} strokeWidth={1.8} />
+                </i>
+                <span>
+                  <strong>{item.title}</strong>
+                  <small>{item.detail}</small>
+                </span>
+                <ChevronRight size={15} strokeWidth={1.9} />
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="dashboard-card overview-market-card">
+          <h2>Hospital &amp; Department Data</h2>
+          <div className="market-grid">
+            <div>
+              <p>Total patients</p>
+              <strong>{totalPatients}</strong>
+              <MiniLineChart
+                data={[3, 5, 4, 8, 7, 11, 13]}
+                variant="green"
+              />
+            </div>
+            <div>
+              <p>Staff coverage</p>
+              <strong>{staffCoverage}%</strong>
+              <MiniLineChart
+                data={[8, 6, 9, 7, 10, 12, 11]}
+                variant="purple"
+              />
+            </div>
+            <div>
+              <p>Bed utilization</p>
+              <strong>{occupancyPct}%</strong>
+              <MiniLineChart
+                data={[4, 8, 7, 10, 8, 12, 9]}
+                variant="green"
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="dashboard-card overview-queue-card">
+          <div className="card-title-row">
+            <h2>Hospital Action Queue</h2>
+            <span>{latestAdmissions.length} items</span>
+          </div>
+          <div className="queue-list">
+            {latestAdmissions.map((admission, index) => (
+              <button
+                aria-label={`Open ${admission.department?.name || "patient"} admission`}
+                className="queue-row"
+                key={admission._id || index}
+                type="button"
+              >
+                <span>{index + 1}</span>
+                <p>
+                  <strong>
+                    {admission.department?.name || admission.department?.id || "Admission"}
+                  </strong>
+                  <small>Patient {admission.patientId || "Pending ID"}</small>
+                </p>
+                <em
+                  className="status-chip"
+                  data-status={admission.currentStatus || "PENDING"}
+                >
+                  {(admission.currentStatus || "PENDING").replace("_", " ")}
+                </em>
+              </button>
+            ))}
+            {latestAdmissions.length === 0 && (
+              <p className="empty-queue">No active admissions.</p>
+            )}
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+export default OperationsDashboard;

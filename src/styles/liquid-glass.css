@@ -1,0 +1,877 @@
+/*
+ * Elly Liquid Glass
+ *
+ * A three-level material system for a clinical operations workspace:
+ *   1. functional glass for navigation and transient overlays,
+ *   2. content glass for cards and major information regions,
+ *   3. inset glass for dense metrics, rows, and controls.
+ *
+ * This file is imported last so it is the single material authority across
+ * Tailwind utilities, feature stylesheets, and document.body portals.
+ */
+
+:root {
+  --liquid-font-display:
+    "SF Pro Rounded", "Segoe UI Variable Display", "Aptos Display",
+    ui-rounded, system-ui, sans-serif;
+  --liquid-font-body:
+    "SF Pro Text", "Segoe UI Variable Text", "Aptos", system-ui, sans-serif;
+  --liquid-font-data:
+    "SF Mono", "Cascadia Code", "Roboto Mono", ui-monospace, monospace;
+
+  --liquid-prism-cyan: rgba(98, 221, 234, 0.36);
+  --liquid-prism-violet: rgba(155, 140, 255, 0.32);
+  --liquid-prism-rose: rgba(243, 108, 124, 0.16);
+  --liquid-specular: rgba(255, 255, 255, 0.92);
+  --liquid-edge: rgba(255, 255, 255, 0.76);
+  --liquid-edge-soft: rgba(111, 123, 173, 0.2);
+  --liquid-edge-strong: rgba(112, 112, 183, 0.38);
+
+  --liquid-functional:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.76), rgba(239, 248, 255, 0.46) 46%, rgba(243, 234, 255, 0.52)),
+    radial-gradient(circle at 8% 0%, rgba(255, 255, 255, 0.96), transparent 31%),
+    radial-gradient(circle at 96% 14%, var(--liquid-prism-cyan), transparent 35%);
+  /* Inner surfaces stay optically quiet: translucency without a painted glow. */
+  --liquid-content: rgba(248, 251, 255, 0.62);
+  --liquid-inset: rgba(242, 247, 253, 0.48);
+  --liquid-control:
+    radial-gradient(circle at 30% 10%, rgba(255, 255, 255, 0.86), transparent 34%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.72), rgba(225, 241, 255, 0.38) 52%, rgba(235, 225, 255, 0.42));
+  --liquid-lens:
+    radial-gradient(circle at 30% 12%, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.2) 31%, transparent 43%),
+    linear-gradient(135deg, rgba(98, 221, 234, 0.34), rgba(155, 140, 255, 0.42) 56%, rgba(243, 108, 124, 0.18));
+
+  --liquid-shadow-functional:
+    0 28px 72px rgba(65, 76, 137, 0.18),
+    0 8px 24px rgba(43, 49, 93, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.76),
+    inset 0 -1px 0 rgba(123, 130, 180, 0.1);
+  --liquid-shadow-content:
+    0 18px 44px rgba(67, 78, 139, 0.13),
+    0 4px 14px rgba(63, 69, 115, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.68);
+  --liquid-shadow-inset:
+    inset 0 1px 0 rgba(255, 255, 255, 0.58),
+    inset 0 -12px 28px rgba(92, 104, 158, 0.06),
+    0 8px 18px rgba(60, 69, 124, 0.06);
+  --liquid-shadow-lens:
+    0 14px 30px rgba(100, 87, 176, 0.2),
+    0 0 22px rgba(98, 221, 234, 0.13),
+    inset 0 1px 0 rgba(255, 255, 255, 0.84),
+    inset 0 -12px 22px rgba(114, 95, 177, 0.1);
+
+  --liquid-fallback-functional: rgba(246, 249, 255, 0.96);
+  --liquid-fallback-content: rgba(247, 249, 255, 0.92);
+  --liquid-fallback-inset: rgba(242, 246, 252, 0.94);
+
+  /* Keep the existing component vocabulary on the same material model. */
+  --glass-surface: var(--liquid-content);
+  --glass-surface-strong: var(--liquid-functional);
+  --glass-line: var(--liquid-edge);
+  --glass-highlight: var(--liquid-specular);
+  --glass-icon-bg: var(--liquid-control);
+  --glass-icon-shadow: var(--liquid-shadow-lens);
+  --shadow: var(--liquid-shadow-functional);
+  --shadow-soft: var(--liquid-shadow-content);
+  --interaction-shadow: var(--liquid-shadow-lens);
+
+  --lg-panel-bg: var(--liquid-content);
+  --lg-control-bg: var(--liquid-control);
+  --lg-lens-bg: var(--liquid-lens);
+  --lg-glass-edge: var(--liquid-edge);
+  --lg-specular: var(--liquid-specular);
+  --lg-caustic: var(--liquid-prism-cyan);
+  --lg-liquid-cyan: var(--liquid-prism-cyan);
+  --lg-liquid-purple: var(--liquid-prism-violet);
+  --lg-liquid-rose: var(--liquid-prism-rose);
+  --lg-shadow: var(--liquid-shadow-functional);
+  --lg-shadow-tight: var(--liquid-shadow-content);
+  --lg-inner-shadow: var(--liquid-shadow-inset);
+}
+
+.dark {
+  --liquid-prism-cyan: rgba(105, 224, 255, 0.2);
+  --liquid-prism-violet: rgba(122, 128, 255, 0.21);
+  --liquid-prism-rose: rgba(151, 172, 255, 0.1);
+  --liquid-specular: rgba(241, 247, 255, 0.34);
+  --liquid-edge: rgba(203, 221, 255, 0.24);
+  --liquid-edge-soft: rgba(190, 214, 255, 0.14);
+  --liquid-edge-strong: rgba(201, 220, 255, 0.32);
+
+  --liquid-functional:
+    linear-gradient(145deg, rgba(25, 46, 82, 0.84), rgba(6, 17, 36, 0.74) 48%, rgba(10, 34, 70, 0.7)),
+    radial-gradient(circle at 8% 0%, rgba(255, 255, 255, 0.14), transparent 31%),
+    radial-gradient(circle at 96% 14%, var(--liquid-prism-cyan), transparent 36%);
+  --liquid-content: rgba(10, 24, 47, 0.72);
+  --liquid-inset: rgba(12, 28, 52, 0.56);
+  --liquid-control:
+    radial-gradient(circle at 30% 10%, rgba(255, 255, 255, 0.22), transparent 34%),
+    linear-gradient(145deg, rgba(30, 54, 93, 0.82), rgba(7, 20, 42, 0.69) 53%, rgba(14, 38, 77, 0.67));
+  --liquid-lens:
+    radial-gradient(circle at 30% 12%, rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0.08) 31%, transparent 43%),
+    linear-gradient(135deg, rgba(105, 224, 255, 0.22), rgba(112, 121, 255, 0.31) 58%, rgba(92, 121, 191, 0.18));
+
+  --liquid-shadow-functional:
+    0 30px 84px rgba(0, 0, 0, 0.46),
+    0 10px 28px rgba(0, 8, 24, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.28);
+  --liquid-shadow-content:
+    0 20px 52px rgba(0, 0, 0, 0.34),
+    0 5px 18px rgba(0, 5, 18, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --liquid-shadow-inset:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -14px 30px rgba(0, 0, 0, 0.15),
+    0 8px 20px rgba(0, 0, 0, 0.18);
+  --liquid-shadow-lens:
+    0 16px 34px rgba(0, 0, 0, 0.4),
+    0 0 24px rgba(105, 224, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -12px 24px rgba(0, 0, 0, 0.16);
+
+  --liquid-fallback-functional: rgb(14, 29, 54);
+  --liquid-fallback-content: rgb(10, 24, 47);
+  --liquid-fallback-inset: rgb(12, 28, 52);
+}
+
+html,
+body {
+  font-family: var(--liquid-font-body);
+}
+
+.liquid-glass :is(h1, h2, h3, .dashboard-logo-card strong, .settings-page-header strong) {
+  font-family: var(--liquid-font-display);
+  font-variation-settings: "wght" 690;
+}
+
+.liquid-glass :is(
+  time,
+  [class$="-value"],
+  [class*="-value "],
+  [class$="-count"],
+  [class*="-count "],
+  [class$="-id"],
+  [class*="-id "]
+) {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The shell is the optical backdrop; controls and content float over it. */
+.dashboard-aurora {
+  opacity: 0.9;
+  background:
+    radial-gradient(circle at 10% 4%, rgba(255, 255, 255, 0.62), transparent 30%),
+    radial-gradient(circle at 84% 12%, var(--liquid-prism-cyan), transparent 32%),
+    radial-gradient(circle at 44% 100%, var(--liquid-prism-violet), transparent 38%),
+    linear-gradient(112deg, rgba(255, 255, 255, 0.18), transparent 44%);
+  transform: scale(1.04);
+}
+
+.dark .dashboard-aurora {
+  opacity: 0.72;
+}
+
+/* Level 1: navigation, toolbars, drawers, dialogs, and portal surfaces. */
+.liquid-glass :is(
+  .dashboard-identity-holder,
+  .dashboard-left-rail,
+  .dashboard-module-bar,
+  .dashboard-function-bar > div,
+  .dashboard-notification-bar,
+  .dashboard-mobile-panel,
+  .identity-workspace-flyout,
+  .dashboard-settings-page,
+  .messaging-panel,
+  .diagnostics-panel,
+  .diagnostics-sub-panel,
+  .icu-patient-drawer-panel,
+  .emergency-case-drawer,
+  .emergency-queue-popover .emergency-queue-panel,
+  .hospital-access-panel,
+  .liquid-media-viewer
+) {
+  border-color: var(--liquid-edge);
+  background: var(--liquid-functional);
+  box-shadow: var(--liquid-shadow-functional);
+  backdrop-filter: blur(34px) saturate(1.5) contrast(1.035);
+  -webkit-backdrop-filter: blur(34px) saturate(1.5) contrast(1.035);
+}
+
+.liquid-glass .liquid-media-viewer {
+  border: 1px solid rgba(203, 221, 255, 0.22);
+  color: #f8fbff;
+  background: rgba(5, 15, 32, 0.9);
+  background-image: none;
+}
+
+.liquid-glass :is(.dashboard-identity-holder, .dashboard-left-rail) {
+  border: 1px solid var(--liquid-edge-soft);
+  border-radius: 24px;
+}
+
+.liquid-glass :is(
+  .dashboard-function-bar > div,
+  .dashboard-notification-bar,
+  .identity-workspace-flyout,
+  .dashboard-mobile-panel
+) {
+  border: 1px solid var(--liquid-edge);
+}
+
+/* Level 2: reusable cards and the major information regions. */
+.liquid-glass :is(
+  .card,
+  .dashboard-card,
+  .utility-card,
+  .appointment-card,
+  .metric-card,
+  .intelligence-card,
+  .intelligence-panel,
+  .intelligence-note-card,
+  .market-grid > div,
+  .icu-patient-card,
+  .icu-summary-panel,
+  .icu-vitals-table-wrap,
+  .emergency-command-header,
+  .emergency-kpi-card,
+  .emergency-queue-panel,
+  .emergency-timeline-panel,
+  .emergency-alerts-panel,
+  .emergency-resources-panel,
+  .emergency-ops-panel,
+  .emergency-performance-panel,
+  .hospital-preview,
+  .hospital-access-card
+) {
+  border-color: var(--liquid-edge-soft);
+  background: var(--liquid-content);
+  background-image: none !important;
+  box-shadow: var(--liquid-shadow-content);
+  backdrop-filter: blur(22px) saturate(1.34) contrast(1.02);
+  -webkit-backdrop-filter: blur(22px) saturate(1.34) contrast(1.02);
+}
+
+.liquid-glass :is(.card, .dashboard-card, .utility-card, .appointment-card, .metric-card) {
+  transition:
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 180ms ease,
+    box-shadow 220ms ease;
+}
+
+/* One-off Tailwind cards lose decorative gradients without losing status fills. */
+.dashboard-main
+  :where(section, article, form, div).rounded-xl:is(
+    .border,
+    .shadow-sm,
+    .shadow-md,
+    .shadow-lg,
+    .shadow-xl,
+    .shadow-2xl
+  ),
+.dashboard-main
+  :where(section, article, form, div).rounded-2xl:is(
+    .border,
+    .shadow-sm,
+    .shadow-md,
+    .shadow-lg,
+    .shadow-xl,
+    .shadow-2xl
+  ),
+.dashboard-main
+  :where(section, article, form, div).rounded-3xl:is(
+    .border,
+    .shadow-sm,
+    .shadow-md,
+    .shadow-lg,
+    .shadow-xl,
+    .shadow-2xl
+  ),
+.dashboard-main
+  :where(section, article, form, div).rounded-lg:is(.shadow-xl, .shadow-2xl),
+.icu-patient-drawer-panel :where(section, form).rounded-lg.border {
+  background-image: none !important;
+}
+
+/* Level 3: dense information stays quieter and does not stack blur. */
+.liquid-glass :is(
+  .dashboard-logo-card,
+  .dashboard-control,
+  .dashboard-patient-search,
+  .settings-toggle,
+  .settings-toggle-stack,
+  .settings-volume-control,
+  .notification-status,
+  .notification-ticker,
+  .message-widget__preview,
+  .emergency-active-signal,
+  .emergency-signal-chip,
+  .emergency-resource-item,
+  .emergency-queue-item,
+  .intelligence-stat-tile,
+  .intelligence-resource-metric,
+  .emergency-report-table-wrap,
+  .emergency-resource-table-wrap,
+  .emergency-delay-table-wrap,
+  .emergency-ambulance-grid article:not([data-tone]),
+  .emergency-bed-grid article:not([data-tone]),
+  .emergency-equipment-grid article:not([data-tone]),
+  .emergency-bottleneck-list article:not([data-tone]),
+  .emergency-report-event-list article:not([data-tone]),
+  .emergency-capacity-pair article:not([data-tone]),
+  .emergency-staff-gap-grid article:not([data-tone]),
+  .emergency-report-metric-grid article:not([data-tone]),
+  .emergency-sla-card,
+  .emergency-sla-card > div,
+  .emergency-distribution-row,
+  .emergency-report-case-strip,
+  .emergency-report-idle,
+  .emergency-ops-state:not(.is-error),
+  .emergency-performance-state:not(.is-error),
+  .emergency-performance-line-chart,
+  .emergency-ops-line-chart,
+  .emergency-case-drawer dl > div,
+  .emergency-case-drawer section.grid > div,
+  .icu-roster-table-wrap,
+  .icu-timeline-shell,
+  .icu-shift-board,
+  .icu-shift-section,
+  .icu-shift-stat,
+  .icu-vitals-table-frame,
+  .diagnostics-tabs,
+  .hospital-preview-sidebar,
+  .hospital-preview-topline,
+  .hospital-preview-grid,
+  .hospital-preview-analysis,
+  .hospital-preview-metrics
+) {
+  border-color: var(--liquid-edge-soft);
+  background: var(--liquid-inset);
+  background-image: none;
+  box-shadow: var(--liquid-shadow-inset);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/*
+ * Inner cards and containers never paint a radial/linear glow. This changes
+ * only the image layer, so solid clinical state colors continue to communicate
+ * danger, warning, and success.
+ */
+.liquid-glass
+  :is(
+    .dashboard-main,
+    .dashboard-settings-page,
+    .dashboard-mobile-panel,
+    .identity-workspace-flyout,
+    .hospital-access-panel,
+    .messaging-panel,
+    .diagnostics-panel,
+    .diagnostics-sub-panel,
+    .icu-patient-drawer-panel,
+    .emergency-case-drawer,
+    .emergency-queue-panel,
+    .liquid-media-viewer
+  )
+  :where(section, article, form, div):is(
+    [class$="-card"],
+    [class*="-card "],
+    [class$="-panel"],
+    [class*="-panel "],
+    [class$="-container"],
+    [class*="-container "],
+    [class$="-surface"],
+    [class*="-surface "],
+    [class$="-section"],
+    [class*="-section "],
+    [class$="-wrap"],
+    [class*="-wrap "],
+    [class$="-shell"],
+    [class*="-shell "],
+    [class$="-tile"],
+    [class*="-tile "],
+    .rounded-lg,
+    .rounded-xl,
+    .rounded-2xl,
+    .rounded-3xl
+  ),
+.liquid-glass :is(
+  .message-widget,
+  .messaging-chat,
+  .settings-toggle-stack,
+  .settings-section-appearance > .settings-toggle,
+  .hospital-preview,
+  .hospital-preview-topline,
+  .hospital-preview-grid,
+  .hospital-preview-analysis,
+  .hospital-preview-metrics,
+  .icu-command-bar,
+  .icu-filter-menu,
+  .icu-vitals-table-frame,
+  .emergency-command-header,
+  .emergency-timeline-viewport,
+  .emergency-performance-line-chart,
+  .emergency-ops-line-chart
+) {
+  background-image: none !important;
+}
+
+/* Tailwind semantic gradients become solid state fills instead of vanishing. */
+.liquid-glass .dashboard-main
+  :where(section, article, form, div):is([class*="from-red-"], [class*="from-rose-"]) {
+  background-color: var(--danger-soft) !important;
+}
+
+.liquid-glass .dashboard-main
+  :where(section, article, form, div):is([class*="from-amber-"], [class*="from-yellow-"]) {
+  background-color: var(--warning-soft) !important;
+}
+
+.liquid-glass .dashboard-main
+  :where(section, article, form, div):is([class*="from-emerald-"], [class*="from-green-"]) {
+  background-color: var(--success-soft) !important;
+}
+
+.liquid-glass .dashboard-main
+  :where(section, article, form, div):is(
+    [class*="from-sky-"],
+    [class*="from-blue-"],
+    [class*="from-cyan-"],
+    [class*="from-violet-"],
+    [class*="from-purple-"]
+  ) {
+  background-color: var(--primary-soft) !important;
+}
+
+/* Remove inherited card sheen/caustic images while preserving pseudo hit areas. */
+.liquid-glass :is(
+  .glass-panel,
+  .card,
+  .dashboard-card,
+  .utility-card,
+  .appointment-card,
+  .metric-card,
+  .intelligence-card,
+  .intelligence-panel,
+  .intelligence-note-card,
+  .market-grid > div,
+  .message-widget,
+  .icu-patient-card,
+  .icu-shift-board,
+  .icu-shift-section,
+  .icu-shift-stat,
+  .icu-vitals-table-frame,
+  .emergency-command-header,
+  .emergency-kpi-card,
+  .emergency-queue-panel,
+  .emergency-timeline-panel,
+  .emergency-alerts-panel,
+  .emergency-resources-panel,
+  .emergency-ops-panel,
+  .emergency-performance-panel,
+  .emergency-case-drawer,
+  .hospital-preview,
+  .hospital-access-card
+)::before,
+.liquid-glass :is(
+  .glass-panel,
+  .card,
+  .dashboard-card,
+  .utility-card,
+  .appointment-card,
+  .metric-card,
+  .intelligence-card,
+  .intelligence-panel,
+  .intelligence-note-card,
+  .market-grid > div,
+  .message-widget,
+  .icu-patient-card,
+  .icu-shift-board,
+  .icu-shift-section,
+  .icu-shift-stat,
+  .icu-vitals-table-frame,
+  .emergency-command-header,
+  .emergency-kpi-card,
+  .emergency-queue-panel,
+  .emergency-timeline-panel,
+  .emergency-alerts-panel,
+  .emergency-resources-panel,
+  .emergency-ops-panel,
+  .emergency-performance-panel,
+  .emergency-case-drawer,
+  .hospital-preview,
+  .hospital-access-card
+)::after {
+  background-image: none !important;
+}
+
+/* These cards sit inside an already blurred shell; avoid stacking filters. */
+.liquid-glass :is(
+  .hospital-access-panel .hospital-access-card,
+  .hospital-preview .hospital-preview-topline,
+  .hospital-preview .hospital-preview-grid,
+  .hospital-preview .hospital-preview-analysis,
+  .hospital-preview .hospital-preview-metrics,
+  .dashboard-settings-page .settings-toggle-stack,
+  .icu-monitoring .icu-patient-card
+) {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Inputs are lenses inside a surface, not additional blurred panels. */
+.liquid-glass :is(
+  .form-input,
+  .form-select,
+  .form-textarea,
+  .dashboard-select-control,
+  .dashboard-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  .dashboard-shell select,
+  .dashboard-shell textarea,
+  .dashboard-settings-page input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  .dashboard-settings-page select,
+  .dashboard-settings-page textarea,
+  .icu-patient-drawer-panel input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  .icu-patient-drawer-panel select,
+  .icu-patient-drawer-panel textarea
+) {
+  border-color: var(--liquid-edge-soft);
+  color: var(--text);
+  background: var(--liquid-inset);
+  box-shadow: var(--liquid-shadow-inset);
+}
+
+.liquid-glass :is(
+  .form-input,
+  .form-select,
+  .form-textarea,
+  .dashboard-select-control,
+  .dashboard-shell input,
+  .dashboard-shell select,
+  .dashboard-shell textarea,
+  .dashboard-settings-page input,
+  .dashboard-settings-page select,
+  .dashboard-settings-page textarea,
+  .icu-patient-drawer-panel input,
+  .icu-patient-drawer-panel select,
+  .icu-patient-drawer-panel textarea
+):focus {
+  border-color: color-mix(in srgb, var(--primary) 62%, var(--liquid-edge));
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent),
+    var(--liquid-shadow-inset);
+}
+
+/* Active navigation behaves like the movable lens in the reference systems. */
+.liquid-glass :is(
+  .dashboard-domain-nav button.is-active,
+  .dashboard-nav-subsections button.is-active,
+  .dashboard-function-bar button.is-active,
+  .diagnostics-tab.is-active,
+  .icu-view-toggle.is-active,
+  .emergency-performance-filter button.is-active
+) {
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--liquid-edge));
+  color: var(--text);
+  background: var(--liquid-lens);
+  box-shadow: var(--liquid-shadow-lens);
+  backdrop-filter: blur(20px) saturate(1.42);
+  -webkit-backdrop-filter: blur(20px) saturate(1.42);
+}
+
+.liquid-glass :is(
+  .icon-button,
+  .glass-icon-button,
+  .theme-toggle-icon,
+  .dashboard-rail-actions .theme-toggle-icon,
+  .dashboard-rail-toggle,
+  .message-widget__icon-button,
+  .diagnostics-close-btn,
+  .settings-close-button
+) {
+  border-color: var(--liquid-edge);
+  color: var(--glass-glyph);
+  background: var(--liquid-control);
+  box-shadow: var(--liquid-shadow-lens);
+  backdrop-filter: blur(18px) saturate(1.34);
+  -webkit-backdrop-filter: blur(18px) saturate(1.34);
+}
+
+/* Tables keep one glass frame while rows remain legible and inexpensive. */
+.liquid-glass :is(
+  .appointment-table-wrap,
+  .intelligence-table-wrap,
+  .patient-table-wrap,
+  .staff-table-wrap,
+  .room-table-wrap,
+  .report-table-wrap,
+  .overflow-x-auto.rounded-xl.border,
+  .overflow-hidden.rounded-xl.border
+) {
+  border-color: var(--liquid-edge-soft);
+  background: var(--liquid-inset);
+  box-shadow: var(--liquid-shadow-inset);
+}
+
+.liquid-glass :is(.dashboard-shell, .dashboard-settings-page, .icu-patient-drawer-panel)
+  :where(thead, th) {
+  background-color: color-mix(in srgb, var(--surface-strong) 54%, transparent);
+}
+
+.liquid-glass :is(.dashboard-shell, .dashboard-settings-page, .icu-patient-drawer-panel)
+  :where(td, th) {
+  border-color: var(--liquid-edge-soft);
+}
+
+/* Scrims dim and soften the scene; they are deliberately not glass cards. */
+.liquid-glass :is(
+  .dashboard-nav-backdrop,
+  .dashboard-settings-backdrop,
+  .messaging-scrim,
+  .diagnostics-backdrop,
+  .diagnostics-sub-overlay,
+  .emergency-queue-sheet-scrim,
+  .emergency-drawer-layer,
+  .icu-patient-drawer-layer
+) {
+  background-color: color-mix(in srgb, #020713 38%, transparent);
+  backdrop-filter: blur(10px) saturate(0.92);
+  -webkit-backdrop-filter: blur(10px) saturate(0.92);
+}
+
+.liquid-glass :is(
+  .dashboard-nav-backdrop,
+  .dashboard-settings-backdrop,
+  .messaging-scrim,
+  .diagnostics-backdrop,
+  .emergency-queue-sheet-scrim
+):is(:hover, :active) {
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* Preserve semantic color while letting status surfaces belong to the system. */
+:where(
+  [data-tone="critical"],
+  [data-severity="Critical"],
+  .is-critical,
+  .is-error
+) {
+  --liquid-edge-soft: color-mix(in srgb, var(--danger) 38%, transparent);
+}
+
+:where(
+  [data-tone="warning"],
+  [data-severity="High Attention"],
+  .is-warning
+) {
+  --liquid-edge-soft: color-mix(in srgb, var(--warning) 42%, transparent);
+}
+
+:where([data-tone="stable"], [data-tone="success"], .is-success) {
+  --liquid-edge-soft: color-mix(in srgb, var(--success) 38%, transparent);
+}
+
+/* Emergency cleanup stays flat while retaining its operational state colors. */
+.liquid-glass .dashboard-main:has(.emergency-command-scroll)
+  :is(
+    .emergency-ops-badge,
+    .emergency-bed-grid article,
+    .emergency-equipment-grid article,
+    .emergency-report-event-list article,
+    .emergency-report-export-status
+  )[data-tone="stable"] {
+  background: var(--success-soft) !important;
+  background-image: none !important;
+}
+
+.liquid-glass .dashboard-main:has(.emergency-command-scroll)
+  :is(
+    .emergency-ops-badge,
+    .emergency-bed-grid article,
+    .emergency-equipment-grid article,
+    .emergency-report-event-list article,
+    .emergency-report-export-status
+  )[data-tone="warning"] {
+  background: var(--warning-soft) !important;
+  background-image: none !important;
+}
+
+.liquid-glass .dashboard-main:has(.emergency-command-scroll)
+  :is(
+    .emergency-ops-badge,
+    .emergency-bed-grid article,
+    .emergency-equipment-grid article,
+    .emergency-report-event-list article,
+    .emergency-report-export-status
+  )[data-tone="critical"],
+.liquid-glass .dashboard-main:has(.emergency-command-scroll)
+  :is(.emergency-ops-state.is-error, .emergency-performance-state.is-error, .emergency-forecast-unavailable) {
+  background: var(--danger-soft) !important;
+  background-image: none !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .liquid-glass :is(.card, .dashboard-card, .utility-card, .appointment-card, .metric-card):hover {
+    border-color: color-mix(in srgb, var(--primary) 32%, var(--liquid-edge));
+    box-shadow: var(--liquid-shadow-content);
+    transform: translateY(-2px);
+  }
+}
+
+/* Keep the glass useful on small screens rather than simply shrinking it. */
+@media (max-width: 820px) {
+  .dashboard-module-bar,
+  .dashboard-function-bar > div,
+  .dashboard-notification-bar,
+  .dashboard-mobile-panel {
+    backdrop-filter: blur(26px) saturate(1.42);
+    -webkit-backdrop-filter: blur(26px) saturate(1.42);
+  }
+
+  .dashboard-mobile-panel {
+    border-radius: 24px 0 0 24px;
+  }
+}
+
+/* Opaque fallback: no text is allowed to depend on blur for contrast. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .liquid-glass :is(
+    .dashboard-left-rail,
+    .dashboard-module-bar,
+    .dashboard-function-bar > div,
+    .dashboard-notification-bar,
+    .dashboard-mobile-panel,
+    .identity-workspace-flyout,
+    .dashboard-settings-page,
+    .messaging-panel,
+    .diagnostics-panel,
+    .diagnostics-sub-panel,
+    .icu-patient-drawer-panel,
+    .emergency-case-drawer,
+    .hospital-access-panel,
+    .liquid-media-viewer
+  ) {
+    background: var(--liquid-fallback-functional);
+  }
+
+  .liquid-glass :is(
+    .card,
+    .dashboard-card,
+    .utility-card,
+    .appointment-card,
+    .metric-card,
+    .intelligence-card,
+    .intelligence-panel,
+    .icu-patient-card,
+    .emergency-kpi-card,
+    .emergency-queue-panel,
+    .emergency-timeline-panel
+  ) {
+    background: var(--liquid-fallback-content);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --liquid-functional: var(--liquid-fallback-functional);
+    --liquid-content: var(--liquid-fallback-content);
+    --liquid-inset: var(--liquid-fallback-inset);
+    --liquid-control: var(--liquid-fallback-inset);
+  }
+
+  .liquid-glass :is(
+    .dashboard-shell,
+    .hospital-access-shell,
+    .dashboard-settings-page,
+    .messaging-panel,
+    .diagnostics-panel,
+    .diagnostics-sub-panel,
+    .icu-patient-drawer-panel,
+    .emergency-case-drawer,
+    .emergency-queue-popover,
+    .identity-workspace-flyout,
+    .liquid-media-viewer,
+    .dashboard-nav-backdrop,
+    .dashboard-settings-backdrop,
+    .messaging-scrim,
+    .diagnostics-backdrop,
+    .diagnostics-sub-overlay,
+    .emergency-queue-sheet-scrim,
+    .emergency-drawer-layer,
+    .icu-patient-drawer-layer
+  ),
+  .liquid-glass :is(
+    .dashboard-shell,
+    .hospital-access-shell,
+    .dashboard-settings-page,
+    .messaging-panel,
+    .diagnostics-panel,
+    .diagnostics-sub-panel,
+    .icu-patient-drawer-panel,
+    .emergency-case-drawer,
+    .emergency-queue-popover,
+    .identity-workspace-flyout,
+    .liquid-media-viewer
+  ) * {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-aurora {
+    animation: none;
+    transform: none;
+  }
+
+  :where(.card, .dashboard-card, .utility-card, .appointment-card, .metric-card) {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .liquid-glass :is(
+    .card,
+    .dashboard-card,
+    .utility-card,
+    .appointment-card,
+    .dashboard-left-rail,
+    .dashboard-function-bar > div,
+    .dashboard-notification-bar,
+    .dashboard-settings-page,
+    .messaging-panel,
+    .diagnostics-panel,
+    .icu-patient-drawer-panel,
+    .liquid-media-viewer
+  ) {
+    border: 1px solid CanvasText !important;
+    color: CanvasText !important;
+    background: Canvas !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    forced-color-adjust: auto;
+  }
+}
+
+@media print {
+  :root {
+    --liquid-functional: #fff;
+    --liquid-content: #fff;
+    --liquid-inset: #fff;
+  }
+
+  .dashboard-aurora {
+    display: none !important;
+  }
+
+  :where(.card, .dashboard-card, .utility-card, .appointment-card, [data-appointment-report]) {
+    border-color: #cbd5e1 !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
