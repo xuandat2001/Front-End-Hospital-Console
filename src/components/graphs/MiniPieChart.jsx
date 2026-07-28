@@ -1,9 +1,41 @@
+import { useEffect, useRef } from "react";
+import useDocumentStore from "../../store/useDocumentStore";
+
+let idCounter = 0;
+
 function MiniPieChart({
   slices = [],
   centerLabel = "",
   showLegend = true,
   compact = false,
+  widgetId,
+  widgetTitle,
 }) {
+  const idRef = useRef(null);
+  if (!idRef.current) {
+    idRef.current = widgetId || `mini-pie-${++idCounter}`;
+  }
+  const id = idRef.current;
+  const title = widgetTitle || "Pie Chart";
+
+  useEffect(() => {
+    const store = useDocumentStore.getState();
+    store.registerWidget(id, {
+      title,
+      extract: () => {
+        const breakdown = {};
+        slices.forEach((s) => {
+          breakdown[s.label] = `${s.value} (${Math.round((s.value / (slices.reduce((sum, sl) => sum + sl.value, 0) || 1)) * 100)}%)`;
+        });
+        return {
+          "Center Label": centerLabel || "N/A",
+          "Total Value": slices.reduce((sum, s) => sum + s.value, 0),
+          ...breakdown,
+        };
+      },
+    });
+    return () => store.unregisterWidget(id);
+  }, [id, title, slices, centerLabel]);
   const total = slices.reduce((sum, slice) => sum + slice.value, 0) || 1;
   const labels = String(centerLabel).split("\n");
   const segments = slices.reduce(
@@ -28,6 +60,7 @@ function MiniPieChart({
   );
 
   return (
+    <div data-widget-id={id} data-widget-title={title}>
     <div
       className={
         compact
@@ -108,6 +141,7 @@ function MiniPieChart({
           ))}
         </div>
       )}
+    </div>
     </div>
   );
 }

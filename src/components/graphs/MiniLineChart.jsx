@@ -1,9 +1,35 @@
-import { useId } from "react";
+import { useEffect, useId, useRef } from "react";
+import useDocumentStore from "../../store/useDocumentStore";
+
+let idCounter = 0;
 
 function MiniLineChart({
   data = [20, 35, 30, 45, 40, 60, 75],
   variant = "blue",
+  widgetId,
+  widgetTitle,
 }) {
+  const idRef = useRef(null);
+  if (!idRef.current) {
+    idRef.current = widgetId || `mini-line-${++idCounter}`;
+  }
+  const id = idRef.current;
+  const title = widgetTitle || "Line Chart";
+
+  useEffect(() => {
+    const store = useDocumentStore.getState();
+    store.registerWidget(id, {
+      title,
+      extract: () => ({
+        "Data Points": data.join(", "),
+        "Variant": variant,
+        "Min Value": Math.min(...data),
+        "Max Value": Math.max(...data),
+        "Current Value": data[data.length - 1],
+      }),
+    });
+    return () => store.unregisterWidget(id);
+  }, [id, title, data, variant]);
   const colors = {
     blue: "var(--accent)",
     purple: "var(--primary)",
@@ -54,6 +80,8 @@ function MiniLineChart({
 
   return (
     <svg
+      data-widget-id={id}
+      data-widget-title={title}
       viewBox={`0 0 ${width} ${height}`}
       className="mini-line-chart h-full w-full"
       preserveAspectRatio="none"

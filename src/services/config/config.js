@@ -1,35 +1,38 @@
 import useSessionStore from "../../store/useSessionStore";
-import { isMockMode, mockApiBlob, mockApiRequest } from "../mockApi";
+import { MOCK_MODE } from "../../mocks/mockSession";
+import { mockApiRequest, mockApiRequestBlob } from "../mock/mockApi";
 
 export const API_BASE_URL =
-  isMockMode
-    ? "mock://elly-api"
-    : import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
 
 function getSessionHeaders() {
   const session = useSessionStore.getState();
 
   const currentUser = session.currentUser;
-  const workspace = session.workspace;
+  const workspace = session.activeWorkspace || session.workspace;
+  const accessToken = session.accessToken;
+  const workspaceEllyId =
+    workspace?.workspaceEllyId ||
+    workspace?.ellyHospitalId ||
+    workspace?.ellyId;
+  const workspaceId = workspace?.id || workspace?.workspaceId || workspaceEllyId;
+  const role = session.role || currentUser?.role || workspace?.role;
+  const departmentId =
+    currentUser?.departmentId || workspace?.departmentId || session.departmentId;
 
   return {
+    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
     ...(currentUser?.ellyId ? { "x-elly-id": currentUser.ellyId } : {}),
-    ...(currentUser?.role ? { "x-elly-role": currentUser.role } : {}),
-    ...(currentUser?.departmentId
-      ? { "x-elly-department-id": currentUser.departmentId }
-      : {}),
-    ...(workspace?.id ? { "x-hospital-id": workspace.id } : {}),
-    ...(workspace?.ellyHospitalId
-      ? { "x-elly-hospital-id": workspace.ellyHospitalId }
-      : {}),
-    ...(workspace?.ellyHospitalId
-      ? { "x-elly-partner-id": workspace.ellyHospitalId }
-      : {}),
+    ...(role ? { "x-elly-role": role } : {}),
+    ...(departmentId ? { "x-elly-department-id": departmentId } : {}),
+    ...(workspaceId ? { "x-hospital-id": workspaceId } : {}),
+    ...(workspaceEllyId ? { "x-elly-hospital-id": workspaceEllyId } : {}),
+    ...(workspaceEllyId ? { "x-elly-partner-id": workspaceEllyId } : {}),
   };
 }
 
 export const apiRequest = async (path, options = {}) => {
-  if (isMockMode) {
+  if (MOCK_MODE) {
     return mockApiRequest(path, options);
   }
 
@@ -73,17 +76,23 @@ export const apiRequest = async (path, options = {}) => {
           JSON.stringify(body)
         : body;
 
-    throw new Error(
+    const error = new Error(
       `Request failed (${response.status}): ${message || response.statusText}`,
     );
+    error.status = response.status;
+    if (typeof body === "object" && body) {
+      error.code = body.code || null;
+      error.details = body.details || null;
+    }
+    throw error;
   }
 
   return body;
 };
 
 export const apiRequestBlob = async (path, options = {}) => {
-  if (isMockMode) {
-    return mockApiBlob(path, options);
+  if (MOCK_MODE) {
+    return mockApiRequestBlob(path, options);
   }
 
   let response;

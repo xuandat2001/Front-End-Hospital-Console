@@ -8,88 +8,16 @@ import { knowledgeService } from "../../services/intelligence/knowledgeApi";
 import ReactMarkdown from "react-markdown";
 import KnowledgeUploadModal from "../intelligence/KnowledgeUploadModal";
 import MessageWidget from "../messaging/MessageWidget";
+import useDocumentStore from "../../store/useDocumentStore";
 
 const initialAlerts = [
-  { id: 1, label: "Oxygen supply check overdue", level: "Urgent" },
-  { id: 2, label: "Surgery room 3 turnover blocked", level: "High" },
-  { id: 3, label: "Blood lab result exception", level: "Review" },
-  { id: 4, label: "Daily capacity entry complete", level: "Ready" },
+  { id: 1, label: "Oxygen supply check overdue", level: "Critical" },
+  { id: 2, label: "Surgery room 3 turnover blocked", level: "Warning" },
+  { id: 3, label: "Blood lab result exception", level: "Warning" },
+  { id: 4, label: "Daily capacity entry complete", level: "Info" },
 ];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const defaultRightRailContext = {
-  consideration:
-    "Three monitored beds may be needed within 90 minutes. Prioritize ICU East readiness.",
-  nextAction: "Review transfers and confirm evening coverage.",
-  followUp: "Which departments need additional staffing?",
-  alerts: initialAlerts,
-  actions: [
-    { label: "Inbox", icon: "message" },
-    { label: "Upload", icon: "upload", action: "upload" },
-    { label: "Tasks", icon: "check" },
-  ],
-};
-
-const billingRightRailContext = {
-  consideration:
-    "Review billing processes and outstanding accounts to maintain healthy cash flow.",
-  nextAction: "Follow up on overdue invoices and pending payments.",
-  followUp: "Which departments have the highest outstanding balance?",
-  alerts: [
-    { id: "billing-1", label: "24 accounts are overdue", level: "Urgent" },
-    { id: "billing-2", label: "High-value claim requires review", level: "Urgent" },
-    { id: "billing-3", label: "Insurance claim rejected", level: "Review" },
-    { id: "billing-4", label: "Payment gateway experiencing delays", level: "Ready" },
-  ],
-  actions: [
-    { id: "create-invoice", label: "Create Invoice", icon: "file" },
-    { id: "process-payment", label: "Process Payment", icon: "upload" },
-    { id: "submit-claim", label: "Submit Claim", icon: "file" },
-    { id: "reconcile-accounts", label: "Reconcile Accounts", icon: "check" },
-  ],
-};
-
-const billingActionForms = {
-  "create-invoice": {
-    title: "Create Invoice",
-    primaryAction: "Save Draft",
-    fields: [
-      { id: "patient", label: "Patient", placeholder: "Patient name or EllyID" },
-      { id: "department", label: "Department", placeholder: "Department" },
-      { id: "category", label: "Service Category", placeholder: "Cardiology" },
-      { id: "amount", label: "Amount", placeholder: "$0.00" },
-      { id: "dueDate", label: "Due Date", placeholder: "YYYY-MM-DD" },
-    ],
-  },
-  "process-payment": {
-    title: "Process Payment",
-    primaryAction: "Record Placeholder",
-    fields: [
-      { id: "invoice", label: "Invoice ID", placeholder: "INV-2025-10458" },
-      { id: "method", label: "Method", placeholder: "Cash / Card / Insurance" },
-      { id: "amount", label: "Amount", placeholder: "$0.00" },
-    ],
-  },
-  "submit-claim": {
-    title: "Submit Claim",
-    primaryAction: "Stage Claim",
-    fields: [
-      { id: "invoice", label: "Invoice ID", placeholder: "INV-2025-10457" },
-      { id: "payer", label: "Payer", placeholder: "Insurance payer" },
-      { id: "policy", label: "Policy Number", placeholder: "Policy reference" },
-    ],
-  },
-  "reconcile-accounts": {
-    title: "Reconcile Accounts",
-    primaryAction: "Start Review",
-    fields: [
-      { id: "batch", label: "Batch", placeholder: "Daily payment batch" },
-      { id: "owner", label: "Owner", placeholder: "Billing staff" },
-      { id: "notes", label: "Notes", placeholder: "Review notes" },
-    ],
-  },
-};
 
 async function askKnowledgeWithRetry(question) {
   const maxAttempts = 3;
@@ -111,7 +39,7 @@ async function askKnowledgeWithRetry(question) {
   return null;
 }
 
-function RightRail({ activeFunction, emergencyRealtime, onEmergencyRequestOpen }) {
+function RightRail({ emergencyRealtime, onEmergencyRequestOpen }) {
   const [alerts, setAlerts] = useState(initialAlerts);
   const [knowledgeQuestion, setKnowledgeQuestion] = useState("");
   const [knowledgeAnswer, setKnowledgeAnswer] = useState("");
@@ -120,35 +48,13 @@ function RightRail({ activeFunction, emergencyRealtime, onEmergencyRequestOpen }
   const [knowledgeMeta, setKnowledgeMeta] = useState(null);
   const [showQuickUploadModal, setShowQuickUploadModal] = useState(false);
   const [quickUploadStatus, setQuickUploadStatus] = useState("");
-  const [activeBillingAction, setActiveBillingAction] = useState(null);
-  const [billingActionSaving, setBillingActionSaving] = useState(false);
-  const [billingActionStatus, setBillingActionStatus] = useState("");
+  const enterDocumentMode = useDocumentStore((state) => state.enterDocumentMode);
+  const exitDocumentMode = useDocumentStore((state) => state.exitDocumentMode);
+  const isDocumentMode = useDocumentStore((state) => state.isDocumentMode);
   const emergencyAlerts = buildActiveNotifications(
     emergencyRealtime,
     null,
   ).filter((alert) => alert.type === "emergency");
-  const rightRailContext =
-    activeFunction === "billing-dashboard"
-      ? billingRightRailContext
-      : defaultRightRailContext;
-  const visibleAlerts =
-    activeFunction === "billing-dashboard" ? rightRailContext.alerts : alerts;
-  const activeBillingForm = activeBillingAction
-    ? billingActionForms[activeBillingAction.id]
-    : null;
-
-  const handleBillingActionSubmit = (event) => {
-    event.preventDefault();
-
-    if (!activeBillingForm) return;
-
-    setBillingActionSaving(true);
-    window.setTimeout(() => {
-      setBillingActionSaving(false);
-      setBillingActionStatus(`${activeBillingForm.title} saved locally for demo review.`);
-      setActiveBillingAction(null);
-    }, 420);
-  };
 
   const handleAskKnowledge = async (event) => {
     event.preventDefault();
@@ -206,14 +112,10 @@ function RightRail({ activeFunction, emergencyRealtime, onEmergencyRequestOpen }
             <input
               value={knowledgeQuestion}
               onChange={(event) => setKnowledgeQuestion(event.target.value)}
-              placeholder="Ask hospital policy..."
+              placeholder="Ask 'What is the diabeties ?'..."
             />
 
-            <button
-              type="button"
-              disabled={knowledgeLoading}
-              onClick={handleAskKnowledge}
-            >
+            <button type="submit" disabled={knowledgeLoading}>
               {knowledgeLoading ? (
                 <span className="typing-dots" aria-label="Elly is typing">
                   <span />
@@ -248,14 +150,17 @@ function RightRail({ activeFunction, emergencyRealtime, onEmergencyRequestOpen }
 
         <section className="utility-card consideration-card">
           <h2>Considerations</h2>
-          <p>{rightRailContext.consideration}</p>
+          <p>
+            Three monitored beds may be needed within 90 minutes. Prioritize ICU
+            East readiness.
+          </p>
           <div>
             <strong>What to do next</strong>
-            <span>{rightRailContext.nextAction}</span>
+            <span>Review transfers and confirm evening coverage.</span>
           </div>
           <div>
             <strong>Follow-up questions</strong>
-            <span>{rightRailContext.followUp}</span>
+            <span>Which departments need additional staffing?</span>
           </div>
         </section>
 
@@ -268,6 +173,7 @@ function RightRail({ activeFunction, emergencyRealtime, onEmergencyRequestOpen }
             {emergencyAlerts.map((alert) => (
               <button
                 className="is-emergency-case"
+                data-level="critical"
                 key={alert.id}
                 onClick={() => onEmergencyRequestOpen?.(alert.alertId)}
                 type="button"
@@ -276,102 +182,60 @@ function RightRail({ activeFunction, emergencyRealtime, onEmergencyRequestOpen }
                   <strong>Incoming emergency case</strong>
                   <small>{formatNotificationTime(alert.occurredAt)}</small>
                 </span>
-                <i data-level="urgent" />
+                <i data-level="critical" />
               </button>
             ))}
-            {visibleAlerts.map((alert) => (
+            {alerts.map((alert) => (
               <button
                 key={alert.id}
+                data-level={alert.level.toLowerCase()}
                 onClick={() =>
-                  activeFunction !== "billing-dashboard" &&
                   setAlerts((current) =>
                     current.filter((item) => item.id !== alert.id),
                   )
                 }
                 type="button"
               >
-                <span>{alert.label}</span>
+                <span>
+                  <span className="alert-severity-label">{alert.level}</span>
+                  {alert.label}
+                </span>
                 <i data-level={alert.level.toLowerCase()} />
               </button>
             ))}
-            {visibleAlerts.length === 0 && <p>All alerts reviewed.</p>}
+            {alerts.length === 0 && <p>All alerts reviewed.</p>}
           </div>
         </section>
 
         <section className="utility-card quick-actions-card">
           <h2>Quick Actions</h2>
           <div>
-            {rightRailContext.actions.map((action) => (
-              <button
-                key={action.id || action.label}
-                type="button"
-                onClick={() => {
-                  if (activeFunction === "billing-dashboard") {
-                    setBillingActionStatus("");
-                    setActiveBillingAction(action);
-                  } else if (action.action === "upload") {
-                    setShowQuickUploadModal(true);
-                  }
-                }}
-              >
-                <Icon name={action.icon} size={14} />
-                {action.label}
-              </button>
-            ))}
+            <button type="button">
+              <Icon name="message" size={14} />
+              Inbox
+            </button>
+            <button type="button" onClick={() => setShowQuickUploadModal(true)}>
+              <Icon name="upload" size={14} />
+              Upload
+            </button>
+            <button type="button">
+              <Icon name="check" size={14} />
+              Tasks
+            </button>
+            <button
+              type="button"
+              onClick={isDocumentMode ? exitDocumentMode : enterDocumentMode}
+              className={isDocumentMode ? "quick-action-active" : ""}
+            >
+              <Icon name="file" size={14} />
+              {isDocumentMode ? "Exit Document" : "Document"}
+            </button>
           </div>
           {quickUploadStatus && (
             <p className="quick-action-status">{quickUploadStatus}</p>
           )}
-          {billingActionStatus && activeFunction === "billing-dashboard" && (
-            <p className="quick-action-status">{billingActionStatus}</p>
-          )}
         </section>
       </div>
-
-      {activeBillingForm && (
-        <div className="billing-action-layer" role="presentation">
-          <form
-            aria-modal="true"
-            className="billing-action-panel"
-            onSubmit={handleBillingActionSubmit}
-            role="dialog"
-          >
-            <header>
-              <div>
-                <span>Billing action</span>
-                <h2>{activeBillingForm.title}</h2>
-              </div>
-              <button
-                aria-label="Close billing action"
-                onClick={() => setActiveBillingAction(null)}
-                type="button"
-              >
-                x
-              </button>
-            </header>
-            <div className="billing-action-fields">
-              {activeBillingForm.fields.map((field) => (
-                <label key={field.id}>
-                  <span>{field.label}</span>
-                  <input placeholder={field.placeholder} />
-                </label>
-              ))}
-            </div>
-            <footer>
-              <button
-                disabled={billingActionSaving}
-                onClick={() => setActiveBillingAction(null)}
-                type="button"
-              >
-                Cancel
-              </button>
-              <button disabled={billingActionSaving} type="submit">
-                {billingActionSaving ? "Saving..." : activeBillingForm.primaryAction}
-              </button>
-            </footer>
-          </form>
-        </div>
-      )}
 
       {showQuickUploadModal && (
         <KnowledgeUploadModal

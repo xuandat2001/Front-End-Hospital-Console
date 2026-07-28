@@ -1,4 +1,5 @@
 import { AlertCircle, BellRing, CheckCircle2 } from "lucide-react";
+import { formatTime } from "../../../../utils/dateFormat";
 
 const IMPORTANT_EVENTS = new Set([
   "EMERGENCY_ADMISSION_REQUESTED",
@@ -8,13 +9,6 @@ const IMPORTANT_EVENTS = new Set([
   "EMERGENCY_PATIENT_ARRIVED",
   "EMERGENCY_TREATMENT_STARTED",
 ]);
-
-function alertTime(value) {
-  return new Date(value).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 export default function EmergencyAlertsFeed({ notifications, onMarkRead, requests }) {
   const requestByAlert = new Map(requests.map((request) => [request.alertId, request]));
@@ -56,7 +50,7 @@ export default function EmergencyAlertsFeed({ notifications, onMarkRead, request
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <p className="truncate text-xs font-bold leading-4 text-[var(--text)]">{alert.title}</p>
-                    <span className="shrink-0 text-[9px] text-[var(--text-muted)]">{alertTime(alert.occurredAt || alert.createdAt)}</span>
+                    <span className="shrink-0 text-[9px] text-[var(--text-muted)]">{formatTime(alert.occurredAt || alert.createdAt)}</span>
                   </div>
                   <p className="mt-1 line-clamp-1 text-[10px] leading-4 text-[var(--text-muted)]">{alert.message}</p>
                   {alert.caseId && <p className="mt-0.5 truncate font-mono text-[9px] text-[var(--text-muted)]">Case {alert.caseId}</p>}

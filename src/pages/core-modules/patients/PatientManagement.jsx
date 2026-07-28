@@ -205,27 +205,25 @@ export default function PatientManagement() {
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Patient Management</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {patients.length} patient{patients.length !== 1 ? "s" : ""} on record
-          </p>
-        </div>
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden p-4 sm:p-5">
+      <div className="shrink-0">
+        <h1 className="text-lg font-bold text-slate-950 dark:text-white sm:text-xl">Patient Management</h1>
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          {patients.length} patient{patients.length !== 1 ? "s" : ""} on record
+        </p>
       </div>
 
-      <div className="mb-4">
+      <div className="shrink-0">
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search by Elly ID..."
-          className="w-full max-w-sm rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder-slate-500 dark:focus:border-violet-400"
+          className="w-full max-w-sm rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder-slate-500 dark:focus:border-violet-400"
         />
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <table className="w-full min-w-[800px]">
           <thead className="bg-slate-100 dark:bg-slate-800">
             <tr>

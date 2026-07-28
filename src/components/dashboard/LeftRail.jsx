@@ -1,71 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import ellyLogo from "../../assets/elly-logo.png";
-import navData from "../../tab-data";
+import { getVisibleNavEntries, getVisibleSubsections } from "../../tab-data";
 import Icon from "./Icon";
+import { workspaceModules } from "./workspaceModules";
 import useSessionStore from "../../store/useSessionStore";
-import { PERMISSIONS } from "../../constant/rbac";
-const navEntries = Object.entries(navData);
-const overviewEntry = navEntries.find(([id]) => id === "overview");
-const sectionEntries = navEntries.filter(([id]) => id !== "overview");
+import { PERMISSIONS, ROLES } from "../../constant/rbac";
 
-function formatRole(role = "") {
-  return role
-    .trim()
-    .toLowerCase()
-    .split("_")
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-function getUserName(user) {
-  return (
-    user?.fullName ||
-    user?.displayName ||
-    user?.name ||
-    [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
-    ""
-  ).trim();
-}
-
-function HospitalIdentity({ isCollapsed = false, onLogoClick }) {
-  const workspace = useSessionStore((state) => state.workspace);
-  const currentUser = useSessionStore((state) => state.currentUser);
-  const ellyId =
-    workspace?.ellyHospitalId || currentUser?.ellyId || "No ELLY ID available";
-  const userName = getUserName(currentUser);
-  const roleLabel = formatRole(currentUser?.role) || "Authorized Staff";
-  const userSummary = [roleLabel, userName].filter(Boolean).join(" · ");
-
-  return (
-    <div className="dashboard-identity-row">
-      <div
-        aria-label={`Account identity: ${ellyId}`}
-        className="dashboard-logo-card"
-      >
-        <button
-          aria-label="Open hospital profile (coming soon)"
-          className="dashboard-logo-mark"
-          onClick={onLogoClick}
-          title="Hospital profile (coming soon)"
-          type="button"
-        >
-          <img alt="" aria-hidden="true" src={ellyLogo} />
-        </button>
-        <div className="dashboard-logo-card__identity" aria-hidden={isCollapsed}>
-          <span className="dashboard-identity-elly-id" title={ellyId}>
-            {ellyId}
-          </span>
-          <small className="dashboard-user-summary" title={userSummary}>
-            {userSummary}
-          </small>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PatientSearchBox({ inputRef, onPatientSearch, onClose }) {
+function PatientSearchBox({ onPatientSearch, onClose }) {
   const [value, setValue] = useState("");
 
   const submit = () => {
@@ -79,7 +21,6 @@ function PatientSearchBox({ inputRef, onPatientSearch, onClose }) {
     <div className="dashboard-patient-search" role="search">
       <Icon name="search" size={15} className="dashboard-patient-search__icon" />
       <input
-        ref={inputRef}
         type="text"
         value={value}
         onChange={(event) => setValue(event.target.value)}
@@ -106,27 +47,65 @@ function PatientSearchBox({ inputRef, onPatientSearch, onClose }) {
 
 function RailContent({
   activeDomain,
+  activeModule,
   activeSubsection,
   onClose,
   onDomainChange,
+  onModuleChange,
   onSettingsOpen,
   onSubsectionSelect,
   onPatientSearch,
-  isCollapsed = false,
-  onExpand,
-  onPatientSearchExpand,
-  patientSearchInputRef,
-  onCollapse,
-  onIdentityLogoClick,
-  showIdentity = false,
-  subsectionIdPrefix = "dashboard-nav",
+  onWelcomeOpen,
   showClose = false,
 }) {
+  const workspace = useSessionStore((state) => state.workspace);
+  const currentUser = useSessionStore((state) => state.currentUser);
+  const permissions = useSessionStore((state) => state.permissions);
   const can = useSessionStore((state) => state.can);
   const canSearchPatients = can(PERMISSIONS.PATIENT_READ);
-  const [expandedSections, setExpandedSections] = useState(() =>
-    activeDomain ? { [activeDomain]: true } : {},
-  );
+  const navEntries = getVisibleNavEntries(permissions);
+  const isClinicDoctor =
+    currentUser?.role === ROLES.DOCTOR || currentUser?.role === ROLES.CLINIC_DOCTOR;
+  const workspaceTitle = isClinicDoctor
+    ? currentUser?.clinicName || workspace?.workspaceName || "Clinic Workspace"
+    : workspace?.hospitalName || workspace?.workspaceName || "Hospital Workspace";
+  const workspaceSubtitle = isClinicDoctor
+    ? workspace?.workspaceEllyId || "No Clinic ELLY ID"
+    : workspace?.ellyHospitalId || workspace?.workspaceEllyId || "No Hospital ELLY ID";
+  const [expandedSections, setExpandedSections] = useState({});
+  const [flyoutOpen, setFlyoutOpen] = useState(false);
+  const [flyoutPosition, setFlyoutPosition] = useState({ top: 0, left: 0 });
+  const cardRef = useRef(null);
+  const closeTimerRef = useRef(null);
+  const activeWorkspace =
+    workspaceModules.find((module) => module.value === activeModule)?.label ||
+    workspaceModules[0].label;
+
+  const clearCloseTimer = () => {
+    if (closeTimerRef.current) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  };
+
+  const openWorkspaceFlyout = () => {
+    clearCloseTimer();
+    const rect = cardRef.current?.getBoundingClientRect();
+    if (rect) {
+      setFlyoutPosition({
+        top: Math.max(12, rect.top),
+        left: rect.right + 8,
+      });
+    }
+    setFlyoutOpen(true);
+  };
+
+  const scheduleWorkspaceFlyoutClose = () => {
+    clearCloseTimer();
+    closeTimerRef.current = window.setTimeout(() => {
+      setFlyoutOpen(false);
+    }, 140);
+  };
 
   const toggleSection = (domainId) => {
     setExpandedSections((prev) => ({
@@ -138,11 +117,6 @@ function RailContent({
   const handleItemClick = (domainId, section) => {
     const subs = section.subsections ? Object.keys(section.subsections) : [];
     if (subs.length > 0) {
-      if (isCollapsed) {
-        setExpandedSections((prev) => ({ ...prev, [domainId]: true }));
-        onExpand?.();
-        return;
-      }
       toggleSection(domainId);
     } else {
       onDomainChange(domainId);
@@ -155,9 +129,32 @@ function RailContent({
 
   return (
     <>
-      {showClose && (
-        <div className="dashboard-mobile-nav-header">
-          <strong>Navigation</strong>
+      <div
+        className="dashboard-logo-card"
+        onBlur={scheduleWorkspaceFlyoutClose}
+        onFocus={openWorkspaceFlyout}
+        onMouseEnter={openWorkspaceFlyout}
+        onMouseLeave={scheduleWorkspaceFlyoutClose}
+        ref={cardRef}
+        tabIndex={0}
+      >
+        <img alt="Elly" src={ellyLogo} />
+        <div
+          className="dashboard-logo-card__identity"
+          onClick={onWelcomeOpen}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onWelcomeOpen?.(); }}
+        >
+          <strong>{workspaceTitle}</strong>
+          <span title={workspaceSubtitle}>{workspaceSubtitle}</span>
+          <small>
+            {currentUser?.role
+              ? currentUser.role.replaceAll("_", " ")
+              : "Authorized Staff"}
+          </small>
+        </div>
+        {showClose && (
           <button
             aria-label="Close navigation"
             className="icon-button dashboard-nav-close"
@@ -166,123 +163,80 @@ function RailContent({
           >
             <Icon name="close" size={18} />
           </button>
-        </div>
-      )}
-
-      {showIdentity && (
-        <HospitalIdentity onLogoClick={onIdentityLogoClick} />
-      )}
-
-      {isCollapsed && onExpand && (
-        <button
-          aria-controls="dashboard-primary-navigation"
-          aria-expanded="false"
-          aria-label="Expand navigation"
-          className="dashboard-rail-toggle dashboard-rail-toggle--standalone"
-          data-rail-tooltip="Expand navigation"
-          onClick={onExpand}
-          type="button"
-        >
-          <Icon name="chevronRight" size={16} />
-        </button>
-      )}
-
-      <div
-        className={`dashboard-nav-overview-row${
-          activeDomain === "overview" ? " is-active" : ""
-        }`}
-      >
-        <button
-          aria-current={activeDomain === "overview" ? "page" : undefined}
-          aria-label={isCollapsed ? "Overview" : undefined}
-          className={`dashboard-nav-overview-button${
-            activeDomain === "overview" ? " is-active" : ""
-          }`}
-          data-no-ripple="true"
-          data-rail-tooltip={isCollapsed ? "Overview" : undefined}
-          onClick={() => {
-            onDomainChange("overview");
-          }}
-          title={isCollapsed ? "Overview" : undefined}
-          type="button"
-        >
-          <Icon name={overviewEntry?.[1]?.icon || "overview"} size={19} />
-          <span className="dashboard-nav-label">
-            {overviewEntry?.[1]?.label || "Overview"}
-          </span>
-        </button>
-        {!isCollapsed && onCollapse && (
-          <button
-            aria-controls="dashboard-primary-navigation"
-            aria-expanded="true"
-            aria-label="Collapse navigation"
-            className="dashboard-rail-toggle"
-            onClick={onCollapse}
-            type="button"
-          >
-            <Icon name="chevronLeft" size={16} />
-          </button>
         )}
       </div>
 
-      {canSearchPatients && (
-        isCollapsed ? (
-          <button
-            aria-label="Find patient by EllyID"
-            className="dashboard-patient-search-trigger"
-            data-rail-tooltip="Find patient by EllyID"
-            onClick={onPatientSearchExpand}
-            title="Find patient by EllyID"
-            type="button"
+      {flyoutOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="identity-workspace-flyout is-open"
+            onFocus={openWorkspaceFlyout}
+            onMouseEnter={openWorkspaceFlyout}
+            onMouseLeave={scheduleWorkspaceFlyoutClose}
+            style={{
+              top: `${flyoutPosition.top}px`,
+              left: `${flyoutPosition.left}px`,
+            }}
           >
-            <Icon name="search" size={15} />
-          </button>
-        ) : (
-          <PatientSearchBox
-            inputRef={patientSearchInputRef}
-            onPatientSearch={onPatientSearch}
-            onClose={onClose}
-          />
-        )
-      )}
+            <div
+              aria-label="Hospital workspace"
+              className="identity-workspace-options"
+              role="listbox"
+            >
+              <div className="identity-workspace-heading">
+                <Icon name="operations" size={15} />
+                <span>
+                  <small>Workspace</small>
+                  {activeWorkspace}
+                </span>
+              </div>
+              {workspaceModules.map((module) => (
+                <button
+                  aria-selected={module.value === activeModule}
+                  className={module.value === activeModule ? "is-selected" : ""}
+                  key={module.value}
+                  onClick={() => {
+                    onModuleChange(module.value);
+                    setFlyoutOpen(false);
+                  }}
+                  role="option"
+                  type="button"
+                >
+                  <span>{module.label}</span>
+                  {module.value === activeModule && <i>Active</i>}
+                </button>
+              ))}
+            </div>
+          </div>,
+          document.body,
+        )}
 
       <nav className="dashboard-domain-nav" aria-label="Dashboard sections">
-        {sectionEntries.map(([id, section]) => {
-          const subs = section.subsections
-            ? Object.entries(section.subsections)
-            : [];
+        {navEntries.map(([id, section]) => {
+          const subs = getVisibleSubsections(id, permissions);
           const hasSubsections = subs.length > 0;
           const isExpanded = expandedSections[id];
           const isSubActive =
             hasSubsections &&
             activeSubsection &&
-            subs.some(([sid]) => sid === activeSubsection);
-          const subsectionListId = `${subsectionIdPrefix}-subsections-${id}`;
+            subs.some((sub) => sub.id === activeSubsection);
           const isActive =
             activeDomain === id && (!hasSubsections || isSubActive);
 
           return (
             <div key={id} className="dashboard-nav-item-group">
               <button
-                aria-controls={
-                  hasSubsections ? subsectionListId : undefined
-                }
                 aria-current={isActive ? "page" : undefined}
-                aria-expanded={
-                  hasSubsections ? Boolean(isExpanded && !isCollapsed) : undefined
-                }
-                aria-label={isCollapsed ? section.label : undefined}
                 className={
                   (isActive ? "is-active" : "") +
                   (hasSubsections ? " has-subsections" : "")
                 }
-                data-rail-tooltip={isCollapsed ? section.label : undefined}
                 onClick={() => handleItemClick(id, section)}
-                title={isCollapsed ? section.label : undefined}
                 type="button"
               >
                 <Icon name={section.icon} size={19} />
-                <span className="dashboard-nav-label">{section.label}</span>
+                <span>{section.label}</span>
                 {hasSubsections && (
                   <Icon
                     name="chevronDown"
@@ -291,26 +245,28 @@ function RailContent({
                   />
                 )}
               </button>
-              {hasSubsections && (
-                <div
-                  className="dashboard-nav-subsections"
-                  hidden={!isExpanded || isCollapsed}
-                  id={subsectionListId}
-                >
-                  {subs.map(([sid, sub]) => (
+              {id === "overview" && canSearchPatients && (
+                <PatientSearchBox
+                  onPatientSearch={onPatientSearch}
+                  onClose={onClose}
+                />
+              )}
+              {hasSubsections && isExpanded && (
+                <div className="dashboard-nav-subsections">
+                  {subs.map((sub) => (
                     <button
-                      key={sid}
+                      key={sub.id}
                       aria-current={
-                        activeDomain === id && activeSubsection === sid
+                        activeDomain === id && activeSubsection === sub.id
                           ? "page"
                           : undefined
                       }
                       className={
-                        activeDomain === id && activeSubsection === sid
+                        activeDomain === id && activeSubsection === sub.id
                           ? "is-active"
                           : ""
                       }
-                      onClick={() => handleSubClick(id, sid)}
+                      onClick={() => handleSubClick(id, sub.id)}
                       type="button"
                     >
                       {sub.label}
@@ -324,16 +280,9 @@ function RailContent({
       </nav>
 
       <div className="dashboard-rail-actions">
-        <button
-          aria-label={isCollapsed ? "Settings" : undefined}
-          className="dashboard-settings-button"
-          data-rail-tooltip={isCollapsed ? "Settings" : undefined}
-          onClick={onSettingsOpen}
-          title={isCollapsed ? "Settings" : undefined}
-          type="button"
-        >
+        <button className="dashboard-settings-button" onClick={onSettingsOpen} type="button">
           <Icon name="settings" size={20} />
-          <span className="dashboard-nav-label">Settings</span>
+          <span>Settings</span>
         </button>
       </div>
     </>
@@ -342,74 +291,32 @@ function RailContent({
 
 function LeftRail({
   activeDomain,
+  activeModule,
   activeSubsection,
   onDomainChange,
+  onModuleChange,
   onSettingsOpen,
   onSubsectionSelect,
   onPatientSearch,
-  onIdentityLogoClick,
+  onWelcomeOpen,
   isOpen,
   onOpenChange,
-  isCollapsed = false,
-  onCollapsedChange,
 }) {
-  const patientSearchInputRef = useRef(null);
-  const shouldFocusPatientSearchRef = useRef(false);
-
-  useEffect(() => {
-    if (!isCollapsed && shouldFocusPatientSearchRef.current) {
-      shouldFocusPatientSearchRef.current = false;
-      patientSearchInputRef.current?.focus();
-    }
-  }, [isCollapsed]);
-
-  const expandRail = () => {
-    if (!isCollapsed) return;
-    onCollapsedChange?.(false);
-  };
-
-  const collapseRail = () => {
-    onCollapsedChange?.(true);
-  };
-
-  const expandForPatientSearch = () => {
-    shouldFocusPatientSearchRef.current = true;
-    expandRail();
-  };
-
   return (
     <>
-      <div
-        className={`dashboard-left-column${isCollapsed ? " is-collapsed" : ""}`}
-      >
-        <div className="dashboard-identity-holder">
-          <HospitalIdentity
-            isCollapsed={isCollapsed}
-            onLogoClick={onIdentityLogoClick}
-          />
-        </div>
-
-        <aside
-          aria-label="Primary navigation"
-          className={`dashboard-left-rail${isCollapsed ? " is-collapsed is-content-collapsed" : ""}`}
-          id="dashboard-primary-navigation"
-        >
-          <RailContent
-            activeDomain={activeDomain}
-            activeSubsection={activeSubsection}
-            isCollapsed={isCollapsed}
-            onCollapse={collapseRail}
-            onExpand={expandRail}
-            onDomainChange={onDomainChange}
-            onPatientSearchExpand={expandForPatientSearch}
-            onSettingsOpen={onSettingsOpen}
-            onSubsectionSelect={onSubsectionSelect}
-            onPatientSearch={onPatientSearch}
-            patientSearchInputRef={patientSearchInputRef}
-            subsectionIdPrefix="dashboard-primary-nav"
-          />
-        </aside>
-      </div>
+      <aside className="dashboard-left-rail">
+        <RailContent
+          activeDomain={activeDomain}
+          activeModule={activeModule}
+          activeSubsection={activeSubsection}
+          onDomainChange={onDomainChange}
+          onModuleChange={onModuleChange}
+          onSettingsOpen={onSettingsOpen}
+          onSubsectionSelect={onSubsectionSelect}
+          onPatientSearch={onPatientSearch}
+          onWelcomeOpen={onWelcomeOpen}
+        />
+      </aside>
 
       {isOpen && (
         <>
@@ -422,9 +329,11 @@ function LeftRail({
           <aside className="dashboard-mobile-panel">
             <RailContent
               activeDomain={activeDomain}
+              activeModule={activeModule}
               activeSubsection={activeSubsection}
               onClose={() => onOpenChange(false)}
               onDomainChange={onDomainChange}
+              onModuleChange={onModuleChange}
               onSettingsOpen={() => {
                 onSettingsOpen();
                 onOpenChange(false);
@@ -434,9 +343,7 @@ function LeftRail({
                 onPatientSearch?.(query);
                 onOpenChange(false);
               }}
-              onIdentityLogoClick={onIdentityLogoClick}
-              showIdentity
-              subsectionIdPrefix="dashboard-mobile-nav"
+              onWelcomeOpen={onWelcomeOpen}
               showClose
             />
           </aside>

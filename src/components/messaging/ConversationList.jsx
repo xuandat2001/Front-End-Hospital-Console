@@ -7,7 +7,7 @@ const filters = [
   { id: "ALL", label: "All" },
   { id: "DIRECT", label: "Direct" },
   { id: "DEPARTMENT", label: "Channels" },
-  { id: "GROUP", label: "Teams" },
+  { id: "GROUP", label: "Groups" },
 ];
 
 function ConversationList() {
@@ -15,13 +15,6 @@ function ConversationList() {
   const [activeFilter, setActiveFilter] = useState("ALL");
   const conversations = useMessagingStore((state) => state.conversations);
   const totalUnread = useMessagingStore((state) => state.totalUnread);
-  const unreadByConversation = useMessagingStore(
-    (state) => state.unreadByConversation,
-  );
-  const loadingConversations = useMessagingStore(
-    (state) => state.loadingConversations,
-  );
-  const error = useMessagingStore((state) => state.error);
   const selectedConversationId = useMessagingStore(
     (state) => state.selectedConversationId,
   );
@@ -37,8 +30,8 @@ function ConversationList() {
         activeFilter === "ALL" || conversation.type === activeFilter;
       const matchesQuery =
         !normalizedQuery ||
-        conversation.name?.toLowerCase().includes(normalizedQuery) ||
-        conversation.preview?.toLowerCase().includes(normalizedQuery);
+        conversation.name.toLowerCase().includes(normalizedQuery) ||
+        conversation.preview.toLowerCase().includes(normalizedQuery);
 
       return matchesFilter && matchesQuery;
     });
@@ -82,28 +75,17 @@ function ConversationList() {
       </div>
 
       <div className="messaging-conversation-list">
-        {loadingConversations ? (
-          <p className="messaging-conversation-list__empty">
-            Loading conversations...
-          </p>
-        ) : null}
-        {!loadingConversations && error ? (
-          <p className="messaging-conversation-list__empty">{error}</p>
-        ) : null}
         {visibleConversations.map((conversation) => (
           <ConversationListItem
             conversation={conversation}
             isSelected={selectedConversationId === conversation.id}
             key={conversation.id}
-            unreadCount={unreadByConversation[conversation.id] || 0}
             onSelect={() => selectConversation(conversation.id)}
           />
         ))}
-        {!loadingConversations && visibleConversations.length === 0 ? (
+        {visibleConversations.length === 0 ? (
           <p className="messaging-conversation-list__empty">
-            {query || activeFilter !== "ALL"
-              ? "No conversations found."
-              : "No conversations yet."}
+            No conversations found.
           </p>
         ) : null}
       </div>

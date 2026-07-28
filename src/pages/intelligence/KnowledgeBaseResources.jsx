@@ -1,16 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Icon from "../../components/dashboard/Icon";
 import { knowledgeService } from "../../services/intelligence/knowledgeApi";
-
-function formatDate(value) {
-  if (!value) return "No date";
-  return new Date(value).toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+import { formatDateTime } from "../../utils/dateFormat";
 
 function titleCase(value) {
   return String(value || "")
@@ -311,7 +302,7 @@ function KnowledgeBaseResources({ embedded = false, initialSearch = "", refreshK
 
                   <td className="py-3 pr-3">{titleCase(document.status)}</td>
 
-                  <td className="py-3 pr-3">{formatDate(document.updatedAt)}</td>
+                  <td className="py-3 pr-3">{formatDateTime(document.updatedAt)}</td>
 
                   <td className="py-3 pr-3">
                     <button

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { jsPDF } from 'jspdf';
 import { reportService } from '../../services/report/reportApi';
+import useSessionStore from '../../store/useSessionStore';
+import { formatDateTime } from '../../utils/dateFormat';
 
 const PRIORITY_COLORS = {
   LOW: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
@@ -247,6 +249,8 @@ export default function ReportList({ category, title, showCreate }) {
                         <ReportDetail
                           report={r}
                           onUpdated={loadReports}
+                          startDate={startDate}
+                          endDate={endDate}
                         />
                       </td>
                     </tr>
@@ -272,8 +276,10 @@ function StatCard({ label, value, color }) {
   );
 }
 
-function ReportDetail({ report, onUpdated }) {
+function ReportDetail({ report, onUpdated, startDate, endDate }) {
   const [comment, setComment] = useState('');
+  const workspace = useSessionStore((s) => s.workspace);
+  const currentUser = useSessionStore((s) => s.currentUser);
 
   const handleAddComment = async () => {
     if (!comment.trim()) return;
@@ -313,6 +319,37 @@ function ReportDetail({ report, onUpdated }) {
     const pageW = 190;
     let y = 20;
 
+    const hospitalName = workspace?.hospitalName || "Hospital";
+    const userName = currentUser?.fullName || "N/A";
+    const now = new Date();
+
+    const reportDate = report.createdAt ? new Date(report.createdAt) : now;
+    const day = reportDate.getDay();
+    const mon = new Date(reportDate);
+    mon.setDate(reportDate.getDate() - ((day + 6) % 7));
+    const sun = new Date(mon);
+    sun.setDate(mon.getDate() + 6);
+    const weekLabel = `${String(mon.getDate()).padStart(2, '0')}-${String(mon.getMonth() + 1).padStart(2, '0')}-${mon.getFullYear()} – ${String(sun.getDate()).padStart(2, '0')}-${String(sun.getMonth() + 1).padStart(2, '0')}-${sun.getFullYear()}`;
+
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(30);
+    doc.text(hospitalName, 10, y);
+    y += 6;
+    doc.setDrawColor(180);
+    doc.line(10, y, pageW, y);
+    y += 6;
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(120);
+    doc.text(`Staff: ${userName}`, 10, y);
+    doc.text(`Generated: ${formatDateTime(now)}`, 95, y);
+    doc.text(`Week: ${weekLabel}`, 160, y);
+    y += 6;
+    doc.setDrawColor(200);
+    doc.line(10, y, pageW, y);
+    y += 8;
+
     const title = (text, size = 14, bold = true) => {
       doc.setFontSize(size);
       doc.setFont("helvetica", bold ? "bold" : "normal");
@@ -344,7 +381,7 @@ function ReportDetail({ report, onUpdated }) {
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100);
     doc.text(`${report.reportId} | ${categoryLabel}${subcategoryLabel ? ` / ${subcategoryLabel}` : ''} | ${report.priority} | ${report.status}`, 10, y);
-    y += 12;
+    y += 10;
 
     doc.setDrawColor(200);
     doc.line(10, y, pageW, y);
@@ -353,10 +390,10 @@ function ReportDetail({ report, onUpdated }) {
     title("Report Details", 12);
     field("Submitted By", `${report.submittedBy?.staffName || '—'} (${report.submittedBy?.role || '—'})`);
     field("Department", report.departmentId || '—');
-    field("Hospital", report.hospitalId || '—');
-    field("Created At", report.createdAt ? new Date(report.createdAt).toLocaleString() : '—');
+    field("Hospital", hospitalName);
+    field("Created At", formatDateTime(report.createdAt));
     field("Assigned To", report.assignedTo ? `${report.assignedTo.staffName} (${report.assignedTo.role})` : '—');
-    field("Resolved At", report.resolvedAt ? new Date(report.resolvedAt).toLocaleString() : '—');
+    field("Resolved At", report.resolvedAt ? formatDateTime(report.resolvedAt) : '—');
     y += 4;
 
     doc.setDrawColor(200);
@@ -418,16 +455,16 @@ function ReportDetail({ report, onUpdated }) {
         doc.setFontSize(9);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(30);
-        doc.text(c.staffName, 10, y);
+        doc.text(c.staffName, 14, y);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(140);
-        doc.text(new Date(c.createdAt).toLocaleString(), 60, y);
+        doc.text(formatDateTime(c.createdAt), pageW - 14, y, { align: "right" });
         y += 5;
         doc.setFontSize(9);
         doc.setTextColor(60);
-        const commentLines = doc.splitTextToSize(c.comment, pageW - 20);
-        doc.text(commentLines, 10, y);
-        y += commentLines.length * 4 + 4;
+        const commentLines = doc.splitTextToSize(c.comment, pageW - 28);
+        doc.text(commentLines, 14, y);
+        y += commentLines.length * 4 + 6;
       });
     }
 

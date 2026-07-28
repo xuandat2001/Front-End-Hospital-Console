@@ -16,6 +16,7 @@ import { staffService } from "../../services/core-modules/staffApi";
 import { roomService } from "../../services/core-modules/roomApi";
 import { admissionService } from "../../services/core-modules/hospitalApi";
 import { patientService } from "../../services/core-modules/patientApi";
+import useDocumentStore from "../../store/useDocumentStore";
 
 const ROOM_COLORS = [
   "var(--primary)",
@@ -178,6 +179,109 @@ function OperationsDashboard({ activeFunction }) {
     },
   ];
 
+  useEffect(() => {
+    const store = useDocumentStore.getState();
+    store.registerWidget("total-capacity", {
+      title: "Total Capacity",
+      extract: () => ({
+        "Occupancy Rate": `${occupancyPct}% (${occupiedBeds}/${totalBeds} beds occupied)`,
+        "Open Beds": openBeds,
+        "Staff Ready": availableStaff,
+        "Active Admissions": activeAdmissions,
+        "Department Breakdown": roomSlices
+          .slice(0, 4)
+          .map((s) => `${s.label}: ${s.value} occupied`),
+        "Total Bed Capacity": `${totalBeds} beds`,
+      }),
+    });
+    store.registerWidget("ai-forecast", {
+      title: "AI-Powered Forecast",
+      extract: () => ({
+        "7-Day Admissions Trend": admissionsTrend.length
+          ? admissionsTrend.join(" → ")
+          : "No data",
+        "Queue Trend": "+2.2%",
+        "Open Beds": openBeds,
+        "Risk Level": occupancyPct > 85 ? "High" : "Stable",
+      }),
+    });
+    store.registerWidget("key-metrics", {
+      title: "Key Hospital Metrics",
+      extract: () => ({
+        "Total Patients": totalPatients,
+        "Staff Coverage": `${staffCoverage}%`,
+        "Bed Utilization": `${occupancyPct}%`,
+        "Active Admissions": activeAdmissions,
+      }),
+    });
+    store.registerWidget("operational-drivers", {
+      title: "Key Operational Driver AI Analysis",
+      extract: () => {
+        const result = {};
+        drivers.forEach((d, i) => {
+          result[`Driver ${i + 1}`] = `${d.title} — ${d.detail} (Priority: ${d.level})`;
+        });
+        return result;
+      },
+    });
+    store.registerWidget("strategic-recommendations", {
+      title: "Strategic Recommendations",
+      extract: () => {
+        const result = {};
+        recommendations.forEach((r, i) => {
+          result[`Recommendation ${i + 1}`] = `${r.title} — ${r.detail}`;
+        });
+        return result;
+      },
+    });
+    store.registerWidget("hospital-data", {
+      title: "Hospital & Department Data",
+      extract: () => ({
+        "Total Patients": totalPatients,
+        "Staff Coverage": `${staffCoverage}%`,
+        "Bed Utilization": `${occupancyPct}%`,
+      }),
+    });
+    store.registerWidget("action-queue", {
+      title: "Hospital Action Queue",
+      extract: () => {
+        if (latestAdmissions.length === 0) return { Status: "No active admissions" };
+        const result = {};
+        latestAdmissions.forEach((a, i) => {
+          result[`Item ${i + 1}`] = `${a.department?.name || "Admission"} — Patient ${a.patientId || "Pending ID"} (${(a.currentStatus || "PENDING").replace("_", " ")})`;
+        });
+        return result;
+      },
+    });
+
+    return () => {
+      const cleanup = useDocumentStore.getState();
+      [
+        "total-capacity",
+        "ai-forecast",
+        "key-metrics",
+        "operational-drivers",
+        "strategic-recommendations",
+        "hospital-data",
+        "action-queue",
+      ].forEach((id) => cleanup.unregisterWidget(id));
+    };
+  }, [
+    occupancyPct,
+    openBeds,
+    availableStaff,
+    activeAdmissions,
+    roomSlices,
+    totalBeds,
+    occupiedBeds,
+    admissionsTrend,
+    totalPatients,
+    staffCoverage,
+    drivers,
+    recommendations,
+    latestAdmissions,
+  ]);
+
   if (loading) {
     return (
       <div className="dashboard-loading" aria-live="polite">
@@ -191,7 +295,11 @@ function OperationsDashboard({ activeFunction }) {
     <div className="overview-scroll">
       <h1 className="sr-only">{title}</h1>
       <div className="overview-grid">
-        <section className="dashboard-card overview-revenue-card">
+        <section
+          className="dashboard-card overview-revenue-card"
+          data-widget-id="total-capacity"
+          data-widget-title="Total Capacity"
+        >
           <h2>Total Capacity</h2>
           <div className="capacity-summary">
             <MiniPieChart
@@ -232,7 +340,11 @@ function OperationsDashboard({ activeFunction }) {
           <small>{occupancyPct}% of total bed capacity</small>
         </section>
 
-        <section className="dashboard-card overview-forecast-card">
+        <section
+          className="dashboard-card overview-forecast-card"
+          data-widget-id="ai-forecast"
+          data-widget-title="AI-Powered Forecast"
+        >
           <div className="card-title-row">
             <h2>AI-Powered Forecast</h2>
             <Sparkles size={17} strokeWidth={1.8} />
@@ -259,7 +371,11 @@ function OperationsDashboard({ activeFunction }) {
           </div>
         </section>
 
-        <section className="dashboard-card overview-financial-card">
+        <section
+          className="dashboard-card overview-financial-card"
+          data-widget-id="key-metrics"
+          data-widget-title="Key Hospital Metrics"
+        >
           <div className="card-title-row">
             <h2>Key Hospital Metrics</h2>
             <span>Live</span>
@@ -288,7 +404,11 @@ function OperationsDashboard({ activeFunction }) {
           </div>
         </section>
 
-        <section className="dashboard-card overview-drivers-card">
+        <section
+          className="dashboard-card overview-drivers-card"
+          data-widget-id="operational-drivers"
+          data-widget-title="Key Operational Driver AI Analysis"
+        >
           <h2>Key Operational Driver AI Analysis</h2>
           <div className="driver-list">
             {drivers.map((item, index) => (
@@ -317,7 +437,11 @@ function OperationsDashboard({ activeFunction }) {
           </div>
         </section>
 
-        <section className="dashboard-card overview-recommendations-card">
+        <section
+          className="dashboard-card overview-recommendations-card"
+          data-widget-id="strategic-recommendations"
+          data-widget-title="Strategic Recommendations"
+        >
           <h2>Strategic Recommendations</h2>
           <div className="recommendation-list">
             {recommendations.map((item) => (
@@ -335,7 +459,11 @@ function OperationsDashboard({ activeFunction }) {
           </div>
         </section>
 
-        <section className="dashboard-card overview-market-card">
+        <section
+          className="dashboard-card overview-market-card"
+          data-widget-id="hospital-data"
+          data-widget-title="Hospital & Department Data"
+        >
           <h2>Hospital &amp; Department Data</h2>
           <div className="market-grid">
             <div>
@@ -365,7 +493,11 @@ function OperationsDashboard({ activeFunction }) {
           </div>
         </section>
 
-        <section className="dashboard-card overview-queue-card">
+        <section
+          className="dashboard-card overview-queue-card"
+          data-widget-id="action-queue"
+          data-widget-title="Hospital Action Queue"
+        >
           <div className="card-title-row">
             <h2>Hospital Action Queue</h2>
             <span>{latestAdmissions.length} items</span>

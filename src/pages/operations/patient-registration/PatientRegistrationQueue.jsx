@@ -2,22 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useRegistrationStore from "../../../hooks/useRegistrationStore";
 import useRegistrationQueue from "../../../hooks/useRegistrationQueue";
 import { patientService } from "../../../services/core-modules/patientApi";
-
-function formatDateTime(value) {
-  if (!value) return "—";
-  return new Date(value).toLocaleString([], {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
-function formatClock(value) {
-  if (!value) return "—";
-  return new Date(value).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+import { formatDateTime, formatTime, formatRelative } from "../../../utils/dateFormat";
 
 function isSameDay(value) {
   if (!value) return false;
@@ -28,12 +13,6 @@ function isSameDay(value) {
     date.getMonth() === now.getMonth() &&
     date.getDate() === now.getDate()
   );
-}
-
-function minutesSince(value) {
-  if (!value) return 0;
-  const diff = Date.now() - new Date(value).getTime();
-  return Math.max(0, Math.round(diff / 60000));
 }
 
 function hashString(input) {
@@ -394,7 +373,7 @@ function RegistrationCard({
             Registered:
           </dt>{" "}
           <dd className="inline">
-            {formatClock(entry.registeredAt)}
+            {formatTime(entry.registeredAt)}
             {isSameDay(entry.registeredAt) ? " (Current Day)" : ""}
           </dd>
         </div>
@@ -515,7 +494,7 @@ function TriageDrillDown({ registration, onClose, onAction, pending }) {
                 Time in Queue
               </p>
               <p className="m-0 font-semibold text-slate-800 dark:text-slate-200">
-                {minutesSince(registration.registeredAt)} min
+                {formatRelative(registration.registeredAt)}
               </p>
             </div>
           </div>

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
+import { MOCK_MODE } from '../mocks/mockSession';
 import { roomService } from '../services/core-modules/roomApi';
 import { gatewayUrl, hospitalIdentity } from '../services/emergency/emergencyRealtimeApi';
-import { isMockMode } from '../services/mockApi';
 
 const POLL_INTERVAL = 15000;
 
@@ -10,7 +10,7 @@ export default function useRoomOccupancy() {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [connectionState, setConnectionState] = useState('connecting');
+  const [connectionState, setConnectionState] = useState(MOCK_MODE ? 'mock' : 'connecting');
   const socketRef = useRef(null);
 
   const refresh = useCallback(async () => {
@@ -26,11 +26,10 @@ export default function useRoomOccupancy() {
   }, []);
 
   useEffect(() => {
-    refresh();
+    queueMicrotask(refresh);
 
-    if (isMockMode) {
-      setConnectionState('connected');
-      return undefined;
+    if (MOCK_MODE) {
+      return;
     }
 
     const socket = io(gatewayUrl, {

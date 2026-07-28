@@ -280,6 +280,104 @@ export const workspacePages = {
       "Department performance",
     ],
   },
+  "clinic-doctor-dashboard": {
+    title: "My Clinic Dashboard",
+    description:
+      "Today's appointments, patient queue, and clinic activity at a glance.",
+    items: [
+      "Today's schedule",
+      "Patient queue",
+      "Upcoming visits",
+      "Clinic alerts",
+    ],
+  },
+  "clinic-doctor-schedule": {
+    title: "My Schedule",
+    description:
+      "View and manage your clinic availability and booked appointments.",
+    items: [
+      "Weekly calendar",
+      "Available slots",
+      "Booked appointments",
+      "Time-off blocks",
+    ],
+  },
+  "clinic-doctor-patients": {
+    title: "My Patients",
+    description:
+      "Search and review patients assigned to your clinic practice.",
+    items: [
+      "Patient search",
+      "Recent visits",
+      "Clinical notes",
+      "Follow-up list",
+    ],
+  },
+  "clinic-doctor-surgery-request": {
+    title: "Surgery Request",
+    description:
+      "Submit and track surgical procedure requests for your patients.",
+    items: [
+      "New surgery request",
+      "Active requests",
+      "Request history",
+      "Patient search",
+    ],
+  },
+  "clinic-doctor-reports": {
+    title: "Clinic Reports",
+    description:
+      "Review clinic activity, visit summaries, and operational reports.",
+    items: [
+      "Visit summaries",
+      "Appointment reports",
+      "Patient flow",
+      "Clinic metrics",
+    ],
+  },
+  "patient-dashboard": {
+    title: "Patient Dashboard",
+    description:
+      "Review patient census, activity, and care status across the clinic.",
+    items: [
+      "Patient census",
+      "Active cases",
+      "Care milestones",
+      "Recent updates",
+    ],
+  },
+  "patient-management": {
+    title: "Patient Management",
+    description:
+      "Manage patient records, updates, and clinical information.",
+    items: [
+      "Patient registry",
+      "Record updates",
+      "Care plans",
+      "Clinical notes",
+    ],
+  },
+  "appointment-booking-management": {
+    title: "Appointment Booking",
+    description:
+      "View and manage clinic appointments, availability, and bookings.",
+    items: [
+      "Appointment list",
+      "Availability",
+      "Booking calendar",
+      "Visit status",
+    ],
+  },
+  welcome: {
+    title: "Welcome",
+    description:
+      "Your profile, workspace information, and available modules.",
+    items: [
+      "Profile info",
+      "Workspace details",
+      "Module overview",
+    ],
+  },
 };
 
 export const centerTabs = [

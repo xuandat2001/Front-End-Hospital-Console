@@ -1,5 +1,6 @@
 import { gatewayUrl, hospitalIdentity } from "./emergencyRealtimeApi";
-import { isMockMode, mockGatewayRequest } from "../mockApi";
+import { MOCK_MODE } from "../../mocks/mockSession";
+import { mockDirectData, mockExportResponse } from "../mock/mockApi";
 
 const identityHeaders = {
   "Content-Type": "application/json",
@@ -9,8 +10,8 @@ const identityHeaders = {
 };
 
 async function commandRequest(path, options = {}) {
-  if (isMockMode) {
-    return mockGatewayRequest(path, options);
+  if (MOCK_MODE) {
+    return mockDirectData(path, options);
   }
 
   let response;
@@ -42,14 +43,8 @@ async function commandRequest(path, options = {}) {
 }
 
 async function exportRequest(path) {
-  if (isMockMode) {
-    return {
-      blob: new Blob([`Mock emergency export for ${path}`], {
-        type: "text/plain",
-      }),
-      filename: "mock-emergency-report.txt",
-      contentType: "text/plain",
-    };
+  if (MOCK_MODE) {
+    return mockExportResponse(path.includes("pdf") ? "emergency-report.pdf" : "emergency-report.csv");
   }
 
   let response;

@@ -1,4 +1,5 @@
 import { AlertTriangle, Clock3 } from "lucide-react";
+import { formatTime } from "../../../../utils/dateFormat";
 
 export function formatNumber(value, fallback = "N/A") {
   if (!Number.isFinite(Number(value))) return fallback;
@@ -15,10 +16,7 @@ export function formatDateInput(date = new Date()) {
 }
 
 export function formatShortTime(value) {
-  if (!value) return "Pending";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Pending";
-  return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+  return formatTime(value) || "Pending";
 }
 
 export function statusTone(status) {

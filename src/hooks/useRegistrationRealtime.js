@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { io } from "socket.io-client";
-import { getMockRegistrationRealtimeState, isMockMode } from "../services/mockApi";
+import { MOCK_MODE } from "../mocks/mockSession";
 import {
   gatewayUrl,
   getRegistrationNotifications,
@@ -94,10 +94,9 @@ function isRegistrationNotification(item) {
 }
 
 export default function useRegistrationRealtime() {
-  const mockRealtime = getMockRegistrationRealtimeState();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [connectionState, setConnectionState] = useState("connecting");
+  const [connectionState, setConnectionState] = useState(MOCK_MODE ? "mock" : "connecting");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -160,16 +159,11 @@ export default function useRegistrationRealtime() {
   );
 
   useEffect(() => {
-    if (isMockMode) {
-      setNotifications(mockRealtime.notifications.map((item) => normalizeRegistrationEvent(item)));
-      setUnreadCount(mockRealtime.unreadCount);
-      setConnectionState("connected");
-      setLoading(false);
-      setError("");
-      return undefined;
-    }
-
     queueMicrotask(refresh);
+
+    if (MOCK_MODE) {
+      return;
+    }
 
     const socket = io(gatewayUrl, {
       path: "/realtime/socket.io",

@@ -3,6 +3,11 @@ import FunctionTabBar from "./FunctionTabBar";
 import NotificationBar from "./NotificationBar";
 import OperationsDashboard from "./CommandsOverview";
 import WorkspacePlaceholder from "./WorkspacePlaceholder";
+import AccessDenied from "../auth/AccessDenied";
+import RolePagePlaceholder from "./RolePagePlaceholder";
+import { canAccessFunction } from "../../constant/pagePermissions";
+import { ROLES, usesRolePlaceholder } from "../../constant/rbac";
+import useSessionStore from "../../store/useSessionStore";
 
 import DepartmentManagement from "../../pages/core-modules/staff-and-department/DepartmentManagement";
 import StaffDepartmentDiscovery from "../../pages/core-modules/staff-and-department/StaffDepartmentDiscovery";
@@ -41,13 +46,13 @@ import IntelligenceInsights from "../../pages/intelligence/IntelligenceInsights"
 import ReportList from "../../pages/reports/ReportList";
 import AdmissionPerformance from "../../pages/performance/AdmissionPerformance";
 import SurgeryPerformanceDashboard from "../../pages/performance/SurgeryPerformanceDashboard";
-import BillingDashboard from "../billing/BillingDashboard";
+import ClinicSurgeryRequest from "../../pages/operations/surgery/ClinicSurgeryRequest";
+import ClinicDoctorDashboard from "../../pages/operations/surgery/ClinicDoctorDashboard";
+import WelcomePage from "../../pages/welcome/WelcomePage";
 
 function DashboardContent({
-  activeModule,
   activeFunction,
   activeCenterTab,
-  onModuleChange,
   onCenterTabChange,
   emergencyRealtime,
   registrationRealtime,
@@ -59,30 +64,40 @@ function DashboardContent({
   onRegistrationRequestOpen,
   selectedRoomId,
 }) {
-  const hideFunctionTabBar = activeFunction === "icu-monitoring";
+  const permissions = useSessionStore((state) => state.permissions);
+  const currentUser = useSessionStore((state) => state.currentUser);
+  const canViewPage = canAccessFunction(activeFunction, permissions);
+  const showRolePlaceholder = usesRolePlaceholder(currentUser?.role);
+  const hideFunctionTabBar = activeFunction === "icu-monitoring" || activeFunction === "welcome";
 
-  return (
-    <section className="dashboard-workspace">
-      <div
-        className={`dashboard-workspace-navigation${
-          hideFunctionTabBar ? " has-no-function-bar" : ""
-        }`}
-      >
-        <ModuleBar
-          activeModule={activeModule}
-          onModuleChange={onModuleChange}
-          onNavigationOpen={onNavigationOpen}
-        />
-        {!hideFunctionTabBar && (
-          <FunctionTabBar
-            activeCenterTab={activeCenterTab}
-            activeFunction={activeFunction}
-            onCenterTabChange={onCenterTabChange}
-          />
-        )}
-      </div>
-      <div className="dashboard-content-stage">
-        {activeFunction === "notifications" ? (
+  const isDoctorConsole =
+    currentUser?.role === ROLES.DOCTOR || currentUser?.role === ROLES.CLINIC_DOCTOR;
+  const surgeryDoctorActive = isDoctorConsole && [
+    "surgery-records", "surgery-performance", "surgery-planning",
+    "surgery-reports", "surgery-management",
+  ].includes(activeFunction);
+
+  const pageContent = activeFunction === "welcome" ? (
+    <div className="h-full overflow-y-auto">
+      <WelcomePage />
+    </div>
+  ) : !canViewPage ? (
+    <AccessDenied />
+  ) : surgeryDoctorActive ? (
+    <div className="h-full overflow-y-auto">
+      <ClinicSurgeryRequest />
+    </div>
+  ) : showRolePlaceholder && activeFunction !== "clinic-doctor-dashboard" && activeFunction !== "clinic-doctor-surgery-request" ? (
+    <RolePagePlaceholder activeFunction={activeFunction} />
+  ) : activeFunction === "clinic-doctor-dashboard" ? (
+    <div className="h-full overflow-y-auto">
+      <ClinicDoctorDashboard />
+    </div>
+  ) : activeFunction === "clinic-doctor-surgery-request" ? (
+    <div className="h-full overflow-y-auto">
+      <ClinicSurgeryRequest />
+    </div>
+  ) : activeFunction === "notifications" ? (
           <div className="h-full overflow-y-auto">
             <NotificationsList
               realtime={emergencyRealtime}
@@ -115,8 +130,6 @@ function DashboardContent({
           <div className="h-full overflow-y-auto">
             <AppointmentBookingManagement activeTab={activeCenterTab} />
           </div>
-        ) : activeFunction === "billing-dashboard" ? (
-          <BillingDashboard />
         ) : activeFunction === "staff-department-management" ? (
           <div className="h-full overflow-y-auto">
             <StaffDepartmentManagement />
@@ -157,23 +170,23 @@ function DashboardContent({
             <PatientRegistrationReports />
           </div>
         ) : activeFunction === "patient-dashboard" ? (
-          <div className="h-full overflow-y-auto">
+          <div className="patient-fit-page h-full min-h-0 overflow-hidden">
             <PatientDashboard />
           </div>
         ) : activeFunction === "patient-performance" ? (
-          <div className="h-full overflow-y-auto">
+          <div className="patient-fit-page h-full min-h-0 overflow-hidden">
             <PatientPerformance />
           </div>
         ) : activeFunction === "patient-planning" ? (
-          <div className="h-full overflow-y-auto">
+          <div className="patient-fit-page h-full min-h-0 overflow-hidden">
             <PatientPlanning />
           </div>
         ) : activeFunction === "patient-management" ? (
-          <div className="h-full overflow-y-auto">
+          <div className="patient-fit-page h-full min-h-0 overflow-hidden">
             <PatientManagement />
           </div>
         ) : activeFunction === "patient-reports" ? (
-          <div className="h-full overflow-y-auto">
+          <div className="patient-fit-page h-full min-h-0 overflow-hidden">
             <PatientReports />
           </div>
         ) : activeFunction === "room-reports" ? (
@@ -279,8 +292,21 @@ function DashboardContent({
           <OperationsDashboard activeFunction={activeFunction} />
         ) : (
           <WorkspacePlaceholder activeFunction={activeFunction} />
-        )}
-      </div>
+        );
+
+  return (
+    <section className="dashboard-workspace">
+      <ModuleBar
+        onNavigationOpen={onNavigationOpen}
+      />
+      {!hideFunctionTabBar && (
+        <FunctionTabBar
+          activeCenterTab={activeCenterTab}
+          activeFunction={activeFunction}
+          onCenterTabChange={onCenterTabChange}
+        />
+      )}
+      <div className="dashboard-content-stage">{pageContent}</div>
       <NotificationBar
         realtime={emergencyRealtime}
         registrationRealtime={registrationRealtime}

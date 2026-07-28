@@ -1,20 +1,36 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { intelligenceService } from "../../../services/intelligence/intelligenceApi";
 import BarChart from "../../../components/graphs/BarChart";
 import MiniPieChart from "../../../components/graphs/MiniPieChart";
 import usePatientSearchStore from "../../../store/usePatientSearchStore";
 import useSessionStore from "../../../store/useSessionStore";
 import PatientRecordView from "./record/PatientRecordView";
+import { formatDateTime, formatDate } from "../../../utils/dateFormat";
 
 const FILTER_OPTIONS = ["ALL", "INPATIENT", "OUTPATIENT"];
 const LIVE_REFRESH_MS = 15000;
 const FALLBACK_STATUS_COLOR = "#9CA3AF";
 
-function toTime(value) {
-  if (!value) return "N/A";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "N/A";
-  return date.toLocaleString();
+/** Opaque modal above the glass shell / floating tab bar (portaled to body). */
+function SolidModalShell({ children, onClose, panelClassName = "" }) {
+  return createPortal(
+    <div
+      className="patient-solid-modal-overlay fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/75 px-4 py-6"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        className={`patient-solid-modal-panel w-full rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900 ${panelClassName}`}
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
+        {children}
+      </div>
+    </div>,
+    document.body,
+  );
 }
 
 const EMPTY_SNAPSHOT = {
@@ -51,6 +67,7 @@ export default function PatientDashboard() {
 
   const activeEllyId = usePatientSearchStore((state) => state.activeEllyId);
   const clearActiveEllyId = usePatientSearchStore((state) => state.clearActiveEllyId);
+  const activeRecordTab = usePatientSearchStore((state) => state.activeRecordTab);
   const workspace = useSessionStore((state) => state.workspace);
 
   const loadSnapshot = useCallback(async ({ silent = false } = {}) => {
@@ -98,10 +115,11 @@ export default function PatientDashboard() {
 
   if (activeEllyId) {
     return (
-      <div className="h-full overflow-hidden">
+      <div className="h-full min-h-0 overflow-hidden">
         <PatientRecordView
           ellyId={activeEllyId}
           workspace={workspace}
+          initialTab={activeRecordTab || "overview"}
         />
       </div>
     );
@@ -116,21 +134,17 @@ export default function PatientDashboard() {
   }
 
   return (
-    <div className="relative px-6 pb-6 pt-4">
-      <div
-        className="sticky top-3 z-20 mb-6 rounded-2xl border border-white/60 bg-white/55 px-5 py-4 shadow-lg shadow-slate-900/8 ring-1 ring-white/70 backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/45 dark:shadow-black/30 dark:ring-white/5"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden px-4 pb-3 pt-3 sm:px-5">
+      <header className="shrink-0 rounded-2xl border border-white/60 bg-white/55 px-4 py-3 shadow-sm ring-1 ring-white/70 backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/45 dark:ring-white/5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-bold text-slate-950 dark:text-white sm:text-2xl">
+            <h1 className="text-lg font-bold text-slate-950 dark:text-white sm:text-xl">
               Patient Dashboard
             </h1>
-            <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+            <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
               {totals.total} total — {census.inPatients} inpatient, {census.outPatients} outpatient, {totals.discharged} discharged
-            </p>
-            <p className="mt-0.5 text-xs text-slate-400">
-              Live ADT/EMR snapshot {lastUpdatedAt ? `updated ${toTime(lastUpdatedAt)}` : "initializing"}
-              {refreshing && " · refreshing…"}
+              {lastUpdatedAt ? ` · updated ${formatDateTime(lastUpdatedAt)}` : ""}
+              {refreshing ? " · refreshing…" : ""}
             </p>
             {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
           </div>
@@ -139,91 +153,99 @@ export default function PatientDashboard() {
             <button
               type="button"
               onClick={() => setShowPatientsModal(true)}
-              className="rounded-xl border border-indigo-500/40 bg-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-md shadow-indigo-600/25 hover:bg-indigo-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-indigo-400/30 dark:bg-indigo-500 dark:shadow-indigo-900/40 dark:hover:bg-indigo-600"
+              className="rounded-xl border border-indigo-500/40 bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-indigo-400/30 dark:bg-indigo-500 dark:hover:bg-indigo-600"
             >
               All Patients
             </button>
             <button
               type="button"
               onClick={() => loadSnapshot({ silent: true })}
-              className="rounded-xl border border-violet-500/40 bg-violet-600 px-3 py-2 text-xs font-semibold text-white shadow-md shadow-violet-600/25 hover:bg-violet-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 dark:border-violet-400/30 dark:shadow-violet-900/40"
+              className="rounded-xl border border-violet-500/40 bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 dark:border-violet-400/30"
             >
               {refreshing ? "Refreshing…" : "Refresh now"}
             </button>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="mb-6 grid grid-cols-1 gap-3 xl:grid-cols-12">
-        <div className="grid grid-cols-2 gap-2 xl:col-span-3">
-          <div className="rounded-xl border border-slate-200 bg-white p-2.5 dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Total</p>
-            <p className="mt-0.5 text-2xl font-bold text-slate-900 dark:text-white">{totals.total}</p>
+      <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_minmax(0,0.9fr)] gap-3 overflow-hidden">
+        <div className="grid min-h-0 gap-3 overflow-hidden xl:grid-cols-12">
+          <div className="grid grid-cols-2 gap-2 xl:col-span-3">
+            <div className="rounded-xl border border-slate-200 bg-white p-2.5 dark:border-slate-800 dark:bg-slate-900">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Total</p>
+              <p className="mt-0.5 text-xl font-bold text-slate-900 dark:text-white">{totals.total}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-2.5 dark:border-slate-800 dark:bg-slate-900">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">In-Patients</p>
+              <p className="mt-0.5 text-xl font-bold text-blue-500">{census.inPatients}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-2.5 dark:border-slate-800 dark:bg-slate-900">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Out-Patients</p>
+              <p className="mt-0.5 text-xl font-bold text-emerald-500">{census.outPatients}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-2.5 dark:border-slate-800 dark:bg-slate-900">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">In Hospital</p>
+              <p className="mt-0.5 text-xl font-bold text-purple-500">{census.activeInHospital}</p>
+            </div>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-2.5 dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">In-Patients</p>
-            <p className="mt-0.5 text-2xl font-bold text-blue-500">{census.inPatients}</p>
+          <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900 xl:col-span-6">
+            <h3 className="mb-1 shrink-0 text-sm font-semibold text-slate-700 dark:text-slate-300">Status Distribution</h3>
+            <div className="min-h-0 flex-1">
+              <BarChart data={statusDistribution.data} labels={statusDistribution.labels} />
+            </div>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-2.5 dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Out-Patients</p>
-            <p className="mt-0.5 text-2xl font-bold text-emerald-500">{census.outPatients}</p>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-2.5 dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">In Hospital</p>
-            <p className="mt-0.5 text-2xl font-bold text-purple-500">{census.activeInHospital}</p>
+          <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900 xl:col-span-3">
+            <h3 className="mb-1 shrink-0 text-xs font-semibold text-slate-700 dark:text-slate-300">Status (Donut)</h3>
+            <div className="min-h-0 flex-1">
+              <MiniPieChart centerLabel={`${totals.total}\npatients`} slices={statusDistribution.slices} compact />
+            </div>
           </div>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 xl:col-span-6">
-          <h3 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-300">Status Distribution (Bar)</h3>
-          <BarChart data={statusDistribution.data} labels={statusDistribution.labels} />
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900 xl:col-span-3">
-          <h3 className="mb-1 text-xs font-semibold text-slate-700 dark:text-slate-300">Status (Donut)</h3>
-          <MiniPieChart centerLabel={`${totals.total}\npatients`} slices={statusDistribution.slices} compact />
-        </div>
-      </div>
 
-      <div className="mb-6 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Department load</h3>
-          <span className="text-xs text-slate-500 dark:text-slate-400">Click a department for details</span>
-        </div>
-        {acuityHeatmap.locations.length === 0 ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">No active patients to map.</p>
-        ) : (
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-4">
-            {acuityHeatmap.locations.map((spot) => {
-              const maxWorkload = acuityHeatmap.maxWorkload || acuityHeatmap.maxAcuity || 1;
-              const loadPct = Math.round((spot.workloadScore / maxWorkload) * 100);
-              const riskColor = spot.riskColor || "#64748B";
-
-              return (
-                <button
-                  key={spot.location}
-                  type="button"
-                  onClick={() => setSelectedHeatmapSpot(spot)}
-                  className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-left transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800/40 dark:hover:bg-slate-800"
-                  style={{ borderLeftWidth: "3px", borderLeftColor: riskColor }}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
-                      {spot.location}
-                    </p>
-                    <span className="shrink-0 text-xs font-bold text-slate-700 dark:text-slate-200">
-                      {spot.patientCount}
-                    </span>
-                  </div>
-                  <div className="mt-2 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700">
-                    <div
-                      className="h-1.5 rounded-full"
-                      style={{ width: `${loadPct}%`, backgroundColor: riskColor }}
-                    />
-                  </div>
-                </button>
-              );
-            })}
+        <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+          <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Department load</h3>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400">Click for details</span>
           </div>
-        )}
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {acuityHeatmap.locations.length === 0 ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400">No active patients to map.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-4">
+                {acuityHeatmap.locations.map((spot) => {
+                  const maxWorkload = acuityHeatmap.maxWorkload || acuityHeatmap.maxAcuity || 1;
+                  const loadPct = Math.round((spot.workloadScore / maxWorkload) * 100);
+                  const riskColor = spot.riskColor || "#64748B";
+
+                  return (
+                    <button
+                      key={spot.location}
+                      type="button"
+                      onClick={() => setSelectedHeatmapSpot(spot)}
+                      className="rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-left transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800/40 dark:hover:bg-slate-800"
+                      style={{ borderLeftWidth: "3px", borderLeftColor: riskColor }}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
+                          {spot.location}
+                        </p>
+                        <span className="shrink-0 text-xs font-bold text-slate-700 dark:text-slate-200">
+                          {spot.patientCount}
+                        </span>
+                      </div>
+                      <div className="mt-2 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700">
+                        <div
+                          className="h-1.5 rounded-full"
+                          style={{ width: `${loadPct}%`, backgroundColor: riskColor }}
+                        />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {selectedHeatmapSpot && (
@@ -266,8 +288,7 @@ function HeatmapDetailModal({ spot, maxWorkload, patients, onClose, onOpenPatien
   const loadPct = Math.round(((spot.workloadScore || 0) / maxWorkload) * 100);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-6">
-      <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
+    <SolidModalShell onClose={onClose} panelClassName="max-w-lg">
         <div
           className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-700"
           style={{ borderLeftWidth: "4px", borderLeftColor: riskColor }}
@@ -281,7 +302,7 @@ function HeatmapDetailModal({ spot, maxWorkload, patients, onClose, onOpenPatien
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="relative z-10 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
           >
             Close
           </button>
@@ -377,8 +398,7 @@ function HeatmapDetailModal({ spot, maxWorkload, patients, onClose, onOpenPatien
             )}
           </div>
         </div>
-      </div>
-    </div>
+    </SolidModalShell>
   );
 }
 
@@ -392,14 +412,13 @@ function PatientsListModal({
   onOpenPatient,
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-6">
-      <div className="w-full max-w-6xl rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
+    <SolidModalShell onClose={onClose} panelClassName="max-w-6xl">
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-700">
           <h2 className="text-lg font-bold text-slate-900 dark:text-white">All Patients</h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="relative z-10 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
           >
             Close
           </button>
@@ -457,7 +476,7 @@ function PatientsListModal({
                       <div className="text-xs text-slate-500">
                         {r.patient.gender || ""}
                         {r.patient.dateOfBirth
-                          ? ` · ${new Date(r.patient.dateOfBirth).toLocaleDateString()}`
+                          ? ` · ${formatDate(r.patient.dateOfBirth)}`
                           : ""}
                       </div>
                     </td>
@@ -528,8 +547,7 @@ function PatientsListModal({
             </table>
           </div>
         </div>
-      </div>
-    </div>
+    </SolidModalShell>
   );
 }
 
@@ -539,8 +557,7 @@ function PatientProfileModal({ row, onClose }) {
   const surgery = row.surgery || {};
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-6">
-      <div className="w-full max-w-4xl rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
+    <SolidModalShell onClose={onClose} panelClassName="max-w-4xl">
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-700">
           <div>
             <h2 className="text-lg font-bold text-slate-900 dark:text-white">
@@ -553,7 +570,7 @@ function PatientProfileModal({ row, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="relative z-10 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
           >
             Close
           </button>
@@ -563,7 +580,7 @@ function PatientProfileModal({ row, onClose }) {
           <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <InfoItem label="Full Name" value={patient.fullName} />
             <InfoItem label="Gender" value={patient.gender} />
-            <InfoItem label="Date of Birth" value={toTime(patient.dateOfBirth)} />
+            <InfoItem label="Date of Birth" value={formatDateTime(patient.dateOfBirth)} />
             <InfoItem label="Phone" value={patient.phone} />
             <InfoItem label="Email" value={patient.email} />
             <InfoItem label="Current Status" value={row.statusLabel} />
@@ -600,8 +617,8 @@ function PatientProfileModal({ row, onClose }) {
             <InfoItem label="Admission ID" value={admission._id || admission.admissionId} />
             <InfoItem label="Patient Type" value={row.isInPatient ? "Inpatient" : "Outpatient"} />
             <InfoItem label="Admission Status" value={admission.currentStatus} />
-            <InfoItem label="Admitted At" value={toTime(admission.admittedAt)} />
-            <InfoItem label="Discharged At" value={toTime(admission.dischargedAt)} />
+            <InfoItem label="Admitted At" value={formatDateTime(admission.admittedAt)} />
+            <InfoItem label="Discharged At" value={formatDateTime(admission.dischargedAt)} />
             <InfoItem label="Department" value={admission.department?.name || admission.department?.id || row.dept?.name || row.deptId} />
             <InfoItem label="Room / Bed" value={[row.room?.roomNumber || admission.roomId, admission.bedId].filter(Boolean).join(" / ")} />
             <InfoItem label="Assigned Doctor" value={admission.doctor?.name || row.doctor?.fullName || admission.doctor?.id || admission.assignedDoctorId} />
@@ -616,7 +633,7 @@ function PatientProfileModal({ row, onClose }) {
             <InfoItem label="Surgery Status" value={surgery.status} />
             <InfoItem label="Procedure" value={surgery.procedureName} />
             <InfoItem label="Surgery Type" value={surgery.surgeryType} />
-            <InfoItem label="Scheduled Date" value={toTime(surgery.scheduledDate)} />
+            <InfoItem label="Scheduled Date" value={formatDateTime(surgery.scheduledDate)} />
             <InfoItem label="Operating Room" value={surgery.operatingRoom} />
           </section>
 
@@ -629,7 +646,7 @@ function PatientProfileModal({ row, onClose }) {
                     <p className="font-semibold text-slate-800 dark:text-slate-200">
                       {item.currentStatus} • {item.department?.name || item.department?.id || item.ellyDepartmentId || "-"}
                     </p>
-                    <p className="text-slate-500">Admitted: {toTime(item.admittedAt)}</p>
+                    <p className="text-slate-500">Admitted: {formatDateTime(item.admittedAt)}</p>
                     <p className="text-slate-500">Room/Bed: {item.roomId || "-"} / {item.bedId || "-"}</p>
                     <p className="text-slate-500">Doctor: {item.doctor?.name || item.doctor?.id || item.assignedDoctorId || "-"}</p>
                   </div>
@@ -651,7 +668,7 @@ function PatientProfileModal({ row, onClose }) {
                     </p>
                     <p className="text-slate-500">Status: {item.status || "-"}</p>
                     <p className="text-slate-500">Type: {item.surgeryType || "-"}</p>
-                    <p className="text-slate-500">Scheduled: {toTime(item.scheduledDate)}</p>
+                    <p className="text-slate-500">Scheduled: {formatDateTime(item.scheduledDate)}</p>
                   </div>
                 ))
               ) : (
@@ -669,8 +686,7 @@ function PatientProfileModal({ row, onClose }) {
             </pre>
           </details>
         </div>
-      </div>
-    </div>
+    </SolidModalShell>
   );
 }
 

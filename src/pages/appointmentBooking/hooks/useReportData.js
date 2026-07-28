@@ -8,6 +8,7 @@ import {
   normalizeStatus,
   percentage,
 } from "../utils/appointmentHelpers";
+import { formatDateTime } from "../../../utils/dateFormat";
 
 function getCancellationReason(appointment) {
   return (
@@ -16,18 +17,6 @@ function getCancellationReason(appointment) {
     appointment.reason ||
     "Not provided"
   );
-}
-
-function formatReportDate(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "N/A";
-  return date.toLocaleString([], {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 export default function useReportData(appointments, filters) {
@@ -128,7 +117,7 @@ export default function useReportData(appointments, filters) {
         patientId: getPatientEllyId(appointment),
         doctor: getDoctorName(appointment),
         department: getDepartmentName(appointment),
-        originalTime: formatReportDate(appointment.appointmentDateTime),
+        originalTime: formatDateTime(appointment.appointmentDateTime),
         reason: getCancellationReason(appointment),
         appointment,
       }));
@@ -160,7 +149,7 @@ export default function useReportData(appointments, filters) {
         return {
           id: appointment._id,
           timeValue: new Date(changed).getTime() || 0,
-          time: formatReportDate(changed),
+          time: formatDateTime(changed),
           action,
           appointmentId: appointment._id
             ? String(appointment._id).slice(-8).toUpperCase()

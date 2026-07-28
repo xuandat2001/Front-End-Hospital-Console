@@ -10,18 +10,9 @@ import {
   X,
 } from "lucide-react";
 import { icuService } from "../../../services/core-modules/icuApi";
+import { formatDateTime } from "../../../utils/dateFormat";
 
 const ICU_DETAIL_CLOSE_ANIMATION_MS = 340;
-
-function formatDate(value) {
-  if (!value) return "--";
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
 
 function VitalRow({ label, value, unit }) {
   return (
@@ -167,7 +158,7 @@ export default function IcuPatientDrawer({ patient, livePatient, onClose, onChan
                 </span>
               </div>
               <p className="mt-1 text-xs text-slate-500">
-                {merged.ellyId || merged.patientId} / {merged.roomId || "ICU"} {merged.bedId || "--"} / admitted {formatDate(merged.admittedAt)}
+                {merged.ellyId || merged.patientId} / {merged.roomId || "ICU"} {merged.bedId || "--"} / admitted {formatDateTime(merged.admittedAt)}
               </p>
             </div>
             <button
@@ -206,7 +197,7 @@ export default function IcuPatientDrawer({ patient, livePatient, onClose, onChan
                     <VitalRow label="Respiratory rate" value={vitals.respiratoryRate} unit="/min" />
                     <VitalRow label="Oxygen saturation" value={vitals.oxygenSaturation} unit="%" />
                     <VitalRow label="Temperature" value={vitals.temperature} unit="C" />
-                    <VitalRow label="Last reading" value={formatDate(vitals.recordedAt || merged.latestUpdateAt)} />
+                    <VitalRow label="Last reading" value={formatDateTime(vitals.recordedAt || merged.latestUpdateAt)} />
                   </div>
                 </section>
 
@@ -235,7 +226,7 @@ export default function IcuPatientDrawer({ patient, livePatient, onClose, onChan
                         <div key={event._id} className="rounded-md bg-slate-50 px-2 py-2 text-xs dark:bg-slate-800">
                           <div className="flex items-center justify-between gap-2">
                             <strong className="text-slate-800 dark:text-slate-100">{event.title}</strong>
-                            <span className="shrink-0 text-[10px] text-slate-400">{formatDate(event.occurredAt)}</span>
+                            <span className="shrink-0 text-[10px] text-slate-400">{formatDateTime(event.occurredAt)}</span>
                           </div>
                           {event.message ? <p className="mt-0.5 text-[11px] text-slate-500">{event.message}</p> : null}
                         </div>

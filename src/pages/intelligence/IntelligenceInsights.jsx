@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Icon from "../../components/dashboard/Icon";
 import { intelligenceService } from "../../services/intelligence/intelligenceApi";
+import { formatDateTime } from "../../utils/dateFormat";
 
 function formatEvidenceValue(value) {
   if (value === null || value === undefined || value === "") return "No data";
-  if (value instanceof Date) return value.toLocaleString();
+  if (value instanceof Date) return formatDateTime(value);
   if (typeof value === "boolean") return value ? "Yes" : "No";
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
@@ -341,7 +342,7 @@ function IntelligenceInsights({ activeFunction }) {
 
                 <div className="insight-record-meta">
                   <span>Status: {titleCase(insight.status || "ACTIVE")}</span>
-                  {insight.updatedAt && <span>Updated: {new Date(insight.updatedAt).toLocaleString()}</span>}
+                  {insight.updatedAt && <span>Updated: {formatDateTime(insight.updatedAt)}</span>}
                 </div>
 
                 <div className="insight-reasoning">

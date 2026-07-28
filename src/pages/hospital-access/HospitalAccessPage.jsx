@@ -1,11 +1,7 @@
 import { useState } from "react";
 import ellyLogo from "../../assets/elly-logo.png";
 import Icon from "../../components/dashboard/Icon";
-import {
-  normalizeEllyHospitalId,
-  resolveEllyHospitalId,
-  validateEllyHospitalId,
-} from "../../services/hospitalAccess/hospitalAccessApi";
+import useSessionStore from "../../store/useSessionStore";
 import "./HospitalAccessPage.css";
 
 function MetricTile({ icon, label, value, tone }) {
@@ -33,8 +29,8 @@ function HospitalPreview() {
 
       <div className="hospital-preview-content">
         <div className="hospital-preview-topline">
-          <span>Hospital command</span>
-          <strong>Live capacity</strong>
+          <span>Healthcare command</span>
+          <strong>Live workspace</strong>
         </div>
 
         <div className="hospital-preview-grid">
@@ -83,7 +79,7 @@ function HospitalPreview() {
           />
           <MetricTile
             icon="operations"
-            label="Departments"
+            label="Care teams"
             value="18"
             tone="purple"
           />
@@ -93,19 +89,85 @@ function HospitalPreview() {
   );
 }
 
+function normalizeEllyId(value) {
+  return value.trim().toUpperCase();
+}
+
+function getResolvedWorkspace(resolved, selectedMembershipId) {
+  if (!resolved) return null;
+
+  if (resolved.requiresWorkspaceSelection) {
+    return resolved.memberships?.find(
+      (membership) => membership.membershipId === selectedMembershipId,
+    );
+  }
+
+  return resolved.activeWorkspace;
+}
+
+function getAccountLabel(role, workspaceType) {
+  if (role === "HOSPITAL_ADMIN" || workspaceType === "HOSPITAL") {
+    return "Hospital Admin";
+  }
+
+  if (role === "DOCTOR") {
+    return "Doctor";
+  }
+
+  if (role === "CLINIC_ADMIN") {
+    return "Clinic Admin";
+  }
+
+  return "Healthcare Workspace";
+}
+
+function getAccessErrorMessage(error) {
+  if (error?.status === 404) {
+    return "ELLY ID was not found.";
+  }
+
+  if (error?.status === 403) {
+    return "This account is not active.";
+  }
+
+  return error?.message || "We could not sign you in. Try again.";
+}
+
 function HospitalAccessPage({ onAccessGranted }) {
   const [ellyId, setEllyId] = useState("");
+  const [resolved, setResolved] = useState(null);
+  const [selectedMembershipId, setSelectedMembershipId] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const resolveEllyId = useSessionStore((state) => state.resolveEllyId);
+  const loginWithEllyId = useSessionStore((state) => state.loginWithEllyId);
 
-    const normalizedEllyId = normalizeEllyHospitalId(ellyId);
-    const validationError = validateEllyHospitalId(normalizedEllyId);
+  const selectedWorkspace = getResolvedWorkspace(resolved, selectedMembershipId);
+  const selectedRole = selectedWorkspace?.role || resolved?.role;
+  const selectedWorkspaceType =
+    selectedWorkspace?.workspaceType || selectedWorkspace?.type;
+  const accountLabel = getAccountLabel(selectedRole, selectedWorkspaceType);
+  const profile = resolved?.profileSnapshot || {};
+  const canSubmitLogin =
+    resolved && (!resolved.requiresWorkspaceSelection || selectedMembershipId);
 
-    if (validationError) {
-      setError(validationError);
+  const resetResolution = () => {
+    setResolved(null);
+    setSelectedMembershipId("");
+  };
+
+  const handleEllyIdChange = (event) => {
+    setEllyId(event.target.value);
+    setError("");
+    resetResolution();
+  };
+
+  const handleResolve = async () => {
+    const normalized = normalizeEllyId(ellyId);
+
+    if (!normalized) {
+      setError("Enter your ELLY ID to continue.");
       return;
     }
 
@@ -113,36 +175,56 @@ function HospitalAccessPage({ onAccessGranted }) {
     setError("");
 
     try {
-      const workspace = await resolveEllyHospitalId(normalizedEllyId);
-
-      onAccessGranted(workspace);
-    } catch (accessError) {
-      setError(
-        accessError.message ||
-          "We could not verify that ELLY ID. Check it and try again.",
-      );
+      const data = await resolveEllyId(normalized);
+      setEllyId(data.ellyId || normalized);
+      setResolved(data);
+      setSelectedMembershipId(data.memberships?.[0]?.membershipId || "");
+    } catch (resolveError) {
+      setError(getAccessErrorMessage(resolveError));
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleInputChange = (event) => {
-    setEllyId(event.target.value);
+  const handleLogin = async () => {
+    if (!canSubmitLogin) {
+      setError("Select a workspace to continue.");
+      return;
+    }
 
-    if (error) {
-      setError("");
+    setIsLoading(true);
+    setError("");
+
+    try {
+      const session = await loginWithEllyId({
+        ellyId: normalizeEllyId(ellyId),
+        membershipId: selectedMembershipId || undefined,
+      });
+
+      onAccessGranted(session.activeWorkspace);
+    } catch (loginError) {
+      setError(getAccessErrorMessage(loginError));
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleInputBlur = () => {
-    setEllyId((value) => normalizeEllyHospitalId(value));
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    if (resolved) {
+      await handleLogin();
+      return;
+    }
+
+    await handleResolve();
   };
 
   return (
     <main className="hospital-access-shell">
       <section
         className="hospital-access-panel"
-        aria-label="ELLY hospital access"
+        aria-label="ELLY healthcare access"
       >
         <div className="hospital-access-intro">
           <div className="hospital-access-brand">
@@ -151,49 +233,98 @@ function HospitalAccessPage({ onAccessGranted }) {
           </div>
 
           <div className="hospital-access-copy">
-            <h1>AI-powered operations for smarter hospitals</h1>
+            <h1>AI-powered operations for smarter healthcare</h1>
             <p>
-              ELLY helps hospital teams optimize capacity, improve patient flow,
-              and deliver exceptional care every day.
+              ELLY routes authorized hospital and clinic users into the right
+              workspace from one secure identity.
             </p>
           </div>
 
           <HospitalPreview />
         </div>
 
-        <form
-          className="hospital-access-card"
-          onSubmit={handleSubmit}
-          noValidate
-        >
+        <form className="hospital-access-card" onSubmit={handleSubmit} noValidate>
           <div className="hospital-access-card__brand">
             <img src={ellyLogo} alt="" aria-hidden="true" />
             <strong>ELLY</strong>
           </div>
 
           <div className="hospital-access-card__heading">
-            <h2>Welcome to ELLY Hospital Console</h2>
-            <p>Enter your ELLY ID to access your hospital workspace</p>
+            <h2>Welcome to ELLY Console</h2>
+            <p>Enter your ELLY ID to open the right healthcare workspace.</p>
           </div>
 
-          <label className="hospital-access-field" htmlFor="elly-hospital-id">
+          <label className="hospital-access-field" htmlFor="elly-id">
             <span>ELLY ID</span>
             <div className="hospital-access-input-wrap">
-              <Icon name="hospital" size={19} />
+              <Icon name="records" size={19} />
               <input
-                id="elly-hospital-id"
-                name="ellyHospitalId"
+                id="elly-id"
+                name="ellyId"
                 value={ellyId}
-                onChange={handleInputChange}
-                onBlur={handleInputBlur}
-                placeholder="e.g. ELLY-ORG-xxxx or ELLY-HOSP-000124"
-                autoComplete="organization"
+                onChange={handleEllyIdChange}
+                onBlur={() => setEllyId((value) => normalizeEllyId(value))}
+                placeholder="Enter Hospital Admin or Doctor ELLY ID"
+                autoComplete="username"
                 aria-invalid={error ? "true" : "false"}
                 aria-describedby={error ? "elly-id-error" : undefined}
                 disabled={isLoading}
               />
             </div>
           </label>
+
+          {resolved && (
+            <div className="hospital-access-resolved" aria-live="polite">
+              <div>
+                <span>{accountLabel}</span>
+                <strong>
+                  {resolved.user?.fullName ||
+                    selectedWorkspace?.user?.fullName ||
+                    "Authorized user"}
+                </strong>
+              </div>
+              <p>
+                {selectedWorkspace?.workspaceName ||
+                  selectedWorkspace?.name ||
+                  "ELLY Workspace"}
+              </p>
+              {(profile.specialty || profile.specialization) && (
+                <small>{profile.specialty || profile.specialization}</small>
+              )}
+            </div>
+          )}
+
+          {resolved?.requiresWorkspaceSelection && (
+            <div className="hospital-access-workspaces">
+              {resolved.memberships.map((membership) => (
+                <button
+                  key={membership.membershipId}
+                  type="button"
+                  disabled={isLoading}
+                  className={
+                    selectedMembershipId === membership.membershipId
+                      ? "is-selected"
+                      : ""
+                  }
+                  onClick={() => setSelectedMembershipId(membership.membershipId)}
+                >
+                  <strong>{membership.workspaceName}</strong>
+                  <span>
+                    {membership.workspaceType} / {membership.role}
+                    {membership.user?.fullName
+                      ? ` / ${membership.user.fullName}`
+                      : ""}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {import.meta.env.DEV && (
+            <p className="hospital-access-demo-note">
+              Demo IDs: ELLY-USER-HOSP-ADMIN-001 or ELLY-USER-DOCTOR-001
+            </p>
+          )}
 
           {error && (
             <p className="hospital-access-error" id="elly-id-error" role="alert">
@@ -204,9 +335,11 @@ function HospitalAccessPage({ onAccessGranted }) {
           <button
             className="hospital-access-submit"
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || (resolved && !canSubmitLogin)}
           >
-            <span>{isLoading ? "Verifying" : "Continue"}</span>
+            <span>
+              {isLoading ? "Working" : resolved ? "Sign in" : "Continue"}
+            </span>
             {isLoading ? (
               <span className="hospital-access-spin" aria-hidden="true" />
             ) : (
@@ -225,7 +358,7 @@ function HospitalAccessPage({ onAccessGranted }) {
 
           <p className="hospital-access-security">
             <Icon name="check" size={18} />
-            <span>Secure access for authorized hospital staff only</span>
+            <span>Secure access for authorized healthcare staff only</span>
           </p>
 
           <Icon className="hospital-access-card__spark" name="sparkle" size={22} />

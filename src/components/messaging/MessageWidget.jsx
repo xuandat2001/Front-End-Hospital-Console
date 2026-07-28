@@ -7,13 +7,9 @@ import "./Messaging.css";
 function MessageWidget() {
   const conversations = useMessagingStore((state) => state.conversations);
   const totalUnread = useMessagingStore((state) => state.totalUnread);
-  const loadingConversations = useMessagingStore(
-    (state) => state.loadingConversations,
-  );
-  const error = useMessagingStore((state) => state.error);
   const openMessaging = useMessagingStore((state) => state.openMessaging);
-  const refreshMessaging = useMessagingStore(
-    (state) => state.refreshMessaging,
+  const seedDemoMessagingData = useMessagingStore(
+    (state) => state.seedDemoMessagingData,
   );
   const latestConversation = conversations[0];
   const latestMessage = latestConversation?.preview ||
@@ -22,11 +18,8 @@ function MessageWidget() {
   const hasSender = messageParts.length > 0;
 
   useEffect(() => {
-    refreshMessaging();
-    const intervalId = window.setInterval(refreshMessaging, 10000);
-
-    return () => window.clearInterval(intervalId);
-  }, [refreshMessaging]);
+    seedDemoMessagingData();
+  }, [seedDemoMessagingData]);
 
   return (
     <>

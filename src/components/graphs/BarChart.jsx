@@ -1,9 +1,46 @@
-function BarChart({ data = [], labels = [], compact }) {
+import { useEffect, useRef } from "react";
+import useDocumentStore from "../../store/useDocumentStore";
+
+let idCounter = 0;
+
+function BarChart({
+  data = [],
+  labels = [],
+  compact,
+  widgetId,
+  widgetTitle,
+}) {
+  const idRef = useRef(null);
+  if (!idRef.current) {
+    idRef.current = widgetId || `bar-chart-${++idCounter}`;
+  }
+  const id = idRef.current;
+  const title = widgetTitle || "Bar Chart";
+
+  useEffect(() => {
+    const store = useDocumentStore.getState();
+    store.registerWidget(id, {
+      title,
+      extract: () => {
+        const result = {};
+        data.forEach((value, i) => {
+          result[labels[i] || `Item ${i + 1}`] = value;
+        });
+        return {
+          "Total Data Points": data.length,
+          "Max Value": Math.max(...data),
+          "Min Value": Math.min(...data),
+          ...result,
+        };
+      },
+    });
+    return () => store.unregisterWidget(id);
+  }, [id, title, data, labels]);
   const max = Math.max(...data, 1);
   const yLabels = ["", "75%", "50%", "25%", "0%"];
 
   return (
-    <div>
+    <div data-widget-id={id} data-widget-title={title}>
       <div className={`relative ml-8 flex h-40 items-end border-b border-l border-slate-200 dark:border-slate-700 ${compact ? "gap-1" : "gap-3"} pt-3`}>
         {[0, 25, 50, 75, 100].map((pct) => (
           <span

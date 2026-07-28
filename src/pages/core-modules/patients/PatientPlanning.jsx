@@ -121,21 +121,21 @@ export default function PatientPlanning() {
   }
 
   return (
-    <div className="flex h-full flex-col p-6">
-      <div className="mb-6">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden p-6">
+      <div className="mb-6 shrink-0">
         <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Patient Roadmap</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400">
           Inpatient journey — patients with admissions or surgeries
         </p>
       </div>
 
-      <div className="flex flex-1 gap-4 overflow-x-auto pb-4">
+      <div className="flex min-h-0 flex-1 gap-4 overflow-x-auto pb-4">
         {INPATIENT_STAGES.map((stage) => (
           <div
             key={stage.id}
-            className="flex w-64 min-w-[16rem] flex-col rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/50"
+            className="flex w-64 min-w-[16rem] min-h-0 flex-col rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/50"
           >
-            <div className={`flex items-center gap-2 rounded-t-xl px-4 py-3 ${stage.color}`}>
+            <div className={`flex shrink-0 items-center gap-2 rounded-t-xl px-4 py-3 ${stage.color}`}>
               <span className="text-xs font-bold tracking-wide text-white uppercase">
                 {stage.index + 1}.
               </span>
@@ -144,7 +144,7 @@ export default function PatientPlanning() {
                 {(buckets[stage.id] || []).length}
               </span>
             </div>
-            <div className="flex flex-col gap-2 p-3 overflow-y-auto max-h-[calc(100vh-22rem)]">
+            <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
               {(buckets[stage.id] || []).length === 0 ? (
                 <p className="py-8 text-center text-xs text-slate-400">No patients</p>
               ) : (

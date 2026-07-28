@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { io } from "socket.io-client";
-import { getMockEmergencyRealtimeState, isMockMode } from "../services/mockApi";
+import { MOCK_MODE } from "../mocks/mockSession";
 import {
   acknowledgeEmergencyRequest,
   gatewayUrl,
@@ -34,14 +34,13 @@ function upsertActiveEmergencyCase(items, next) {
 }
 
 export default function useEmergencyRealtime() {
-  const mockRealtime = getMockEmergencyRealtimeState();
   const [requests, setRequests] = useState([]);
   const [activeCases, setActiveCases] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [summary, setSummary] = useState(null);
   const [resources, setResources] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [connectionState, setConnectionState] = useState("connecting");
+  const [connectionState, setConnectionState] = useState(MOCK_MODE ? "mock" : "connecting");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [pendingAlertId, setPendingAlertId] = useState("");
@@ -77,20 +76,11 @@ export default function useEmergencyRealtime() {
   }, [refreshDashboard]);
 
   useEffect(() => {
-    if (isMockMode) {
-      setRequests(mockRealtime.requests);
-      setActiveCases(mockRealtime.activeCases.filter(isActiveEmergencyRequest));
-      setNotifications(mockRealtime.notifications);
-      setSummary(mockRealtime.summary);
-      setResources(mockRealtime.resources);
-      setUnreadCount(mockRealtime.unreadCount);
-      setConnectionState("connected");
-      setLoading(false);
-      setError("");
-      return undefined;
-    }
-
     queueMicrotask(refresh);
+
+    if (MOCK_MODE) {
+      return;
+    }
 
     const socket = io(gatewayUrl, {
       path: "/realtime/socket.io",

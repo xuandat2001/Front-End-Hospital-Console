@@ -1,10 +1,23 @@
 import { useEffect, useState } from "react";
 import { centerTabs } from "./data";
-import navData, { getSubsections, getFunction, getDefaultFunction } from "./tab-data";
+import navData, {
+  getSubsections,
+  getFunction,
+  getDefaultFunction,
+  getSectionIds,
+} from "./tab-data";
+import { canAccessFunction } from "./constant/pagePermissions";
+import {
+  getPermissionsByRole,
+  getRoleLanding,
+  ROLES,
+} from "./constant/rbac";
 import LeftRail from "./components/dashboard/LeftRail";
 import RightRail from "./components/dashboard/RightRail";
 import DashboardContent from "./components/dashboard/DashboardContent";
 import InteractionLayer from "./components/dashboard/InteractionLayer";
+import DocumentModal from "./components/document/DocumentModal";
+import DocumentModeOverlay from "./components/document/DocumentModeOverlay";
 import LenisScrollLayer from "./components/dashboard/LenisScrollLayer";
 import SettingsPage from "./components/dashboard/SettingsPage";
 import useEmergencyRealtime from "./hooks/useEmergencyRealtime";
@@ -13,57 +26,107 @@ import useRegistrationStore from "./hooks/useRegistrationStore";
 import HospitalAccessPage from "./pages/hospital-access/HospitalAccessPage";
 import DiagnosticsPopup from "./pages/diagnostics/DiagnosticsPopup";
 import ToastContainer from "./components/Toast";
-import ErrorBoundary from "./components/ErrorBoundary";
+import AccessDenied from "./components/auth/AccessDenied";
 import useSessionStore from "./store/useSessionStore";
 import usePatientSearchStore from "./store/usePatientSearchStore";
 import { PERMISSIONS } from "./constant/rbac";
-import { isMockMode } from "./services/mockApi";
 import "./App.css";
 
 const HOSPITAL_ACCESS_ROUTE = "/hospital-access";
 const DASHBOARD_ROUTE = "/";
-const LEFT_RAIL_COLLAPSED_KEY = "hospitalConsoleLeftRailCollapsed";
+const SESSION_STORAGE_KEY = "ellyFrontendSession";
+const AUTH_STORAGE_KEY = "ellyAuthSession";
 
-function getInitialLeftRailCollapsed() {
-  if (typeof window === "undefined") return false;
-  return localStorage.getItem(LEFT_RAIL_COLLAPSED_KEY) === "true";
+function readStoredSession() {
+  try {
+    const stored =
+      localStorage.getItem(AUTH_STORAGE_KEY) ||
+      sessionStorage.getItem(SESSION_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+}
+
+function getSessionRole() {
+  const session = readStoredSession();
+  return session?.role || session?.currentUser?.role || ROLES.HOSPITAL_ADMIN;
+}
+
+function getSessionPermissions() {
+  const session = readStoredSession();
+  return (
+    session?.permissions || getPermissionsByRole(getSessionRole())
+  );
 }
 
 function getInitialDomain() {
-  return localStorage.getItem("activeDomain") || "overview";
+  const permissions = getSessionPermissions();
+  const landing = getRoleLanding(getSessionRole());
+  const savedDomain = localStorage.getItem("activeDomain");
+
+  if (savedDomain && getSectionIds(permissions).includes(savedDomain)) {
+    return savedDomain;
+  }
+
+  return landing.domain;
 }
 
 function getInitialFunction() {
+  const permissions = getSessionPermissions();
+  const landing = getRoleLanding(getSessionRole());
   const domain = getInitialDomain();
   const savedFunction = localStorage.getItem("activeFunction");
 
-  const subs = getSubsections(domain);
-  if (subs.length > 0) {
-    const firstDashboardFn = getFunction(domain, subs[0].id, "dashboard");
-    if (subs.some((s) => s.id === savedFunction)) return savedFunction;
-    const mappedViaTab = subs.some((s) => {
-      const tabFns = Object.values(s.tabs || {});
-      return tabFns.includes(savedFunction);
-    });
-    if (mappedViaTab) return savedFunction;
-    return firstDashboardFn || subs[0].id;
+  if (savedFunction && canAccessFunction(savedFunction, permissions)) {
+    const subs = getSubsections(domain, permissions);
+    if (subs.length > 0) {
+      const mappedViaTab = subs.some((sub) =>
+        Object.values(sub.tabs || {}).includes(savedFunction),
+      );
+      if (mappedViaTab || subs.some((sub) => sub.id === savedFunction)) {
+        return savedFunction;
+      }
+    } else if (navData[domain]?.tabs) {
+      const tabFunctions = Object.values(navData[domain].tabs);
+      if (tabFunctions.includes(savedFunction)) {
+        return savedFunction;
+      }
+    }
   }
 
-  return getDefaultFunction(domain) || "command";
+  if (landing.function && canAccessFunction(landing.function, permissions)) {
+    return landing.function;
+  }
+
+  return getDefaultFunction(domain, permissions) || landing.function || "command";
 }
 
 function getInitialSubsection() {
+  const permissions = getSessionPermissions();
+  const landing = getRoleLanding(getSessionRole());
   const domain = getInitialDomain();
   const savedFunction = localStorage.getItem("activeFunction");
-  const subs = getSubsections(domain);
-  if (subs.length === 0) return null;
+  const subs = getSubsections(domain, permissions);
+
+  if (subs.length === 0) {
+    return landing.subsection || null;
+  }
 
   for (const sub of subs) {
     if (sub.id === savedFunction) return sub.id;
-    const tabFns = Object.values(sub.tabs || {});
-    if (tabFns.includes(savedFunction)) return sub.id;
+    const tabFunctions = Object.values(sub.tabs || {});
+    if (tabFunctions.includes(savedFunction)) return sub.id;
   }
-  return subs[0].id;
+
+  return landing.subsection || subs[0].id;
+}
+
+function applyRoleLanding(role) {
+  const landing = getRoleLanding(role);
+  localStorage.setItem("activeDomain", landing.domain);
+  localStorage.setItem("activeFunction", landing.function);
+  localStorage.setItem("activeCenterTab", "dashboard");
 }
 
 function getInitialCenterTab() {
@@ -77,6 +140,9 @@ function getCurrentPath() {
 }
 
 function HospitalDashboardApp() {
+  const permissions = useSessionStore((state) => state.permissions);
+  const showWelcome = useSessionStore((state) => state.showWelcome);
+  const setShowWelcome = useSessionStore((state) => state.setShowWelcome);
   const [activeDomain, setActiveDomain] = useState(getInitialDomain);
   const [activeModule, setActiveModule] = useState("clinical-operations");
   const [activeFunction, setActiveFunction] = useState(getInitialFunction);
@@ -94,9 +160,6 @@ function HospitalDashboardApp() {
     return false;
   });
   const [isNavigationOpen, setIsNavigationOpen] = useState(false);
-  const [isLeftRailCollapsed, setIsLeftRailCollapsed] = useState(
-    getInitialLeftRailCollapsed,
-  );
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [diagnosticsDepartments, setDiagnosticsDepartments] = useState([]);
   const emergencyRealtime = useEmergencyRealtime();
@@ -108,7 +171,17 @@ function HospitalDashboardApp() {
   const clearNotification = useRegistrationStore((state) => state.clearNotification);
   const setActiveEllyId = usePatientSearchStore((state) => state.setActiveEllyId);
   const clearActiveEllyId = usePatientSearchStore((state) => state.clearActiveEllyId);
+  const pendingOpenRecord = usePatientSearchStore((state) => state.pendingOpenRecord);
+  const consumePendingOpenRecord = usePatientSearchStore(
+    (state) => state.consumePendingOpenRecord,
+  );
   const canReadPatients = useSessionStore((state) => state.can(PERMISSIONS.PATIENT_READ));
+  const currentUser = useSessionStore((state) => state.currentUser);
+  const workspace = useSessionStore((state) => state.activeWorkspace || state.workspace);
+  const role = useSessionStore((state) => state.role);
+  const consoleType = useSessionStore((state) => state.consoleType);
+  const isAuthenticated = useSessionStore((state) => state.isAuthenticated);
+  const logout = useSessionStore((state) => state.logout);
 
   const dismissRegistrationToast = () => {
     if (incomingPayload?.eventId) {
@@ -141,14 +214,28 @@ function HospitalDashboardApp() {
     document.documentElement.style.removeProperty("--left-rail-width");
   }, []);
 
+  function handleWelcomeOpen() {
+    setActiveFunction("welcome");
+  }
+
   useEffect(() => {
-    localStorage.setItem(
-      LEFT_RAIL_COLLAPSED_KEY,
-      String(isLeftRailCollapsed),
-    );
-  }, [isLeftRailCollapsed]);
+    if (showWelcome) {
+      setShowWelcome(false);
+      handleWelcomeOpen();
+    }
+  }, []);
+
+  useEffect(() => {
+    const role = currentUser?.role;
+    const title = role
+      ? `Elly - ${role.replaceAll("_", " ")} Console`
+      : "Elly - Console";
+    document.title = title;
+  }, [currentUser?.role]);
 
   const handleDomainChange = (domainId) => {
+    if (consoleType === "RESTRICTED") return;
+
     setActiveDomain(domainId);
     setActiveSubsection(null);
     setActiveCenterTab("dashboard");
@@ -156,7 +243,7 @@ function HospitalDashboardApp() {
     setIsNavigationOpen(false);
     clearActiveEllyId();
 
-    const fn = getDefaultFunction(domainId);
+    const fn = getDefaultFunction(domainId, permissions);
     if (fn) setActiveFunction(fn);
   };
 
@@ -164,9 +251,10 @@ function HospitalDashboardApp() {
     setActiveDomain(domainId);
     setActiveSubsection(subsectionId);
 
-    const fn = getFunction(domainId, subsectionId, "dashboard");
+    const defaultTab = subsectionId === "surgery" ? "planning" : "dashboard";
+    const fn = getFunction(domainId, subsectionId, defaultTab);
     setActiveFunction(fn || subsectionId);
-    setActiveCenterTab("dashboard");
+    setActiveCenterTab(defaultTab);
     setEmergencyNavigation(null);
     setIsNavigationOpen(false);
     clearActiveEllyId();
@@ -222,6 +310,18 @@ function HospitalDashboardApp() {
     setActiveEllyId(trimmed);
   };
 
+  useEffect(() => {
+    if (!pendingOpenRecord || !canReadPatients) return;
+    setActiveDomain("management");
+    setActiveSubsection("patient");
+    setActiveFunction("patient-dashboard");
+    setActiveCenterTab("dashboard");
+    setEmergencyNavigation(null);
+    setReturnNavigation(null);
+    setIsNavigationOpen(false);
+    consumePendingOpenRecord();
+  }, [pendingOpenRecord, canReadPatients, consumePendingOpenRecord]);
+
   const handleModuleChange = (moduleValue) => {
     if (moduleValue === "radiology") {
       setDiagnosticsDepartments((prev) =>
@@ -260,17 +360,6 @@ function HospitalDashboardApp() {
     });
   };
 
-  const handlePrototypeSectionReset = () => {
-    setActiveDomain("overview");
-    setActiveSubsection(null);
-    setActiveFunction("command");
-    setActiveCenterTab("dashboard");
-    setEmergencyNavigation(null);
-    setReturnNavigation(null);
-    setIsNavigationOpen(false);
-    clearActiveEllyId();
-  };
-
   const handleRegistrationRequestOpen = (registrationData) => {
     if (!registrationData) return;
 
@@ -285,14 +374,21 @@ function HospitalDashboardApp() {
   };
 
   return (
-    <div
-      className={`dashboard-shell${
-        isLeftRailCollapsed ? " is-left-rail-collapsed" : ""
-      }`}
-    >
+    <div className="dashboard-shell">
       <InteractionLayer />
       <LenisScrollLayer />
       <div className="dashboard-aurora" aria-hidden="true" />
+      {isAuthenticated && (
+        <div className="session-badge" aria-label="Current session">
+          <div>
+            <strong>{role || currentUser?.role}</strong>
+            <span>{workspace?.workspaceName || workspace?.hospitalName}</span>
+          </div>
+          <button type="button" onClick={logout}>
+            Logout
+          </button>
+        </div>
+      )}
 
       {/* Registration Toast Notification */}
       {showNotification && incomingPayload && (
@@ -329,44 +425,39 @@ function HospitalDashboardApp() {
       <div className="dashboard-grid">
       <LeftRail
         activeDomain={activeDomain}
+        activeModule={activeModule}
         activeSubsection={activeSubsection}
         onDomainChange={handleDomainChange}
+        onModuleChange={handleModuleChange}
         onSettingsOpen={() => setIsSettingsOpen(true)}
         onSubsectionSelect={handleSubsectionSelect}
         onPatientSearch={handlePatientSearch}
+        onWelcomeOpen={handleWelcomeOpen}
         isOpen={isNavigationOpen}
         onOpenChange={setIsNavigationOpen}
-        isCollapsed={isLeftRailCollapsed}
-        onCollapsedChange={setIsLeftRailCollapsed}
       />
 
       <main className="dashboard-main" id="main-content">
-        <ErrorBoundary
-          resetKeys={[activeDomain, activeFunction, activeCenterTab]}
-          onReset={handlePrototypeSectionReset}
-        >
-          <DashboardContent
-            activeModule={activeModule}
-            activeFunction={activeFunction}
-            activeCenterTab={activeCenterTab}
-            onModuleChange={handleModuleChange}
-            onCenterTabChange={handleCenterTabChange}
-            emergencyRealtime={emergencyRealtime}
-            registrationRealtime={registrationRealtime}
-            emergencyNavigation={emergencyNavigation}
-            onNavigationOpen={() => setIsNavigationOpen(true)}
-            onNotificationsOpen={handleNotificationsOpen}
-            onNotificationsBack={handleNotificationsBack}
-            onEmergencyRequestOpen={handleEmergencyRequestOpen}
-            onRegistrationRequestOpen={handleRegistrationRequestOpen}
-            onRoomSelect={handleRoomSelect}
-            selectedRoomId={selectedRoomId}
-          />
-        </ErrorBoundary>
+        <DocumentModeOverlay>
+        <DashboardContent
+          activeFunction={activeFunction}
+          activeCenterTab={activeCenterTab}
+          onCenterTabChange={handleCenterTabChange}
+          emergencyRealtime={emergencyRealtime}
+          registrationRealtime={registrationRealtime}
+          emergencyNavigation={emergencyNavigation}
+          onNavigationOpen={() => setIsNavigationOpen(true)}
+          onNotificationsOpen={handleNotificationsOpen}
+          onNotificationsBack={handleNotificationsBack}
+          onEmergencyRequestOpen={handleEmergencyRequestOpen}
+          onRegistrationRequestOpen={handleRegistrationRequestOpen}
+          onRoomSelect={handleRoomSelect}
+          selectedRoomId={selectedRoomId}
+        />
+        </DocumentModeOverlay>
       </main>
 
       <RightRail
-        activeFunction={activeFunction}
         emergencyRealtime={emergencyRealtime}
         onEmergencyRequestOpen={handleEmergencyRequestOpen}
       />
@@ -391,6 +482,7 @@ function HospitalDashboardApp() {
         />
       ))}
 
+      <DocumentModal />
       <ToastContainer />
     </div>
   );
@@ -401,6 +493,10 @@ function App() {
 
   const workspace = useSessionStore((state) => state.workspace);
   const setWorkspace = useSessionStore((state) => state.setWorkspace);
+  const accessToken = useSessionStore((state) => state.accessToken);
+  const loadMe = useSessionStore((state) => state.loadMe);
+  const currentUser = useSessionStore((state) => state.currentUser);
+  const consoleType = useSessionStore((state) => state.consoleType);
 
   useEffect(() => {
     const syncPath = () => setRoutePath(getCurrentPath());
@@ -411,20 +507,23 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (isMockMode && routePath === HOSPITAL_ACCESS_ROUTE) {
-      window.history.replaceState({}, "", DASHBOARD_ROUTE);
-      setRoutePath(DASHBOARD_ROUTE);
-      return;
-    }
-
     if (workspace || routePath === HOSPITAL_ACCESS_ROUTE) return;
 
     window.history.replaceState({}, "", HOSPITAL_ACCESS_ROUTE);
     setRoutePath(HOSPITAL_ACCESS_ROUTE);
   }, [workspace, routePath]);
 
+  useEffect(() => {
+    if (!accessToken || workspace) return;
+
+    loadMe().catch(() => {
+      useSessionStore.getState().clearSession();
+    });
+  }, [accessToken, loadMe, workspace]);
+
   const handleAccessGranted = (hospitalWorkspace) => {
     setWorkspace(hospitalWorkspace);
+    applyRoleLanding(useSessionStore.getState().role);
 
     window.history.pushState({}, "", DASHBOARD_ROUTE);
     setRoutePath(DASHBOARD_ROUTE);
@@ -434,6 +533,14 @@ function App() {
     return <HospitalAccessPage onAccessGranted={handleAccessGranted} />;
   }
 
-  return <HospitalDashboardApp />;
+  if (consoleType === "RESTRICTED") {
+    return <AccessDenied />;
+  }
+
+  return (
+    <HospitalDashboardApp
+      key={`${workspace.id || workspace.ellyHospitalId}-${currentUser?.role}`}
+    />
+  );
 }
 export default App;

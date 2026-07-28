@@ -19,24 +19,7 @@ const iconByTone = {
   muted: Bell,
 };
 
-function formatTime(value) {
-  if (!value) return "";
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-
-  return new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(date);
-}
-
-function ConversationListItem({
-  conversation,
-  isSelected,
-  onSelect,
-  unreadCount,
-}) {
+function ConversationListItem({ conversation, isSelected, onSelect }) {
   const ItemIcon = iconByTone[conversation.tone] || UsersRound;
 
   return (
@@ -51,12 +34,12 @@ function ConversationListItem({
       <span className="conversation-item__body">
         <span className="conversation-item__title-row">
           <strong>{conversation.name}</strong>
-          <time>{formatTime(conversation.time)}</time>
+          <time>{conversation.time}</time>
         </span>
         <small>{conversation.preview}</small>
       </span>
-      {unreadCount > 0 ? (
-        <span className="conversation-item__unread">{unreadCount}</span>
+      {conversation.unread > 0 ? (
+        <span className="conversation-item__unread">{conversation.unread}</span>
       ) : null}
     </button>
   );

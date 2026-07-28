@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef } from "react";
-import { Info, Phone, UsersRound } from "lucide-react";
+import { Info, UsersRound } from "lucide-react";
 import useMessagingStore from "../../stores/useMessagingStore";
-import useSessionStore from "../../store/useSessionStore";
+import ActiveCallBar from "./ActiveCallBar";
+import IncomingCallModal from "./IncomingCallModal";
 import MessageBubble from "./MessageBubble";
 import MessageComposer from "./MessageComposer";
+import VoiceCallButton from "./VoiceCallButton";
 
 function ChatWindow() {
   const conversationEndRef = useRef(null);
@@ -14,15 +16,15 @@ function ChatWindow() {
   const messagesByConversation = useMessagingStore(
     (state) => state.messagesByConversation,
   );
-  const loadingMessages = useMessagingStore((state) => state.loadingMessages);
-  const error = useMessagingStore((state) => state.error);
-  const currentUser = useSessionStore((state) => state.currentUser);
+  const typingByConversation = useMessagingStore(
+    (state) => state.typingByConversation,
+  );
 
   const selectedConversation = useMemo(
     () =>
       conversations.find(
         (conversation) => conversation.id === selectedConversationId,
-      ),
+      ) || conversations[0],
     [conversations, selectedConversationId],
   );
   const messages = selectedConversation
@@ -36,9 +38,7 @@ function ChatWindow() {
   if (!selectedConversation) {
     return (
       <section className="messaging-chat">
-        <div className="messaging-chat__empty">
-          Select a conversation to start messaging.
-        </div>
+        <div className="messaging-chat__empty">Select a conversation.</div>
       </section>
     );
   }
@@ -58,9 +58,7 @@ function ChatWindow() {
             <UsersRound size={16} />
             <span>24</span>
           </button>
-          <button aria-label="Start call" type="button">
-            <Phone size={16} />
-          </button>
+          <VoiceCallButton conversation={selectedConversation} />
           <button aria-label="Conversation information" type="button">
             <Info size={16} />
           </button>
@@ -68,27 +66,19 @@ function ChatWindow() {
       </header>
 
       <div className="messaging-chat__body" role="log" aria-live="polite">
-        {loadingMessages ? (
-          <div className="messaging-chat__empty">Loading messages...</div>
+        {messages.map((message) => (
+          <MessageBubble key={message.id} message={message} />
+        ))}
+        {typingByConversation[selectedConversation.id] ? (
+          <span className="messaging-typing">
+            {typingByConversation[selectedConversation.id]} is typing...
+          </span>
         ) : null}
-        {!loadingMessages && error ? (
-          <div className="messaging-chat__empty">{error}</div>
-        ) : null}
-        {!loadingMessages && !error && messages.length === 0 ? (
-          <div className="messaging-chat__empty">No messages yet.</div>
-        ) : null}
-        {!loadingMessages
-          ? messages.map((message) => (
-              <MessageBubble
-                isSelf={message.senderEllyId === currentUser?.ellyId}
-                key={message.id}
-                message={message}
-              />
-            ))
-          : null}
         <span ref={conversationEndRef} />
       </div>
 
+      <IncomingCallModal />
+      <ActiveCallBar />
       <MessageComposer conversationId={selectedConversation.id} />
     </section>
   );

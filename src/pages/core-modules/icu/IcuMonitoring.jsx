@@ -5,6 +5,7 @@ import IcuPatientCard from "./IcuPatientCard";
 import IcuSummaryPanel from "./IcuSummaryPanel";
 import IcuPatientDrawer from "./IcuPatientDrawer";
 import IcuVitalsTable from "./IcuVitalsTable";
+import { formatTime } from "../../../utils/dateFormat";
 
 const severityOptions = [
   { value: "", label: "All severity" },
@@ -40,11 +41,7 @@ function patientCategory(patient) {
 
 function formatUpdated(value) {
   if (!value) return "No updates yet";
-  return new Intl.DateTimeFormat(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).format(new Date(value));
+  return formatTime(value);
 }
 
 function IcuSkeleton() {

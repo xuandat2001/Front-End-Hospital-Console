@@ -1,9 +1,5 @@
 import { buildPersistedEmergencyTimeline } from "../../../../utils/emergencyPresentation";
-
-function formatTime(value) {
-  if (!value) return null;
-  return new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
+import { formatTime } from "../../../../utils/dateFormat";
 
 function getActiveStageIndex(stages) {
   if (!stages.length) return 0;

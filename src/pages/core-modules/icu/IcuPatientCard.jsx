@@ -2,15 +2,7 @@ import {
   AlertTriangle,
   Clock3,
 } from "lucide-react";
-
-function formatTimeAgo(value) {
-  if (!value) return "No reading";
-  const seconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  return `${Math.floor(minutes / 60)}h ago`;
-}
+import { formatAge } from "../../../utils/dateFormat";
 
 function Vital({ label, value, unit, tone = "" }) {
   return (
@@ -65,7 +57,7 @@ export default function IcuPatientCard({ patient, onOpen }) {
       <div className="icu-card-footer">
         <span className="icu-card-updated">
           <Clock3 size={11} />
-          {formatTimeAgo(patient.latestUpdateAt || vitals.recordedAt)}
+          {formatAge(patient.latestUpdateAt || vitals.recordedAt)}
         </span>
         <span className="icu-card-device" data-status={statusLabel}>
           <i aria-hidden="true" />

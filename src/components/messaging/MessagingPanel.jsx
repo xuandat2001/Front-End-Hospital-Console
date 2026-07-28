@@ -8,13 +8,13 @@ import ConversationList from "./ConversationList";
 function MessagingPanel() {
   const isMessagingOpen = useMessagingStore((state) => state.isMessagingOpen);
   const closeMessaging = useMessagingStore((state) => state.closeMessaging);
-  const refreshMessaging = useMessagingStore(
-    (state) => state.refreshMessaging,
+  const seedDemoMessagingData = useMessagingStore(
+    (state) => state.seedDemoMessagingData,
   );
 
   useEffect(() => {
-    if (isMessagingOpen) refreshMessaging();
-  }, [isMessagingOpen, refreshMessaging]);
+    seedDemoMessagingData();
+  }, [seedDemoMessagingData]);
 
   useEffect(() => {
     if (!isMessagingOpen) return undefined;

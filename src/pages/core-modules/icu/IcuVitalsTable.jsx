@@ -1,12 +1,5 @@
 import { Activity, AlertTriangle, Clock3, HeartPulse, Thermometer, Wind } from "lucide-react";
-
-function formatAge(value) {
-  if (!value) return "No reading";
-  const seconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  return minutes < 60 ? `${minutes}m ago` : `${Math.floor(minutes / 60)}h ago`;
-}
+import { formatAge } from "../../../utils/dateFormat";
 
 function VitalCell({ value, unit, alert = false }) {
   return (

@@ -1,6 +1,6 @@
 import { gatewayUrl, hospitalIdentity } from "./registrationRealtimeApi";
-import { isMockMode } from "../mockApi";
-import { mockRegistrationNotifications } from "../../mocks/mockAlerts";
+import { MOCK_MODE } from "../../mocks/mockSession";
+import { mockDirectData } from "../mock/mockApi";
 
 const QUEUE_BASE = "/api/intelligence/registration-queue";
 
@@ -23,15 +23,8 @@ async function readResponseBody(response) {
 }
 
 async function queueRequest(path, { method = "GET", body } = {}) {
-  if (isMockMode) {
-    return {
-      success: true,
-      data: mockRegistrationNotifications.map((item) => ({
-        ...item,
-        status: "PENDING",
-        notes: body?.notes || "",
-      })),
-    };
+  if (MOCK_MODE) {
+    return mockDirectData(path, { method, body });
   }
 
   let response;

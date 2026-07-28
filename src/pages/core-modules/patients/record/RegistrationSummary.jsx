@@ -1,9 +1,4 @@
-function toTime(value) {
-  if (!value) return "N/A";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "N/A";
-  return date.toLocaleString();
-}
+import { formatDateTime } from "../../../../utils/dateFormat";
 
 const STATUS_BADGE = {
   PENDING: "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
@@ -73,7 +68,7 @@ export default function RegistrationSummary({ registrations, loading, error }) {
                   Severity {severity}
                 </span>
               </div>
-              <span className="text-xs text-slate-400">{toTime(entry.registeredAt)}</span>
+              <span className="text-xs text-slate-400">{formatDateTime(entry.registeredAt)}</span>
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -101,7 +96,7 @@ export default function RegistrationSummary({ registrations, loading, error }) {
                 Last action: {entry.decision.action}
                 {entry.decision.automated ? " (automated)" : ""}
                 {entry.decision.actorId ? ` · by ${entry.decision.actorId}` : ""}
-                {entry.decision.decidedAt ? ` · ${toTime(entry.decision.decidedAt)}` : ""}
+                {entry.decision.decidedAt ? ` · ${formatDateTime(entry.decision.decidedAt)}` : ""}
               </p>
             )}
           </section>

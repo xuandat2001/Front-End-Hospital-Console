@@ -1,7 +1,8 @@
-import { isMockMode, mockGatewayRequest } from "../mockApi";
+import { MOCK_MODE } from "../../mocks/mockSession";
+import { mockDirectData } from "../mock/mockApi";
 
 const apiBaseUrl =
-  isMockMode ? "mock://elly-api" : import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.VITE_API_BASE_URL ||
   "http://localhost:3000/api";
 
 export const gatewayUrl =
@@ -22,8 +23,8 @@ const identityHeaders = {
 };
 
 async function registrationRequest(path, options = {}) {
-  if (isMockMode) {
-    return mockGatewayRequest(path, options);
+  if (MOCK_MODE) {
+    return mockDirectData(path, options);
   }
 
   let response;

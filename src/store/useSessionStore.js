@@ -5,98 +5,416 @@ import {
   hasPermission,
   hasAnyPermission,
 } from "../constant/rbac";
-import { isMockMode } from "../services/mockApi";
-import { mockCurrentUser, mockSession, mockWorkspace } from "../mocks/mockSession";
+import { MOCK_MODE, getMockPersistedSession } from "../mocks/mockSession";
 
 const SESSION_STORAGE_KEY = "ellyFrontendSession";
+const AUTH_STORAGE_KEY = "ellyAuthSession";
 
-function readSession() {
+function readJsonStorage(storage, key) {
   try {
-    const stored = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    const stored = storage.getItem(key);
     return stored ? JSON.parse(stored) : null;
   } catch {
     return null;
   }
 }
 
-function writeSession(session) {
-  sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+function writeJsonStorage(storage, key, value) {
+  storage.setItem(key, JSON.stringify(value));
 }
 
-const demoUser = isMockMode ? mockCurrentUser : {
-  id: "staff-demo-001",
-  ellyId: import.meta.env.VITE_ELLY_ID || "ELLY-STAFF-001",
-  fullName: import.meta.env.VITE_ELLY_STAFF_NAME || "Demo Hospital Admin",
-  role: import.meta.env.VITE_ELLY_ROLE || ROLES.HOSPITAL_ADMIN,
-  departmentId: import.meta.env.VITE_ELLY_DEPARTMENT_ID || "GENERAL",
-  departmentName: import.meta.env.VITE_ELLY_DEPARTMENT_NAME || "General",
-};
+function readSession() {
+  if (typeof window === "undefined") return null;
 
-const storedSession = isMockMode ? mockSession : readSession();
+  return (
+    readJsonStorage(localStorage, AUTH_STORAGE_KEY) ||
+    readJsonStorage(sessionStorage, SESSION_STORAGE_KEY)
+  );
+}
 
-const initialUser = storedSession?.currentUser || demoUser;
+function writeSession(session) {
+  if (typeof window === "undefined") return;
+
+  writeJsonStorage(localStorage, AUTH_STORAGE_KEY, session);
+  writeJsonStorage(sessionStorage, SESSION_STORAGE_KEY, session);
+}
+
+function clearStoredSession() {
+  if (typeof window === "undefined") return;
+
+  localStorage.removeItem(AUTH_STORAGE_KEY);
+  sessionStorage.removeItem(SESSION_STORAGE_KEY);
+}
+
+function normalizeWorkspace(workspace) {
+  if (!workspace) return null;
+
+  const workspaceType = workspace.workspaceType || workspace.type || "HOSPITAL";
+  const workspaceEllyId =
+    workspace.workspaceEllyId ||
+    workspace.ellyId ||
+    workspace.ellyHospitalId ||
+    workspace.id;
+  const workspaceName =
+    workspace.workspaceName ||
+    workspace.name ||
+    workspace.hospitalName ||
+    "ELLY Workspace";
+
+  return {
+    id: workspace.workspaceId || workspace.id || workspaceEllyId,
+    membershipId: workspace.membershipId || workspace.id || null,
+    workspaceType,
+    type: workspaceType,
+    workspaceId: workspace.workspaceId || workspace.id || workspaceEllyId,
+    workspaceEllyId,
+    ellyId: workspaceEllyId,
+    workspaceName,
+    name: workspaceName,
+    ellyHospitalId:
+      workspaceType === "HOSPITAL"
+        ? workspaceEllyId
+        : workspace.ellyHospitalId || null,
+    hospitalName:
+      workspaceType === "HOSPITAL"
+        ? workspaceName
+        : workspace.hospitalName || null,
+    role: workspace.role,
+    permissions: workspace.permissions || [],
+    departmentId: workspace.departmentId || null,
+    departmentName: workspace.departmentName || null,
+    source: workspace.source || "auth",
+  };
+}
+
+function resolvePermissions(role, explicitPermissions, workspacePermissions) {
+  if (explicitPermissions?.length) return explicitPermissions;
+  if (workspacePermissions?.length) return workspacePermissions;
+  return getPermissionsByRole(role);
+}
+
+function deriveConsoleType(role, workspace) {
+  const normalizedRole = String(role || "").toUpperCase();
+  const workspaceType = String(workspace?.workspaceType || workspace?.type || "").toUpperCase();
+
+  if (normalizedRole === ROLES.HOSPITAL_ADMIN || workspaceType === "HOSPITAL") {
+    return "HOSPITAL";
+  }
+
+  if (
+    normalizedRole === ROLES.DOCTOR ||
+    normalizedRole === ROLES.CLINIC_DOCTOR ||
+    ["CLINIC", "DOCTOR_PRACTICE"].includes(workspaceType)
+  ) {
+    return "DOCTOR_CLINIC";
+  }
+
+  if (normalizedRole === ROLES.PHARMACIST || workspaceType === "PHARMACY") {
+    return "PHARMACY";
+  }
+
+  return "RESTRICTED";
+}
+
+function buildCurrentUser(data, activeWorkspace, role) {
+  const user = data.user || {};
+  const profile = data.profileSnapshot || user.profileSnapshot || {};
+
+  return {
+    ...user,
+    ...profile,
+    role,
+    departmentId:
+      data.departmentId ||
+      user.departmentId ||
+      activeWorkspace?.departmentId ||
+      null,
+    departmentName:
+      data.departmentName ||
+      user.departmentName ||
+      activeWorkspace?.departmentName ||
+      null,
+    clinicId:
+      profile.clinicEllyId ||
+      user.clinicId ||
+      (["CLINIC", "DOCTOR_PRACTICE"].includes(activeWorkspace?.workspaceType)
+        ? activeWorkspace?.workspaceEllyId
+        : null),
+    clinicName:
+      user.clinicName ||
+      (["CLINIC", "DOCTOR_PRACTICE"].includes(activeWorkspace?.workspaceType)
+        ? activeWorkspace?.workspaceName
+        : null),
+    specialization:
+      profile.specialization || profile.specialty || user.specialization || null,
+    specialty: profile.specialty || user.specialty || null,
+  };
+}
+
+function buildPersistedState(state) {
+  return {
+    accessToken: state.accessToken,
+    refreshToken: state.refreshToken,
+    currentUser: state.currentUser,
+    activeWorkspace: state.activeWorkspace,
+    workspace: state.workspace,
+    role: state.role,
+    permissions: state.permissions,
+    departmentId: state.departmentId,
+    departmentName: state.departmentName,
+    consoleType: state.consoleType,
+  };
+}
+
+function normalizeSessionData(data, previousState = {}) {
+  const activeWorkspace = normalizeWorkspace(data.activeWorkspace);
+  const role = data.role || activeWorkspace?.role || data.user?.role || null;
+  const permissions = resolvePermissions(
+    role,
+    data.permissions,
+    activeWorkspace?.permissions,
+  );
+  const currentUser = buildCurrentUser(data, activeWorkspace, role);
+  const consoleType =
+    data.consoleType ||
+    activeWorkspace?.consoleType ||
+    previousState.consoleType ||
+    deriveConsoleType(role, activeWorkspace);
+
+  return {
+    accessToken: data.accessToken || previousState.accessToken || null,
+    refreshToken: data.refreshToken || previousState.refreshToken || null,
+    currentUser,
+    activeWorkspace,
+    workspace: activeWorkspace,
+    role,
+    permissions,
+    departmentId: currentUser.departmentId || null,
+    departmentName: currentUser.departmentName || null,
+    consoleType,
+    isAuthenticated: Boolean(data.accessToken || previousState.accessToken),
+  };
+}
+
+const storedSession = readSession() || (MOCK_MODE ? getMockPersistedSession() : null);
+const initialWorkspace = normalizeWorkspace(
+  storedSession?.activeWorkspace || storedSession?.workspace,
+);
+const initialRole = storedSession?.role || storedSession?.currentUser?.role || null;
 const initialPermissions =
-  storedSession?.permissions || getPermissionsByRole(initialUser.role);
+  storedSession?.permissions?.length
+    ? storedSession.permissions
+    : getPermissionsByRole(initialRole);
 
 const useSessionStore = create((set, get) => ({
-  currentUser: initialUser,
+  accessToken: storedSession?.accessToken || null,
+  refreshToken: storedSession?.refreshToken || null,
+  currentUser: storedSession?.currentUser || null,
+  activeWorkspace: initialWorkspace,
+  workspace: initialWorkspace,
+  role: initialRole,
   permissions: initialPermissions,
-  workspace: storedSession?.workspace || (isMockMode ? mockWorkspace : null),
+  departmentId: storedSession?.departmentId || null,
+  departmentName: storedSession?.departmentName || null,
+  consoleType:
+    storedSession?.consoleType || deriveConsoleType(initialRole, initialWorkspace),
+  isAuthenticated: Boolean(storedSession?.accessToken),
+  showWelcome: false,
+
+  setShowWelcome: (showWelcome) => set({ showWelcome }),
 
   setWorkspace: (workspace) =>
     set((state) => {
+      const nextWorkspace = normalizeWorkspace(workspace);
+      const nextConsoleType = deriveConsoleType(state.role, nextWorkspace);
       const nextSession = {
-        ...state,
-        workspace,
+        ...buildPersistedState(state),
+        activeWorkspace: nextWorkspace,
+        workspace: nextWorkspace,
+        consoleType: nextConsoleType,
       };
 
       writeSession(nextSession);
 
       return {
-        workspace,
+        activeWorkspace: nextWorkspace,
+        workspace: nextWorkspace,
+        consoleType: nextConsoleType,
       };
     }),
 
   setCurrentUser: (user) =>
     set((state) => {
-      const permissions = getPermissionsByRole(user.role);
-
+      const role = user?.role || state.role;
+      const permissions = getPermissionsByRole(role);
+      const consoleType = deriveConsoleType(role, state.activeWorkspace);
       const nextSession = {
-        ...state,
+        ...buildPersistedState(state),
         currentUser: user,
+        role,
         permissions,
+        consoleType,
       };
 
       writeSession(nextSession);
 
       return {
         currentUser: user,
+        role,
         permissions,
+        consoleType,
       };
     }),
 
   setRole: (role) =>
     set((state) => {
       const nextUser = {
-        ...state.currentUser,
+        ...(state.currentUser || {}),
         role,
       };
-
       const permissions = getPermissionsByRole(role);
-
+      const consoleType = deriveConsoleType(role, state.activeWorkspace);
       const nextSession = {
-        ...state,
+        ...buildPersistedState(state),
         currentUser: nextUser,
+        role,
         permissions,
+        consoleType,
       };
 
       writeSession(nextSession);
 
       return {
         currentUser: nextUser,
+        role,
         permissions,
+        consoleType,
       };
     }),
+
+  resolveEllyId: async (ellyId) => {
+    const authApi = await import("../services/auth/authApi");
+    const response = await authApi.resolveEllyId(ellyId);
+    return response.data || response;
+  },
+
+  login: async (credentials) => {
+    const authApi = await import("../services/auth/authApi");
+    const response = await authApi.login(credentials);
+    const data = response.data || response;
+    const nextState = normalizeSessionData(data);
+
+    set(nextState);
+    writeSession(buildPersistedState(nextState));
+
+    return {
+      ...data,
+      activeWorkspace: nextState.activeWorkspace,
+      currentUser: nextState.currentUser,
+      consoleType: nextState.consoleType,
+      workspaces: (data.workspaces || []).map(normalizeWorkspace),
+    };
+  },
+
+  loginWithEllyId: async (ellyIdOrPayload) => {
+    const authApi = await import("../services/auth/authApi");
+    const response = await authApi.loginWithEllyId(ellyIdOrPayload);
+    const data = response.data || response;
+    const nextState = normalizeSessionData(data);
+
+    set(nextState);
+    writeSession(buildPersistedState(nextState));
+
+    return {
+      ...data,
+      activeWorkspace: nextState.activeWorkspace,
+      currentUser: nextState.currentUser,
+      consoleType: nextState.consoleType,
+      workspaces: (data.workspaces || []).map(normalizeWorkspace),
+    };
+  },
+
+  logout: async () => {
+    const refreshToken = get().refreshToken;
+
+    try {
+      if (refreshToken) {
+        const authApi = await import("../services/auth/authApi");
+        await authApi.logout(refreshToken);
+      }
+    } finally {
+      clearStoredSession();
+      set({
+        accessToken: null,
+        refreshToken: null,
+        currentUser: null,
+        activeWorkspace: null,
+        workspace: null,
+        role: null,
+        permissions: [],
+        departmentId: null,
+        departmentName: null,
+        consoleType: "RESTRICTED",
+        isAuthenticated: false,
+      });
+    }
+  },
+
+  refresh: async () => {
+    const refreshToken = get().refreshToken;
+    if (!refreshToken) return null;
+
+    const authApi = await import("../services/auth/authApi");
+    const response = await authApi.refresh(refreshToken);
+    const data = response.data || response;
+
+    set((state) => {
+      const nextState = normalizeSessionData(data, {
+        ...state,
+        refreshToken,
+      });
+
+      writeSession(buildPersistedState(nextState));
+      return nextState;
+    });
+
+    return data;
+  },
+
+  loadMe: async () => {
+    if (!get().accessToken) return null;
+
+    const authApi = await import("../services/auth/authApi");
+    const response = await authApi.getMe();
+    const data = response.data || response;
+
+    set((state) => {
+      const nextState = normalizeSessionData(data, state);
+
+      writeSession(buildPersistedState(nextState));
+      return nextState;
+    });
+
+    return data;
+  },
+
+  selectWorkspace: async (membershipId) => {
+    const authApi = await import("../services/auth/authApi");
+    const response = await authApi.selectWorkspace(membershipId);
+    const data = response.data || response;
+
+    set((state) => {
+      const nextState = normalizeSessionData(data, state);
+
+      writeSession(buildPersistedState(nextState));
+      return nextState;
+    });
+
+    return {
+      ...data,
+      activeWorkspace: normalizeWorkspace(data.activeWorkspace),
+    };
+  },
 
   can: (permission) => {
     return hasPermission(get().permissions, permission);
@@ -107,12 +425,20 @@ const useSessionStore = create((set, get) => ({
   },
 
   clearSession: () => {
-    sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    clearStoredSession();
 
     set({
+      accessToken: null,
+      refreshToken: null,
       currentUser: null,
-      permissions: [],
+      activeWorkspace: null,
       workspace: null,
+      role: null,
+      permissions: [],
+      departmentId: null,
+      departmentName: null,
+      consoleType: "RESTRICTED",
+      isAuthenticated: false,
     });
   },
 }));

@@ -1,3 +1,5 @@
+import { formatDateTime as dfFormatDateTime, formatTime } from "../../../utils/dateFormat";
+
 export function normalizeStatus(status) {
   return String(status || "").trim().toUpperCase();
 }
@@ -31,30 +33,15 @@ export function convertToDateTimeLocal(value) {
 }
 
 export function formatDateTime(value) {
-  if (!value) return "N/A";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "N/A";
-  return date.toLocaleString();
+  return dfFormatDateTime(value) === "—" ? "N/A" : dfFormatDateTime(value);
 }
 
 export function formatAppointmentDateTime(value) {
-  if (!value) return "N/A";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "N/A";
-  return date.toLocaleString("en-GB", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return dfFormatDateTime(value) === "—" ? "N/A" : dfFormatDateTime(value);
 }
 
 export function formatShortTime(value) {
-  if (!value) return "N/A";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "N/A";
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return formatTime(value) === "—" ? "N/A" : formatTime(value);
 }
 
 export function getPatientName(appointment) {

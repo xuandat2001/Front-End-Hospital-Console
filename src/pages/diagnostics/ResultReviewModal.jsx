@@ -6,12 +6,7 @@ import { toast } from '../../components/Toast';
 import Icon from '../../components/dashboard/Icon';
 import ImageViewer from './ImageViewer';
 import PDFViewer from './PDFViewer';
-
-function formatDate(value) {
-  if (!value) return '';
-  const d = new Date(value);
-  return isNaN(d.getTime()) ? '' : d.toLocaleString();
-}
+import { formatDateTime } from '../../utils/dateFormat';
 
 const PRIORITY_COLORS = {
   CRITICAL: { bg: '#fef2f2', text: '#dc2626', dot: '#ef4444' },
@@ -377,7 +372,7 @@ export default function ResultReviewModal({ diagnosticId, department, onClose, o
 
         {isFinalized ? (
           <div style={{ padding: '8px 12px', borderRadius: 6, background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#16a34a', fontSize: 13, fontWeight: 600 }}>
-            Finalized{formatDate(review?.finalizedAt || diagnostic.updatedAt) ? ` on ${formatDate(review?.finalizedAt || diagnostic.updatedAt)}` : ''}
+            Finalized{formatDateTime(review?.finalizedAt || diagnostic.updatedAt) ? ` on ${formatDateTime(review?.finalizedAt || diagnostic.updatedAt)}` : ''}
           </div>
         ) : (
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
@@ -401,7 +396,7 @@ export default function ResultReviewModal({ diagnosticId, department, onClose, o
             <div style={{ marginTop: 8, maxHeight: 120, overflow: 'auto' }}>
               {data.auditLogs.map((log, i) => (
                 <div key={i} style={{ padding: '3px 0', borderBottom: '1px solid var(--line)' }}>
-                  <strong>{log.action}</strong> by {staffName(log.user)} &middot; {formatDate(log.timestamp)}
+                  <strong>{log.action}</strong> by {staffName(log.user)} &middot; {formatDateTime(log.timestamp)}
                 </div>
               ))}
             </div>

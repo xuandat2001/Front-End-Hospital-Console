@@ -476,6 +476,119 @@
   font-weight: 650;
 }
 
+.hospital-access-resolved {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  border: 1px solid color-mix(in srgb, var(--success) 30%, var(--line));
+  border-radius: 16px;
+  padding: 14px 15px;
+  background: color-mix(in srgb, var(--success) 9%, white);
+}
+
+.hospital-access-resolved div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hospital-access-resolved span {
+  color: var(--success);
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.hospital-access-resolved strong {
+  color: var(--text);
+  font-size: 0.98rem;
+  text-align: right;
+}
+
+.hospital-access-resolved p,
+.hospital-access-resolved small {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  font-weight: 680;
+}
+
+.hospital-access-mode {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 24px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 5px;
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.hospital-access-mode button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 10px;
+  color: var(--text-muted);
+  background: transparent;
+  font-size: 0.9rem;
+  font-weight: 780;
+}
+
+.hospital-access-mode button.is-active {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+}
+
+.hospital-access-input-wrap select {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  color: var(--text);
+  background: transparent;
+  font-size: 0.96rem;
+  font-weight: 700;
+  outline: 0;
+}
+
+.hospital-access-demo-note {
+  margin: 12px 0 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.hospital-access-workspaces {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.hospital-access-workspaces button {
+  display: grid;
+  gap: 3px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  padding: 10px 12px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.54);
+  text-align: left;
+}
+
+.hospital-access-workspaces button.is-selected {
+  border-color: color-mix(in srgb, var(--primary) 54%, var(--line));
+  background: color-mix(in srgb, var(--primary) 8%, white);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+
+.hospital-access-workspaces span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 720;
+  text-transform: uppercase;
+}
+
 .hospital-access-submit {
   display: inline-flex;
   width: 100%;

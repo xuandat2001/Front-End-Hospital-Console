@@ -9,6 +9,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
+import { formatTime, formatShortDateTime } from "../../../../utils/dateFormat";
 import {
   formatEmergencyStatus,
   getDeadlineState,
@@ -23,22 +24,12 @@ function getSeverityTone(severity) {
 
 function formatEta(eta) {
   if (!eta) return "Unavailable";
-  return new Date(eta).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatTime(eta);
 }
 
 function formatQueueDate(value) {
   if (!value) return "Unavailable";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Unavailable";
-  return date.toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatShortDateTime(value) || "Unavailable";
 }
 
 function getPatientAlias(request) {

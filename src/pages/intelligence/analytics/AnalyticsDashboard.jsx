@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import MiniLineChart from "../../../components/graphs/MiniLineChart";
 import MiniPieChart from "../../../components/graphs/MiniPieChart";
 import { intelligenceService } from "../../../services/intelligence/intelligenceApi";
+import { formatDateTime } from "../../../utils/dateFormat";
 
 const LIVE_REFRESH_MS = 30000;
 
@@ -138,12 +139,6 @@ function tallyDomainSeverity(insights) {
   });
 
   return baseline;
-}
-
-function toTime(value) {
-  if (!value) return "initializing";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "initializing" : date.toLocaleString();
 }
 
 function populationFromReport(reportPayload, fallbackPopulation) {
@@ -329,7 +324,7 @@ export default function AnalyticsDashboard() {
               Intelligence Command for real-time hospital decisions: capacity pressure, active risks, population shifts, and AI-ready outcome forecasting.
             </p>
             <p className="mt-0.5 text-xs text-slate-400">
-              Live snapshot updated {toTime(updatedAt)}
+              Live snapshot updated {formatDateTime(updatedAt)}
               {refreshing && " · refreshing…"}
             </p>
             {preview && (

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
+import { MOCK_MODE } from "../mocks/mockSession";
 import { icuService } from "../services/core-modules/icuApi";
-import { isMockMode } from "../services/mockApi";
 
 const POLL_INTERVAL = 20000;
 const SEVERITY_ORDER = {
@@ -33,7 +33,7 @@ export default function useIcuRealtime(filters) {
   const [overview, setOverview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [connectionState, setConnectionState] = useState("connecting");
+  const [connectionState, setConnectionState] = useState(MOCK_MODE ? "mock" : "connecting");
   const socketRef = useRef(null);
 
   const refreshOverview = useCallback(async () => {
@@ -67,10 +67,8 @@ export default function useIcuRealtime(filters) {
   }, [refresh]);
 
   useEffect(() => {
-    if (isMockMode) {
-      setConnectionState("connected");
-      const timer = window.setInterval(refresh, POLL_INTERVAL);
-      return () => window.clearInterval(timer);
+    if (MOCK_MODE) {
+      return;
     }
 
     const socket = io(icuService.gatewayUrl, {

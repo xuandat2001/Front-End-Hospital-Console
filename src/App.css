@@ -277,7 +277,7 @@
   .shadow-md.rounded-2xl,
   .shadow-xl.rounded-2xl,
   .shadow-2xl.rounded-2xl
-) {
+):not(button):not(a):not([role="button"]) {
   border-color: var(--glass-line) !important;
   background: var(--glass-surface) !important;
   box-shadow: var(--shadow-soft) !important;
@@ -296,6 +296,27 @@
   background: var(--glass-surface-strong) !important;
 }
 
+/* Keep solid action-button fills + white labels readable in the themed shell. */
+.dashboard-shell button:is(
+  .bg-indigo-500,
+  .bg-indigo-600,
+  .bg-sky-500,
+  .bg-sky-600,
+  .bg-amber-500,
+  .bg-amber-600,
+  .bg-amber-700,
+  .bg-red-500,
+  .bg-red-600,
+  .bg-red-700,
+  .bg-emerald-500,
+  .bg-emerald-600,
+  .bg-teal-600,
+  .bg-teal-700,
+  .bg-blue-600,
+  .bg-violet-500,
+  .bg-violet-600,
+  .bg-purple-700
+),
 .dashboard-shell :is(
   .bg-teal-600,
   .bg-teal-700,
@@ -305,6 +326,27 @@
   .bg-purple-700
 ) {
   color: #fff !important;
+}
+
+.dashboard-shell :is(
+  .bg-teal-600,
+  .bg-teal-700,
+  .bg-blue-600,
+  .bg-violet-500,
+  .bg-violet-600,
+  .bg-purple-700
+):not(button):not(a):not([role="button"]) {
+  background: var(--accent-gradient) !important;
+}
+
+.dashboard-shell button:is(
+  .bg-teal-600,
+  .bg-teal-700,
+  .bg-blue-600,
+  .bg-violet-500,
+  .bg-violet-600,
+  .bg-purple-700
+) {
   background: var(--accent-gradient) !important;
 }
 
@@ -1177,6 +1219,40 @@
   padding-bottom: 60px;
 }
 
+/* Patient module tabs: fit viewport; do not grow the main scroller */
+.dashboard-main:has(.patient-fit-page) {
+  overflow: hidden;
+}
+
+.dashboard-main:has(.patient-fit-page) .dashboard-content-stage {
+  padding-bottom: 12px;
+}
+
+.dashboard-main:has(.patient-fit-page) .patient-fit-page {
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+}
+
+/* Solid patient modals (portaled to body) — opaque, above floating chrome */
+.patient-solid-modal-overlay {
+  pointer-events: auto;
+}
+
+.patient-solid-modal-panel {
+  background-color: #ffffff !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.35) !important;
+  border-color: rgb(226 232 240) !important;
+}
+
+.dark .patient-solid-modal-panel {
+  background-color: rgb(15 23 42) !important;
+  border-color: rgb(51 65 85) !important;
+}
+
 .dashboard-module-bar {
   position: relative;
   z-index: 30;
@@ -1819,13 +1895,28 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  border: 1px solid color-mix(in srgb, var(--danger) 25%, transparent);
+  border: 1px solid var(--line);
   border-radius: 999px;
   padding: 0 7px 0 10px;
   color: var(--text-muted);
-  background: var(--danger-soft);
+  background: var(--surface-muted);
   font-size: 9px;
   text-align: left;
+}
+
+.alert-list button[data-level="critical"] {
+  border-color: color-mix(in srgb, var(--danger) 28%, transparent);
+  background: var(--danger-soft);
+}
+
+.alert-list button[data-level="warning"] {
+  border-color: color-mix(in srgb, var(--warning) 28%, transparent);
+  background: var(--warning-soft);
+}
+
+.alert-list button[data-level="info"] {
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .alert-list button.is-emergency-case {
@@ -1984,6 +2075,42 @@
   text-transform: uppercase;
 }
 
+.alert-severity-label {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+button[data-level="critical"] .alert-severity-label {
+  color: #fff;
+  background: var(--danger);
+}
+
+button[data-level="warning"] .alert-severity-label {
+  color: #fff;
+  background: var(--warning);
+}
+
+.dark button[data-level="warning"] .alert-severity-label {
+  color: #1a1a2e;
+}
+
+button[data-level="info"] .alert-severity-label {
+  color: #fff;
+  background: var(--accent);
+}
+
+.dark button[data-level="info"] .alert-severity-label {
+  color: #1a1a2e;
+}
+
 .alert-list button strong {
   color: var(--text);
   font-size: 10px;
@@ -2007,20 +2134,23 @@
   height: 12px;
   flex: 0 0 auto;
   border-radius: 50%;
-  background: var(--danger);
-  box-shadow: 0 0 0 3px var(--danger-soft);
+  background: var(--text-faint);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--text-faint) 20%, transparent);
 }
 
-.alert-list i[data-level="review"] {
+.alert-list i[data-level="critical"] {
+  background: var(--danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 30%, transparent);
+}
+
+.alert-list i[data-level="warning"] {
   background: var(--warning);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning) 30%, transparent);
 }
 
-.alert-list i[data-level="urgent"] {
-  background: var(--danger);
-}
-
-.alert-list i[data-level="ready"] {
-  background: var(--success);
+.alert-list i[data-level="info"] {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 .alert-list > p {
@@ -2055,6 +2185,19 @@
   color: var(--success);
   font-size: 10px;
   line-height: 1.4;
+}
+
+.quick-actions-card button.quick-action-active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+}
+
+[data-widget-hovered="true"] {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 18px;
+  cursor: crosshair;
 }
 
 .dashboard-notification-bar {
@@ -12799,12 +12942,13 @@ html *::-webkit-scrollbar-thumb:hover {
 }
 
 .dashboard-left-rail .dashboard-logo-card {
-  width: auto;
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
   min-height: 36px;
-  flex: 1;
+  flex: 0 0 auto;
   gap: 9px;
-  margin: 0;
+  margin: 0 0 10px;
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -12812,7 +12956,15 @@ html *::-webkit-scrollbar-thumb:hover {
   box-shadow: none !important;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  overflow: visible !important;
+  overflow: hidden !important;
+}
+
+.dashboard-left-rail .dashboard-logo-card__identity {
+  display: block;
+  min-width: 0;
+  max-width: calc(100% - 43px);
+  flex: 1 1 0;
+  overflow: hidden;
 }
 
 .dashboard-left-rail .dashboard-logo-card::before,
@@ -12832,23 +12984,37 @@ html *::-webkit-scrollbar-thumb:hover {
 }
 
 .dashboard-left-rail .dashboard-logo-card strong {
+  display: block;
+  overflow: hidden;
   font-size: 12px;
   letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dashboard-left-rail .dashboard-logo-card span {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
   margin-top: 1px;
   font-size: 8px;
   letter-spacing: 0.065em;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .dashboard-left-rail .dashboard-logo-card small {
+  display: block;
+  overflow: hidden;
   margin-top: 2px;
   color: var(--text-muted);
   font-size: 7px;
   font-weight: 700;
   letter-spacing: 0.04em;
+  text-overflow: ellipsis;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .dashboard-rail-toggle {
@@ -13425,4 +13591,69 @@ html *::-webkit-scrollbar-thumb:hover {
   .dashboard-left-rail [data-rail-tooltip]::after {
     transition: none !important;
   }
+}
+.session-badge {
+  position: fixed;
+  top: 14px;
+  right: 18px;
+  z-index: 60;
+  display: inline-flex;
+  max-width: min(420px, calc(100vw - 36px));
+  align-items: center;
+  gap: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 14px;
+  padding: 8px 10px 8px 12px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(12px);
+}
+
+.dark .session-badge {
+  border-color: rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.82);
+}
+
+.session-badge div {
+  display: grid;
+  min-width: 0;
+}
+
+.session-badge strong,
+.session-badge span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-badge strong {
+  color: #0f172a;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.dark .session-badge strong {
+  color: #f8fafc;
+}
+
+.session-badge span {
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.session-badge button {
+  min-height: 30px;
+  border: 1px solid rgba(148, 163, 184, 0.34);
+  border-radius: 10px;
+  padding: 0 10px;
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 0.76rem;
+  font-weight: 780;
+}
+
+.dark .session-badge button {
+  color: #e2e8f0;
+  background: rgba(30, 41, 59, 0.8);
 }

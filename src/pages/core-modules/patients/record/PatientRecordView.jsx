@@ -5,13 +5,8 @@ import { getRegistrationsByEllyId } from "../../../../services/registration/regi
 import { isPatientRegisteredAtHospital } from "../../../../utils/patientHospitalAccess";
 import RegistrationSummary from "./RegistrationSummary";
 import PatientBodyModelSlot from "./PatientBodyModelSlot";
-
-function toTime(value) {
-  if (!value) return "N/A";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "N/A";
-  return date.toLocaleString();
-}
+import PatientRiskMonitorPanel from "./PatientRiskMonitorPanel";
+import { formatDateTime } from "../../../../utils/dateFormat";
 
 function timeOf(value) {
   if (!value) return 0;
@@ -101,6 +96,7 @@ function InfoItem({ label, value }) {
 const TABS = [
   { id: "overview", label: "Overview" },
   { id: "medical-profile", label: "Medical Profile" },
+  { id: "risk-monitor", label: "Risk Monitor" },
   { id: "clinical", label: "Clinical History" },
   { id: "registration", label: "Registration" },
   { id: "admission", label: "Admission & Discharge" },
@@ -134,16 +130,22 @@ const EMPTY = {
  * per-patient endpoints (scoped to the session hospital), independent of the
  * census snapshot. Read-only.
  */
-export default function PatientRecordView({ ellyId, workspace }) {
+export default function PatientRecordView({ ellyId, workspace, initialTab = "overview" }) {
   const [state, setState] = useState(EMPTY);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [restricted, setRestricted] = useState(false);
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(initialTab || "overview");
   const [activeBodySystem, setActiveBodySystem] = useState("overview");
 
+  useEffect(() => {
+    if (initialTab) setActiveTab(initialTab);
+  }, [ellyId, initialTab]);
+
   const hospitalId = workspace?.ellyHospitalId || workspace?.id || undefined;
+  const hospitalEllyId =
+    workspace?.ellyHospitalId || workspace?.hospitalEllyId || undefined;
   const hospitalName = workspace?.hospitalName;
 
   useEffect(() => {
@@ -152,7 +154,7 @@ export default function PatientRecordView({ ellyId, workspace }) {
     setNotFound(false);
     setRestricted(false);
     setError("");
-    setActiveTab("overview");
+    setActiveTab(initialTab || "overview");
     setActiveBodySystem("overview");
 
     async function load() {
@@ -222,7 +224,7 @@ export default function PatientRecordView({ ellyId, workspace }) {
     return () => {
       cancelled = true;
     };
-  }, [ellyId, hospitalId, workspace]);
+  }, [ellyId, hospitalId, workspace, initialTab]);
 
   const admissionsHistory = useMemo(
     () => sortByDateDesc(state.admissions, "admittedAt"),
@@ -238,6 +240,32 @@ export default function PatientRecordView({ ellyId, workspace }) {
         (a, b) => getClinicalRecordTimestamp(b) - getClinicalRecordTimestamp(a),
       ),
     [state.medicalRecords],
+  );
+
+  const tabOptions = useMemo(
+    () =>
+      TABS.map((tab) => {
+        const count =
+          tab.id === "clinical"
+            ? clinicalHistory.length
+            : tab.id === "registration"
+              ? state.registrations.length
+              : tab.id === "admission"
+                ? admissionsHistory.length
+                : tab.id === "surgery"
+                  ? surgeriesHistory.length
+                  : null;
+        return {
+          ...tab,
+          label: count !== null && count > 0 ? `${tab.label} (${count})` : tab.label,
+        };
+      }),
+    [
+      admissionsHistory.length,
+      clinicalHistory.length,
+      state.registrations.length,
+      surgeriesHistory.length,
+    ],
   );
 
   const currentAdmission = useMemo(
@@ -318,8 +346,8 @@ export default function PatientRecordView({ ellyId, workspace }) {
 
   return (
     <RecordShell>
-      <div className="flex h-full min-h-0 flex-col gap-4 xl:flex-row xl:items-stretch">
-        <section className="min-h-[480px] shrink-0 flex-1 xl:h-full xl:min-h-0 xl:basis-[58%]">
+      <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden xl:flex-row xl:items-stretch">
+        <section className="min-h-0 shrink-0 flex-1 overflow-hidden xl:basis-[58%]">
           <PatientBodyModelSlot
             activeSystem={activeBodySystem}
             onSystemChange={setActiveBodySystem}
@@ -328,7 +356,7 @@ export default function PatientRecordView({ ellyId, workspace }) {
         </section>
 
         <aside
-          className={`flex h-full min-h-0 flex-col overflow-hidden xl:basis-[42%] xl:max-w-xl ${GLASS_PANEL}`}
+          className={`flex min-h-0 flex-1 flex-col overflow-hidden xl:basis-[42%] xl:max-w-xl ${GLASS_PANEL}`}
         >
           <div className="shrink-0 border-b border-white/50 p-5 dark:border-slate-700/80">
             <PatientRecordHeader
@@ -338,34 +366,41 @@ export default function PatientRecordView({ ellyId, workspace }) {
               isInPatient={isInPatient}
             />
 
-            <div className="mt-4 flex flex-wrap gap-1.5">
-              {TABS.map((tab) => {
-                const count =
-                  tab.id === "clinical"
-                    ? clinicalHistory.length
-                    : tab.id === "registration"
-                      ? state.registrations.length
-                      : tab.id === "admission"
-                        ? admissionsHistory.length
-                        : tab.id === "surgery"
-                          ? surgeriesHistory.length
-                          : null;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors ${
-                      activeTab === tab.id
-                        ? "bg-violet-600 text-white shadow-sm"
-                        : "bg-white/60 text-slate-600 hover:bg-white dark:bg-slate-800/80 dark:text-slate-300 dark:hover:bg-slate-700"
-                    }`}
+            <div className="mt-4">
+              <label
+                htmlFor="patient-record-section"
+                className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-500"
+              >
+                Record section
+              </label>
+              <div className="relative">
+                <select
+                  id="patient-record-section"
+                  value={activeTab}
+                  onChange={(event) => setActiveTab(event.target.value)}
+                  className="w-full appearance-none rounded-lg border border-violet-300/70 bg-white px-3 py-2.5 pr-10 text-sm font-semibold text-slate-800 outline-none transition-colors hover:border-violet-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-200 dark:border-violet-500/40 dark:bg-slate-900 dark:text-slate-100 dark:hover:border-violet-400/60 dark:focus:ring-violet-500/30"
+                >
+                  {tabOptions.map((tab) => (
+                    <option key={tab.id} value={tab.id}>
+                      {tab.label}
+                    </option>
+                  ))}
+                </select>
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
+                  <svg
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                    className="h-4 w-4"
                   >
-                    {tab.label}
-                    {count !== null && count > 0 ? ` (${count})` : ""}
-                  </button>
-                );
-              })}
+                    <path
+                      fillRule="evenodd"
+                      d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </span>
+              </div>
             </div>
           </div>
 
@@ -376,6 +411,13 @@ export default function PatientRecordView({ ellyId, workspace }) {
 
             {activeTab === "medical-profile" && (
               <MedicalProfileSection medicalProfile={state.medicalProfile} />
+            )}
+
+            {activeTab === "risk-monitor" && (
+              <PatientRiskMonitorPanel
+                patientEllyId={ellyId}
+                hospitalEllyId={hospitalEllyId}
+              />
             )}
 
             {activeTab === "clinical" && (
@@ -406,7 +448,7 @@ export default function PatientRecordView({ ellyId, workspace }) {
 
 function RecordShell({ children }) {
   return (
-    <div className="h-full overflow-hidden bg-gradient-to-br from-sky-50 via-slate-50 to-blue-100/80 px-4 pb-4 pt-2 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+    <div className="h-full min-h-0 overflow-hidden bg-gradient-to-br from-sky-50 via-slate-50 to-blue-100/80 px-4 pb-3 pt-2 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       {children}
     </div>
   );
@@ -491,7 +533,7 @@ function OverviewSection({ patient, statusLabel }) {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <InfoItem label="Full Name" value={patient.fullName} />
           <InfoItem label="Gender" value={patient.gender} />
-          <InfoItem label="Date of Birth" value={toTime(patient.dateOfBirth)} />
+          <InfoItem label="Date of Birth" value={formatDateTime(patient.dateOfBirth)} />
           <InfoItem label="Phone" value={patient.phone} />
           <InfoItem label="Email" value={patient.email} />
           <InfoItem label="Current Status" value={statusLabel} />
@@ -589,7 +631,7 @@ function ClinicalHistorySection({ records }) {
             color: "#64748B",
           };
           const recordDate = getClinicalRecordTimestamp(record);
-          const displayDate = recordDate ? toTime(recordDate) : "N/A";
+          const displayDate = recordDate ? formatDateTime(recordDate) : "N/A";
 
           return (
             <article
@@ -651,8 +693,8 @@ function AdmissionSection({ currentAdmission, admissionsHistory, isInPatient }) 
           <InfoItem label="Patient Type" value={isInPatient ? "Inpatient" : "Outpatient"} />
           <InfoItem label="Admission Status" value={admission.currentStatus} />
           <InfoItem label="Admission Reason" value={admission.admissionReason} />
-          <InfoItem label="Admitted At" value={toTime(admission.admittedAt)} />
-          <InfoItem label="Discharged At" value={toTime(admission.dischargedAt)} />
+          <InfoItem label="Admitted At" value={formatDateTime(admission.admittedAt)} />
+          <InfoItem label="Discharged At" value={formatDateTime(admission.dischargedAt)} />
           <InfoItem label="Department" value={admission.department?.name || admission.department?.id} />
           <InfoItem
             label="Room / Bed"
@@ -674,8 +716,8 @@ function AdmissionSection({ currentAdmission, admissionsHistory, isInPatient }) 
                 <p className="font-semibold text-slate-800 dark:text-slate-200">
                   {item.currentStatus} • {item.department?.name || item.department?.id || "-"}
                 </p>
-                <p className="text-slate-500">Admitted: {toTime(item.admittedAt)}</p>
-                <p className="text-slate-500">Discharged: {toTime(item.dischargedAt)}</p>
+                <p className="text-slate-500">Admitted: {formatDateTime(item.admittedAt)}</p>
+                <p className="text-slate-500">Discharged: {formatDateTime(item.dischargedAt)}</p>
                 <p className="text-slate-500">Room/Bed: {item.roomId || "-"} / {item.bedId || "-"}</p>
                 <p className="text-slate-500">Doctor: {item.doctor?.name || item.doctor?.id || "-"}</p>
               </div>
@@ -700,7 +742,7 @@ function SurgerySection({ currentSurgery, surgeriesHistory }) {
           <InfoItem label="Procedure" value={surgery.procedureName} />
           <InfoItem label="Diagnosis" value={surgery.diagnosis} />
           <InfoItem label="Surgery Type" value={surgery.surgeryType} />
-          <InfoItem label="Scheduled Date" value={toTime(surgery.scheduledDate)} />
+          <InfoItem label="Scheduled Date" value={formatDateTime(surgery.scheduledDate)} />
           <InfoItem label="Operating Room" value={surgery.operatingRoom} />
           <InfoItem label="Outcome" value={surgery.outcome} />
         </div>
@@ -716,7 +758,7 @@ function SurgerySection({ currentSurgery, surgeriesHistory }) {
                 </p>
                 <p className="text-slate-500">Status: {item.status || "-"}</p>
                 <p className="text-slate-500">Type: {item.surgeryType || "-"}</p>
-                <p className="text-slate-500">Scheduled: {toTime(item.scheduledDate)}</p>
+                <p className="text-slate-500">Scheduled: {formatDateTime(item.scheduledDate)}</p>
                 <p className="text-slate-500">Operating Room: {item.operatingRoom || "-"}</p>
               </div>
             ))

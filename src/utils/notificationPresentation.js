@@ -1,4 +1,5 @@
 import { formatEmergencyStatus } from "./emergencyPresentation";
+import { formatSmart } from "./dateFormat";
 
 export function getNotificationTime(notification) {
   return new Date(
@@ -114,13 +115,9 @@ export function countActionRequiredNotifications(notifications) {
   return notifications.filter((notification) => notification.actionRequired)
     .length;
 }
-
 export function formatNotificationTime(value) {
-  if (!value) return "—";
-  return new Date(value).toLocaleString([], {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  if (!value) return "\u2014";
+  return formatSmart(value);
 }
 
 export function buildAllNotifications(realtime, registrationRealtime) {

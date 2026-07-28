@@ -1,5 +1,6 @@
 import { gatewayUrl, hospitalIdentity } from "../emergency/emergencyRealtimeApi";
-import { isMockMode, mockGatewayRequest } from "../mockApi";
+import { MOCK_MODE } from "../../mocks/mockSession";
+import { mockDirectData } from "../mock/mockApi";
 
 const DEFAULT_RANGE = "7d";
 
@@ -8,8 +9,8 @@ function sanitizeRange(range) {
 }
 
 async function emergencyPerformanceRequest(path, range = DEFAULT_RANGE, options = {}) {
-  if (isMockMode) {
-    return mockGatewayRequest(`${path}?range=${encodeURIComponent(sanitizeRange(range))}`, options);
+  if (MOCK_MODE) {
+    return mockDirectData(path, { ...options, range });
   }
 
   let response;

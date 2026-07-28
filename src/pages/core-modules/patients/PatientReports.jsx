@@ -158,19 +158,16 @@ export default function PatientReports() {
   };
 
   return (
-    <div className="relative px-6 pb-6 pt-4">
+    <div className="patient-fit-page flex h-full min-h-0 flex-col gap-3 overflow-hidden px-4 pb-3 pt-3 sm:px-5">
       {/* Header */}
-      <div className="sticky top-3 z-20 mb-6 rounded-2xl border border-white/60 bg-white/55 px-5 py-4 shadow-lg shadow-slate-900/8 ring-1 ring-white/70 backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/45 dark:shadow-black/30 dark:ring-white/5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <header className="shrink-0 rounded-2xl border border-white/60 bg-white/55 px-4 py-3 shadow-sm ring-1 ring-white/70 backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/45 dark:ring-white/5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-bold text-slate-950 dark:text-white sm:text-2xl">
+            <h1 className="text-lg font-bold text-slate-950 dark:text-white sm:text-xl">
               Patient Reports
             </h1>
-            <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-300">
-              Historical Daily Census, Demographics, and Incident Logs. Compile historical data for compliance, auditing, and strategic review.
-            </p>
-            <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
-              {totals.total} total patients — {totals.active} active, {totals.inactive} inactive
+            <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
+              {totals.total} patients — {totals.active} active, {totals.inactive} inactive · census, demographics, incidents
             </p>
             {preview && (
               <p className="mt-1 text-xs text-amber-500">
@@ -195,7 +192,9 @@ export default function PatientReports() {
             </button>
           </div>
         </div>
-      </div>
+      </header>
+
+      <div className="min-h-0 flex-1 overflow-y-auto">
 
       <div className="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-[1.15fr_0.85fr] xl:items-start">
         {/* Demographics breakdown */}
@@ -328,6 +327,7 @@ export default function PatientReports() {
             />
           </div>
         </section>
+      </div>
       </div>
 
       {showCensusListModal && (
