@@ -4,11 +4,11 @@ import { staffName, ensureStaffLoaded } from '../../services/core-modules/staffL
 import { toast } from '../../components/Toast';
 import ResultReviewModal from './ResultReviewModal';
 import Icon from '../../components/dashboard/Icon';
+import useSessionStore from '../../store/useSessionStore';
 
 const QUEUE_TABS = [
-  { id: 'PENDING_REVIEW', label: 'Pending Review' },
+  { id: 'IN_PROGRESS', label: 'In Progress' },
   { id: 'IN_REVIEW', label: 'In Review' },
-  { id: 'CRITICAL', label: 'Critical' },
   { id: 'FINALIZED', label: 'Finalized' },
   { id: 'IMAGES', label: 'Images' },
 ];
@@ -20,8 +20,14 @@ const PRIORITY_COLORS = {
   LOW: { bg: '#f0fdf4', text: '#16a34a', dot: '#22c55e' },
 };
 
-function QueueCard({ item, onClick }) {
+const ADMIN_STATUS_OPTIONS = [
+  { value: 'IN_PROGRESS', label: 'In Progress' },
+  { value: 'IN_REVIEW', label: 'In Review' },
+];
+
+function QueueCard({ item, canManageStatus, canDeleteOrder, updatingStatus, deletingOrder, onClick, onStatusChange, onDeleteOrder }) {
   const c = PRIORITY_COLORS[item.priority] || PRIORITY_COLORS.MEDIUM;
+  const statusValue = item.status;
   const fileRef = useRef(null);
   const [uploading, setUploading] = useState(false);
 
@@ -68,6 +74,40 @@ function QueueCard({ item, onClick }) {
         </div>
       </button>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        {canManageStatus && item.status !== 'FINALIZED' && (
+          <select
+            value={statusValue}
+            disabled={updatingStatus}
+            onChange={(e) => onStatusChange(item._id, e.target.value)}
+            title="Change order status"
+            style={{
+              height: 28, maxWidth: 142, border: '1px solid var(--line)', borderRadius: 6,
+              background: 'var(--surface)', color: 'var(--text)', fontSize: 11,
+              fontWeight: 700, padding: '0 6px', outline: 'none',
+              cursor: updatingStatus ? 'wait' : 'pointer',
+            }}
+          >
+            {ADMIN_STATUS_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        )}
+        {canDeleteOrder && item.status !== 'FINALIZED' && (
+          <button
+            type="button"
+            disabled={deletingOrder}
+            onClick={() => onDeleteOrder(item)}
+            title="Delete order"
+            style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 28, height: 28, border: '1px solid var(--line)', borderRadius: 6,
+              background: 'var(--surface)', color: '#dc2626', cursor: deletingOrder ? 'wait' : 'pointer',
+              padding: 0, opacity: deletingOrder ? 0.5 : 1,
+            }}
+          >
+            <Icon name="close" size={14} />
+          </button>
+        )}
         <span
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700,
@@ -81,7 +121,7 @@ function QueueCard({ item, onClick }) {
         {item.aiReviewStatus === 'COMPLETED' && (
           <span style={{ fontSize: 10, color: '#16a34a', fontWeight: 600 }}>AI ✓</span>
         )}
-        {item.doctorStatus === 'FINALIZED' && (
+        {item.status === 'FINALIZED' && (
           <span style={{ fontSize: 10, color: '#2563eb', fontWeight: 600 }}>Finalized</span>
         )}
         <input
@@ -115,8 +155,10 @@ function QueueCard({ item, onClick }) {
   );
 }
 
-export default function DiagnosticsPopup({ department, onClose, offsetIndex = 0 }) {
-  const [activeTab, setActiveTab] = useState('PENDING_REVIEW');
+export default function DiagnosticsPopup({ department, patientEllyId, onClose, offsetIndex = 0 }) {
+  const sessionRole = useSessionStore((state) => state.role || state.currentUser?.role);
+  const normalizedPatientEllyId = patientEllyId ? String(patientEllyId).trim() : '';
+  const [activeTab, setActiveTab] = useState(() => (normalizedPatientEllyId ? 'FINALIZED' : 'IN_PROGRESS'));
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -139,7 +181,14 @@ export default function DiagnosticsPopup({ department, onClose, offsetIndex = 0 
   const [imageFile, setImageFile] = useState(null);
   const [imageUploadTarget, setImageUploadTarget] = useState('');
   const [imageUploading, setImageUploading] = useState(false);
+  const [updatingStatusId, setUpdatingStatusId] = useState(null);
+  const [deletingOrderId, setDeletingOrderId] = useState(null);
+  const canManageOrderStatus = sessionRole === 'HOSPITAL_ADMIN';
+  const canDeleteOrders = sessionRole === 'HOSPITAL_ADMIN';
 
+  useEffect(() => {
+    if (normalizedPatientEllyId) setActiveTab('FINALIZED');
+  }, [normalizedPatientEllyId]);
 
   useEffect(() => { ensureStaffLoaded(); }, []);
   function onHeaderMouseDown(e) {
@@ -173,10 +222,8 @@ export default function DiagnosticsPopup({ department, onClose, offsetIndex = 0 
       setError('');
       try {
         const params = { department, limit: 50 };
-        if (activeTab === 'CRITICAL') {
-          params.priority = 'CRITICAL';
-          params.status = 'PENDING_REVIEW';
-        } else if (activeTab !== 'IMAGES') {
+        if (normalizedPatientEllyId) params.ellyId = normalizedPatientEllyId;
+        if (activeTab !== 'IMAGES') {
           params.status = activeTab;
         }
         if (debouncedSearch.trim() && activeTab !== 'IMAGES') params.search = debouncedSearch.trim();
@@ -196,13 +243,12 @@ export default function DiagnosticsPopup({ department, onClose, offsetIndex = 0 
 
     load();
     return () => { cancelled = true; };
-  }, [department, activeTab, debouncedSearch]);
+  }, [department, normalizedPatientEllyId, activeTab, debouncedSearch]);
 
   const getTabCount = (tabId) => {
     if (!stats) return '';
-    if (tabId === 'PENDING_REVIEW') return stats.pending ?? '';
+    if (tabId === 'IN_PROGRESS') return stats.inProgress ?? '';
     if (tabId === 'IN_REVIEW') return stats.inReview ?? '';
-    if (tabId === 'CRITICAL') return stats.critical ?? '';
     if (tabId === 'FINALIZED') return stats.finalized ?? '';
     return '';
   };
@@ -211,10 +257,8 @@ export default function DiagnosticsPopup({ department, onClose, offsetIndex = 0 
     setLoading(true);
     setError('');
     const params = { department, limit: 50 };
-    if (activeTab === 'CRITICAL') {
-      params.priority = 'CRITICAL';
-      params.status = 'PENDING_REVIEW';
-    } else if (activeTab !== 'IMAGES') {
+    if (normalizedPatientEllyId) params.ellyId = normalizedPatientEllyId;
+    if (activeTab !== 'IMAGES') {
       params.status = activeTab;
     }
     if (search.trim() && activeTab !== 'IMAGES') params.search = search.trim();
@@ -247,7 +291,35 @@ export default function DiagnosticsPopup({ department, onClose, offsetIndex = 0 
     }
   }
 
+  async function handleStatusChange(id, status) {
+    setUpdatingStatusId(id);
+    try {
+      await diagnosticsService.updateStatus(id, status);
+      toast('Diagnostic order status updated');
+      reload();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setUpdatingStatusId(null);
+    }
+  }
+
+  async function handleDeleteOrder(item) {
+    if (!window.confirm(`Delete ${item.testType} order for ${item.patientName || item.ellyId}?`)) return;
+    setDeletingOrderId(item._id);
+    try {
+      await diagnosticsService.deleteOrder(item._id);
+      toast('Diagnostic order deleted');
+      reload();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setDeletingOrderId(null);
+    }
+  }
+
   const departmentLabel = department === 'RADIOLOGY' ? 'Radiology' : 'Laboratory';
+  const patientContextLabel = normalizedPatientEllyId ? ` · ${normalizedPatientEllyId}` : '';
 
   return (
     <div className="diagnostics-overlay">
@@ -258,7 +330,7 @@ export default function DiagnosticsPopup({ department, onClose, offsetIndex = 0 
       />
       <section
         className="diagnostics-panel"
-        aria-label={`${departmentLabel} Review Queue`}
+        aria-label={`${departmentLabel} Review Queue${patientContextLabel}`}
         role="dialog"
         aria-modal="true"
         style={{ top: pos.y, left: pos.x }}
@@ -272,7 +344,7 @@ export default function DiagnosticsPopup({ department, onClose, offsetIndex = 0 
               <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>
                 Diagnostics
               </span>
-              <h2 style={{ margin: '4px 0 0', fontSize: 21, fontWeight: 820 }}>{departmentLabel} Review Queue</h2>
+              <h2 style={{ margin: '4px 0 0', fontSize: 21, fontWeight: 820 }}>{departmentLabel} Review Queue{patientContextLabel}</h2>
             </div>
           </div>
           <button
@@ -294,7 +366,9 @@ export default function DiagnosticsPopup({ department, onClose, offsetIndex = 0 
               type="button"
             >
               <span>{tab.label}</span>
-              <span className="diagnostics-tab-count">{getTabCount(tab.id)}</span>
+              {getTabCount(tab.id) !== '' && (
+                <span className="diagnostics-tab-count">{getTabCount(tab.id)}</span>
+              )}
             </button>
           ))}
         </div>
@@ -380,12 +454,22 @@ export default function DiagnosticsPopup({ department, onClose, offsetIndex = 0 
           ) : items.length === 0 ? (
             <div className="diagnostics-empty">
               <Icon name="sparkle" size={32} />
-              <p>No {activeTab === 'PENDING_REVIEW' ? 'pending' : activeTab === 'IN_REVIEW' ? 'in-review' : activeTab === 'CRITICAL' ? 'critical' : activeTab === 'FINALIZED' ? 'finalized' : ''} results</p>
+              <p>No {activeTab === 'IN_PROGRESS' ? 'in-progress' : activeTab === 'IN_REVIEW' ? 'in-review' : activeTab === 'FINALIZED' ? 'finalized' : ''} results</p>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {items.map((item) => (
-                <QueueCard key={item._id} item={item} onClick={setReviewingId} />
+                <QueueCard
+                  key={item._id}
+                  item={item}
+                  canManageStatus={canManageOrderStatus}
+                  canDeleteOrder={canDeleteOrders}
+                  updatingStatus={updatingStatusId === item._id}
+                  deletingOrder={deletingOrderId === item._id}
+                  onClick={setReviewingId}
+                  onStatusChange={handleStatusChange}
+                  onDeleteOrder={handleDeleteOrder}
+                />
               ))}
             </div>
           )}

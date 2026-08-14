@@ -12,7 +12,7 @@ const navData = {
     tabs: {
       dashboard: "command",
       performance: "overview-performance",
-      planning: "N/A",
+      planning: "surgery-planning",
       resources: "staffing",
       reports: "overview-reports",
     },
@@ -77,7 +77,7 @@ const navData = {
         tabs: {
           dashboard: "clinic-doctor-dashboard",
           performance: "clinic-doctor-schedule",
-          planning: "clinic-doctor-patients",
+          planning: "clinic-doctor-surgery-request",
           resources: "clinic-doctor-messages",
           reports: "clinic-doctor-reports",
         },
@@ -104,43 +104,15 @@ const navData = {
           reports: "appointment-booking-management",
         },
       },
-    },
-  },
-  "clinical-ops": {
-    label: "Clinical Ops",
-    icon: "records",
-    requiredAny: [
-      PERMISSIONS.ADMISSION_READ,
-      PERMISSIONS.SURGERY_READ,
-    ],
-    subsections: {
-      registration: {
-        label: "Registration",
-        requiredPermission: PERMISSIONS.ADMISSION_READ,
+      "follow-up-care": {
+        label: "Follow-up Care",
+        requiredPermission: PERMISSIONS.FOLLOW_UP_READ,
         tabs: {
-          dashboard: "patient",
-          performance: "patient-registration-performance",
-          reports: "patient-registration-reports",
-        },
-      },
-      admission: {
-        label: "Admission & Discharge",
-        requiredPermission: PERMISSIONS.ADMISSION_READ,
-        tabs: {
-          dashboard: "admissions",
-          performance: "admission-performance",
-          planning: "patient-workflow",
-          reports: "admission-reports",
-        },
-      },
-      surgery: {
-        label: "Surgery",
-        requiredPermission: PERMISSIONS.SURGERY_READ,
-        tabs: {
-          dashboard: "surgery-records",
-          performance: "surgery-performance",
-          planning: "surgery-planning",
-          reports: "surgery-reports",
+          dashboard: "doctor-follow-up-care",
+          performance: "doctor-follow-up-care",
+          planning: "doctor-follow-up-care",
+          resources: "doctor-follow-up-care",
+          reports: "doctor-follow-up-care",
         },
       },
     },

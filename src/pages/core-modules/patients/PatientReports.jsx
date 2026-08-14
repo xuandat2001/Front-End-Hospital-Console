@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { intelligenceService } from "../../../services/intelligence/intelligenceApi";
 
 // Department color palette — assigned by order so any department set returned by
@@ -472,18 +473,23 @@ function LegendDot({ color, label }) {
 }
 
 function CensusReportsModal({ reports, downloadingReportId, onClose, onReview, onDownload }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-6">
-      <div className="w-full max-w-5xl rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
+  return createPortal(
+    <div
+      className="console-tinted-popup-layer fixed inset-0 z-[12000] flex items-center justify-center bg-black/60 px-4 py-6"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="census-reports-title"
+    >
+      <div className="console-tinted-popup w-full max-w-5xl rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-700">
           <div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Historical Daily Census Reports List</h2>
+            <h2 id="census-reports-title" className="text-lg font-bold text-slate-900 dark:text-white">Historical Daily Census Reports List</h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">Logic-Based</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="relative z-10 inline-flex min-h-10 min-w-16 shrink-0 items-center justify-center rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             Close
           </button>
@@ -540,23 +546,29 @@ function CensusReportsModal({ reports, downloadingReportId, onClose, onReview, o
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
 function IncidentLogsModal({ logs, onClose, onReview }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-6">
-      <div className="w-full max-w-5xl rounded-xl border border-amber-200 bg-white shadow-xl dark:border-amber-900/40 dark:bg-slate-900">
+  return createPortal(
+    <div
+      className="console-tinted-popup-layer fixed inset-0 z-[12000] flex items-center justify-center bg-black/60 px-4 py-6"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="incident-logs-title"
+    >
+      <div className="console-tinted-popup w-full max-w-5xl rounded-xl border border-amber-200 bg-white shadow-xl dark:border-amber-900/40 dark:bg-slate-900">
         <div className="flex items-center justify-between border-b border-amber-200 bg-amber-50/60 px-5 py-4 dark:border-amber-900/40 dark:bg-amber-950/20">
           <div>
-            <h2 className="text-lg font-bold text-amber-950 dark:text-amber-100">Recent Incident Logs</h2>
+            <h2 id="incident-logs-title" className="text-lg font-bold text-amber-950 dark:text-amber-100">Recent Incident Logs</h2>
             <p className="text-xs text-amber-700/80 dark:text-amber-300/80">Logic-Based</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="relative z-10 inline-flex min-h-10 min-w-16 shrink-0 items-center justify-center rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             Close
           </button>
@@ -601,7 +613,8 @@ function IncidentLogsModal({ logs, onClose, onReview }) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { staffService } from "../../services/core-modules/staffApi";
 
 const DAYS = [
@@ -61,10 +62,15 @@ export default function StaffSchedulePanel({ member, onClose, onSaved }) {
 
   if (!member) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="w-full max-w-2xl rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900">
-        <h2 className="mb-2 text-xl font-bold">Schedule</h2>
+  return createPortal(
+    <div
+      className="console-tinted-popup-layer staff-resource-popup-layer fixed inset-0 z-[12000] flex items-center justify-center bg-black/60 px-4 py-6"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="staff-schedule-title"
+    >
+      <div className="console-tinted-popup staff-resource-popup max-h-full w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-950" data-tone="staff-resource-popup">
+        <h2 id="staff-schedule-title" className="mb-2 text-xl font-bold">Schedule</h2>
         <p className="mb-4 text-sm text-slate-500">{member.fullName}</p>
 
         <div className="overflow-hidden rounded-xl border bg-white shadow-sm text-black dark:bg-slate-800 dark:text-white">
@@ -128,6 +134,7 @@ export default function StaffSchedulePanel({ member, onClose, onSaved }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

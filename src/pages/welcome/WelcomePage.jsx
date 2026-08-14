@@ -1,22 +1,26 @@
 import useSessionStore from "../../store/useSessionStore";
 import { ROLES } from "../../constant/rbac";
 
+const DOCTOR_ROLES = new Set([ROLES.DOCTOR, ROLES.CLINIC_DOCTOR]);
+
+const DOCTOR_MODULES = [
+  { label: "My Clinic", desc: "Personal clinic dashboard and schedule" },
+  { label: "Patients", desc: "View and manage patient records" },
+  { label: "Appointments", desc: "Manage appointment bookings" },
+  { label: "Surgery", desc: "Submit and track surgery requests" },
+  { label: "Reports", desc: "Access clinic reports and analytics" },
+];
+
 const MODULES = {
   [ROLES.HOSPITAL_ADMIN]: [
     { label: "Command Center", desc: "Real-time hospital overview and capacity monitoring" },
     { label: "Core Modules", desc: "Staff, patients, rooms, and ICU management" },
     { label: "Operations", desc: "Emergency workflow and appointment booking" },
-    { label: "Clinical Ops", desc: "Registration, admissions, and surgery management" },
     { label: "Analytics", desc: "Performance dashboards and intelligence reports" },
     { label: "Insights", desc: "AI-powered recommendations and clinical insights" },
   ],
-  [ROLES.CLINIC_DOCTOR]: [
-    { label: "My Clinic", desc: "Personal clinic dashboard and schedule" },
-    { label: "Patients", desc: "View and manage patient records" },
-    { label: "Appointments", desc: "Manage appointment bookings" },
-    { label: "Surgery", desc: "Submit and track surgery requests" },
-    { label: "Reports", desc: "Access clinic reports and analytics" },
-  ],
+  [ROLES.DOCTOR]: DOCTOR_MODULES,
+  [ROLES.CLINIC_DOCTOR]: DOCTOR_MODULES,
 };
 
 const MODULE_COLORS = [
@@ -33,14 +37,14 @@ export default function WelcomePage() {
   const workspace = useSessionStore((s) => s.workspace);
 
   const role = currentUser?.role || ROLES.HOSPITAL_ADMIN;
-  const isClinicDoctor = role === ROLES.CLINIC_DOCTOR;
+  const isDoctor = DOCTOR_ROLES.has(role);
   const modules = MODULES[role] || MODULES[ROLES.HOSPITAL_ADMIN];
 
   const rawName = currentUser?.fullName || "User";
   const greetingName = rawName.replace(/^Dr\.?\s*/i, "").split(" ")[0];
 
-  const roleTitle = isClinicDoctor ? "Clinic Doctor" : "Hospital Admin";
-  const roleDesc = isClinicDoctor
+  const roleTitle = isDoctor ? "Doctor" : "Hospital Admin";
+  const roleDesc = isDoctor
     ? "You have access to your clinic dashboard, patient records, surgery requests, and appointments."
     : "You have full access to manage hospital operations, staff, patients, and system-wide analytics.";
 

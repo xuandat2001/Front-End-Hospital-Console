@@ -1,9 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import useSessionStore from "../../store/useSessionStore";
 import Icon from "./Icon";
+import PatientSearchBox from "./PatientSearchBox";
 import { workspaceModules } from "./workspaceModules";
 
-function ModuleBar({ activeModule, onModuleChange, onNavigationOpen }) {
+function ModuleBar({
+  activeModule,
+  onModuleChange,
+  onNavigationOpen,
+  onPatientSearch,
+}) {
   const workspace = useSessionStore((state) => state.workspace);
   const [isOpen, setIsOpen] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(0);
@@ -180,6 +186,13 @@ function ModuleBar({ activeModule, onModuleChange, onNavigationOpen }) {
             </div>
           )}
         </div>
+
+        {onPatientSearch && (
+          <PatientSearchBox
+            className="dashboard-module-search"
+            onPatientSearch={onPatientSearch}
+          />
+        )}
       </div>
     </header>
   );

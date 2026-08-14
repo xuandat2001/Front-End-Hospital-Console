@@ -3,8 +3,9 @@ import {
   Activity,
   AlertTriangle,
   Bed,
-  ChevronRight,
-  ClipboardCheck,
+  ChevronDown,
+  LoaderCircle,
+  PanelRightOpen,
   ShieldCheck,
   Sparkles,
   Users,
@@ -16,7 +17,12 @@ import { staffService } from "../../services/core-modules/staffApi";
 import { roomService } from "../../services/core-modules/roomApi";
 import { admissionService } from "../../services/core-modules/hospitalApi";
 import { patientService } from "../../services/core-modules/patientApi";
+import { intelligenceService } from "../../services/intelligence/intelligenceApi";
 import useDocumentStore from "../../store/useDocumentStore";
+import useSessionStore from "../../store/useSessionStore";
+import { linearRegressionForecast } from "../analytics/utils";
+import LiquidGlassCard from "../ui/LiquidGlassCard";
+import StrategicRecommendationModal from "./StrategicRecommendationModal";
 
 const ROOM_COLORS = [
   "var(--primary)",
@@ -25,12 +31,99 @@ const ROOM_COLORS = [
   "var(--accent)",
 ];
 
+const FORECAST_HORIZON_DAYS = 7;
+
+function formatForecastTimestamp(value) {
+  if (!value) {
+    return "Unavailable";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Unavailable";
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  }).format(date);
+}
+
+function runRecommendationRequest(key, request) {
+  if (key === "capacity-planning") {
+    return intelligenceService.generateCapacityPlanning(request);
+  }
+
+  if (key === "department-pressure") {
+    return intelligenceService.generateDepartmentPressureAnalysis(request);
+  }
+
+  if (key === "executive-summary") {
+    return intelligenceService.generateExecutiveSummary(request);
+  }
+
+  throw new Error("Unsupported strategic recommendation");
+}
+
+function buildRecommendationResult(response) {
+  const data = response?.data || response || {};
+  const intelligenceResult = data.intelligenceResult || {};
+  const answer =
+    data.explanation?.answer ||
+    data.answer ||
+    intelligenceResult.summary ||
+    data.summary;
+
+  if (!answer) {
+    throw new Error("The intelligence service returned no answer.");
+  }
+
+  return {
+    answer:
+      typeof answer === "string"
+        ? answer
+        : JSON.stringify(answer, null, 2),
+    confidence: intelligenceResult.confidence ?? null,
+    data,
+    findings: Array.isArray(intelligenceResult.findings)
+      ? intelligenceResult.findings
+      : [],
+    generatedAt: new Date().toISOString(),
+    insightId: data.insightId || null,
+    recommendations: Array.isArray(intelligenceResult.recommendations)
+      ? intelligenceResult.recommendations
+      : [],
+    requiresHumanReview:
+      intelligenceResult.requiresHumanReview === true,
+    severity:
+      intelligenceResult.severity ||
+      data.riskLevel ||
+      null,
+    source:
+      data.explanation?.source ||
+      null,
+  };
+}
+
 function OperationsDashboard({ activeFunction }) {
   const [patients, setPatients] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [admissions, setAdmissions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [forecastUpdatedAt, setForecastUpdatedAt] = useState(null);
+  const [activeRecommendationKey, setActiveRecommendationKey] = useState(null);
+  const [recommendationResults, setRecommendationResults] = useState({});
+  const [recommendationLoadingKey, setRecommendationLoadingKey] = useState(null);
+  const [recommendationError, setRecommendationError] = useState("");
+  const activeWorkspace = useSessionStore(
+    (state) => state.activeWorkspace || state.workspace,
+  );
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -54,6 +147,7 @@ function OperationsDashboard({ activeFunction }) {
         }
         if (admRes.status === "fulfilled") {
           setAdmissions(admRes.value.data || []);
+          setForecastUpdatedAt(new Date());
         }
       } finally {
         setLoading(false);
@@ -120,6 +214,34 @@ function OperationsDashboard({ activeFunction }) {
     [admissions, last7Days]
   );
 
+  const forecastAdmissions = useMemo(() => {
+    const workingSeries =
+      admissionsTrend.length > 0 ? [...admissionsTrend] : [0];
+
+    return Array.from(
+      { length: FORECAST_HORIZON_DAYS },
+      () => {
+        const predictedValue =
+          linearRegressionForecast(workingSeries);
+
+        const fallbackValue =
+          workingSeries[workingSeries.length - 1] || 0;
+
+        const nextValue = Math.max(
+          0,
+          Math.round(predictedValue ?? fallbackValue),
+        );
+
+        workingSeries.push(nextValue);
+
+        return nextValue;
+      },
+    );
+  }, [admissionsTrend]);
+
+  const forecastUpdatedLabel =
+    formatForecastTimestamp(forecastUpdatedAt);
+
   const latestAdmissions = useMemo(
     () =>
       [...admissions]
@@ -143,41 +265,104 @@ function OperationsDashboard({ activeFunction }) {
     { label: "Active Admissions", value: activeAdmissions, icon: Activity },
   ];
 
-  const drivers = [
-    {
-      title: "Improving patient flow",
-      detail: `${activeAdmissions} active admissions across the hospital`,
-      level: "Low",
-    },
-    {
-      title: "Managing bed capacity",
-      detail: `${openBeds} beds open with ${occupancyPct}% occupancy`,
-      level: occupancyPct > 85 ? "High" : "Medium",
-    },
-    {
-      title: "Optimizing coverage",
-      detail: `${availableStaff} staff currently available`,
-      level: "Low",
-    },
-  ];
+  const drivers = useMemo(
+    () => [
+      {
+        title: "Improving patient flow",
+        detail: `${activeAdmissions} active admissions across the hospital`,
+        level: "Low",
+      },
+      {
+        title: "Managing bed capacity",
+        detail: `${openBeds} beds open with ${occupancyPct}% occupancy`,
+        level: occupancyPct > 85 ? "High" : "Medium",
+      },
+      {
+        title: "Optimizing coverage",
+        detail: `${availableStaff} staff currently available`,
+        level: "Low",
+      },
+    ],
+    [activeAdmissions, availableStaff, occupancyPct, openBeds],
+  );
 
-  const recommendations = [
-    {
-      title: "Prepare monitored beds",
-      detail: "Capacity plan generated by Elly",
-      tone: "mint",
-    },
-    {
-      title: "Review stable transfers",
-      detail: "Free high-acuity capacity",
-      tone: "purple",
-    },
-    {
-      title: "Confirm evening staffing",
-      detail: "Coverage review recommended",
-      tone: "gold",
-    },
-  ];
+  const recommendations = useMemo(
+    () => [
+      {
+        key: "capacity-planning",
+        title: "Capacity planning",
+        detail: "Forecast beds, staff, and demand needs",
+        tone: "mint",
+      },
+      {
+        key: "department-pressure",
+        title: "Department pressure",
+        detail: "Identify overloaded units and care bottlenecks",
+        tone: "blue",
+      },
+      {
+        key: "executive-summary",
+        title: "Executive summary",
+        detail: "High-level operational highlights for leadership",
+        tone: "gold",
+      },
+    ],
+    [],
+  );
+
+  const activeRecommendation = recommendations.find(
+    (recommendation) => recommendation.key === activeRecommendationKey,
+  );
+  const activeRecommendationResult = activeRecommendationKey
+    ? recommendationResults[activeRecommendationKey]
+    : null;
+
+  const loadRecommendation = async (recommendation, force = false) => {
+    setActiveRecommendationKey(recommendation.key);
+    setRecommendationError("");
+
+    if (!force && recommendationResults[recommendation.key]) {
+      return;
+    }
+
+    const hospitalEllyId =
+      activeWorkspace?.ellyHospitalId ||
+      activeWorkspace?.workspaceEllyId ||
+      activeWorkspace?.ellyId ||
+      intelligenceService.defaultHospitalId;
+    const possibleMongoId =
+      activeWorkspace?.id || activeWorkspace?.workspaceId;
+    const hospitalMongoId = /^[a-f0-9]{24}$/i.test(
+      String(possibleMongoId || ""),
+    )
+      ? possibleMongoId
+      : undefined;
+
+    setRecommendationLoadingKey(recommendation.key);
+
+    try {
+      const response = await runRecommendationRequest(
+        recommendation.key,
+        {
+          hospitalEllyId,
+          hospitalMongoId,
+        },
+      );
+      const result = buildRecommendationResult(response);
+
+      setRecommendationResults((current) => ({
+        ...current,
+        [recommendation.key]: result,
+      }));
+    } catch (error) {
+      console.error("Strategic recommendation request failed:", error);
+      setRecommendationError(
+        error.message || "Unable to generate this recommendation.",
+      );
+    } finally {
+      setRecommendationLoadingKey(null);
+    }
+  };
 
   useEffect(() => {
     const store = useDocumentStore.getState();
@@ -197,9 +382,11 @@ function OperationsDashboard({ activeFunction }) {
     store.registerWidget("ai-forecast", {
       title: "AI-Powered Forecast",
       extract: () => ({
-        "7-Day Admissions Trend": admissionsTrend.length
-          ? admissionsTrend.join(" → ")
-          : "No data",
+        "Forecast Horizon": `Next ${FORECAST_HORIZON_DAYS} days`,
+        "Last Updated": forecastUpdatedLabel,
+        "Predicted Admissions": forecastAdmissions.length
+          ? forecastAdmissions.join(" -> ")
+          : "No forecast available",
         "Queue Trend": "+2.2%",
         "Open Beds": openBeds,
         "Risk Level": occupancyPct > 85 ? "High" : "Stable",
@@ -275,6 +462,8 @@ function OperationsDashboard({ activeFunction }) {
     totalBeds,
     occupiedBeds,
     admissionsTrend,
+    forecastAdmissions,
+    forecastUpdatedLabel,
     totalPatients,
     staffCoverage,
     drivers,
@@ -295,7 +484,7 @@ function OperationsDashboard({ activeFunction }) {
     <div className="overview-scroll">
       <h1 className="sr-only">{title}</h1>
       <div className="overview-grid">
-        <section
+        <LiquidGlassCard
           className="dashboard-card overview-revenue-card"
           data-widget-id="total-capacity"
           data-widget-title="Total Capacity"
@@ -338,9 +527,9 @@ function OperationsDashboard({ activeFunction }) {
             <span style={{ width: `${Math.min(occupancyPct, 100)}%` }} />
           </div>
           <small>{occupancyPct}% of total bed capacity</small>
-        </section>
+        </LiquidGlassCard>
 
-        <section
+        <LiquidGlassCard
           className="dashboard-card overview-forecast-card"
           data-widget-id="ai-forecast"
           data-widget-title="AI-Powered Forecast"
@@ -349,29 +538,65 @@ function OperationsDashboard({ activeFunction }) {
             <h2>AI-Powered Forecast</h2>
             <Sparkles size={17} strokeWidth={1.8} />
           </div>
+
+          <div
+            className="forecast-meta"
+            aria-label="Forecast information"
+          >
+            <p>
+              <span>Forecast horizon:</span>
+              <strong>
+                Next {FORECAST_HORIZON_DAYS} days
+              </strong>
+            </p>
+
+            <p>
+              <span>Last updated:</span>
+              <time
+                dateTime={
+                  forecastUpdatedAt
+                    ? forecastUpdatedAt.toISOString()
+                    : undefined
+                }
+                title={forecastUpdatedLabel}
+              >
+                {forecastUpdatedLabel}
+              </time>
+            </p>
+          </div>
+
           <div className="forecast-chart">
             <MiniLineChart
-              data={admissionsTrend.length ? admissionsTrend : [0]}
+              data={
+                forecastAdmissions.length
+                  ? forecastAdmissions
+                  : [0]
+              }
               variant="purple"
             />
           </div>
+
           <div className="forecast-stats">
             <p>
               Queue trend
               <strong>+2.2%</strong>
             </p>
+
             <p>
               Open beds
               <strong>{openBeds}</strong>
             </p>
+
             <p>
               Risk
-              <strong>{occupancyPct > 85 ? "High" : "Stable"}</strong>
+              <strong>
+                {occupancyPct > 85 ? "High" : "Stable"}
+              </strong>
             </p>
           </div>
-        </section>
+        </LiquidGlassCard>
 
-        <section
+        <LiquidGlassCard
           className="dashboard-card overview-financial-card"
           data-widget-id="key-metrics"
           data-widget-title="Key Hospital Metrics"
@@ -402,9 +627,9 @@ function OperationsDashboard({ activeFunction }) {
               );
             })}
           </div>
-        </section>
+        </LiquidGlassCard>
 
-        <section
+        <LiquidGlassCard
           className="dashboard-card overview-drivers-card"
           data-widget-id="operational-drivers"
           data-widget-title="Key Operational Driver AI Analysis"
@@ -435,9 +660,9 @@ function OperationsDashboard({ activeFunction }) {
               </div>
             ))}
           </div>
-        </section>
+        </LiquidGlassCard>
 
-        <section
+        <LiquidGlassCard
           className="dashboard-card overview-recommendations-card"
           data-widget-id="strategic-recommendations"
           data-widget-title="Strategic Recommendations"
@@ -445,21 +670,41 @@ function OperationsDashboard({ activeFunction }) {
           <h2>Strategic Recommendations</h2>
           <div className="recommendation-list">
             {recommendations.map((item) => (
-              <button key={item.title} type="button">
+              <button
+                aria-haspopup="dialog"
+                aria-label={`Open ${item.title}`}
+                className={
+                  recommendationLoadingKey === item.key
+                    ? "is-loading"
+                    : ""
+                }
+                disabled={recommendationLoadingKey !== null}
+                key={item.key}
+                onClick={() => loadRecommendation(item)}
+                type="button"
+              >
                 <i data-tone={item.tone}>
-                  <ClipboardCheck size={17} strokeWidth={1.8} />
+                  <PanelRightOpen size={18} strokeWidth={1.8} />
                 </i>
                 <span>
                   <strong>{item.title}</strong>
                   <small>{item.detail}</small>
                 </span>
-                <ChevronRight size={15} strokeWidth={1.9} />
+                {recommendationLoadingKey === item.key ? (
+                  <LoaderCircle
+                    className="recommendation-loading-icon"
+                    size={17}
+                    strokeWidth={1.9}
+                  />
+                ) : (
+                  <ChevronDown size={17} strokeWidth={2} />
+                )}
               </button>
             ))}
           </div>
-        </section>
+        </LiquidGlassCard>
 
-        <section
+        <LiquidGlassCard
           className="dashboard-card overview-market-card"
           data-widget-id="hospital-data"
           data-widget-title="Hospital & Department Data"
@@ -491,9 +736,9 @@ function OperationsDashboard({ activeFunction }) {
               />
             </div>
           </div>
-        </section>
+        </LiquidGlassCard>
 
-        <section
+        <LiquidGlassCard
           className="dashboard-card overview-queue-card"
           data-widget-id="action-queue"
           data-widget-title="Hospital Action Queue"
@@ -529,8 +774,19 @@ function OperationsDashboard({ activeFunction }) {
               <p className="empty-queue">No active admissions.</p>
             )}
           </div>
-        </section>
+        </LiquidGlassCard>
       </div>
+
+      {activeRecommendation && (
+        <StrategicRecommendationModal
+          error={recommendationError}
+          loading={recommendationLoadingKey === activeRecommendation.key}
+          onClose={() => setActiveRecommendationKey(null)}
+          onRefresh={() => loadRecommendation(activeRecommendation, true)}
+          recommendation={activeRecommendation}
+          result={activeRecommendationResult}
+        />
+      )}
     </div>
   );
 }

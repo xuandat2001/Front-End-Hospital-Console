@@ -1,5 +1,3 @@
-import { gatewayUrl, hospitalIdentity } from "../emergency/emergencyRealtimeApi";
-import { MOCK_MODE } from "../../mocks/mockSession";
 import { mockDirectData } from "../mock/mockApi";
 
 const DEFAULT_RANGE = "7d";
@@ -8,75 +6,38 @@ function sanitizeRange(range) {
   return ["24h", "7d", "30d"].includes(range) ? range : DEFAULT_RANGE;
 }
 
-async function emergencyPerformanceRequest(path, range = DEFAULT_RANGE, options = {}) {
-  if (MOCK_MODE) {
-    return mockDirectData(path, { ...options, range });
-  }
-
-  let response;
-  const safeRange = sanitizeRange(range);
-  const { headers, signal, ...fetchOptions } = options;
-
-  try {
-    response = await fetch(`${gatewayUrl}${path}?range=${encodeURIComponent(safeRange)}`, {
-      ...fetchOptions,
-      signal,
-      headers: {
-        "Content-Type": "application/json",
-        "x-elly-id": hospitalIdentity.ellyId,
-        "x-elly-partner-id": hospitalIdentity.partnerId,
-        "x-elly-role": hospitalIdentity.role,
-        ...(headers || {}),
-      },
-    });
-  } catch {
-    throw new Error(
-      `Cannot reach API Gateway at ${gatewayUrl}. Make sure the gateway is running.`,
-    );
-  }
-
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(
-      body.message || `Emergency performance request failed with status ${response.status}`,
-    );
-  }
-
-  return body.data;
+async function emergencyPerformanceRequest(path, range = DEFAULT_RANGE) {
+  return mockDirectData(`${path}?range=${encodeURIComponent(sanitizeRange(range))}`);
 }
 
-export function getPerformanceResponseTimeTrend(range, options) {
+export function getPerformanceResponseTimeTrend(range) {
   return emergencyPerformanceRequest(
     "/api/emergency/performance/response-time-trend",
     range,
-    options,
   );
 }
 
-export function getPerformanceSlaCompliance(range, options) {
+export function getPerformanceSlaCompliance(range) {
   return emergencyPerformanceRequest(
     "/api/emergency/performance/sla-compliance",
     range,
-    options,
   );
 }
 
-export function getPerformanceSeverityBreakdown(range, options) {
+export function getPerformanceSeverityBreakdown(range) {
   return emergencyPerformanceRequest(
     "/api/emergency/performance/severity-breakdown",
     range,
-    options,
   );
 }
 
-export function getPerformanceOutcomes(range, options) {
-  return emergencyPerformanceRequest("/api/emergency/performance/outcomes", range, options);
+export function getPerformanceOutcomes(range) {
+  return emergencyPerformanceRequest("/api/emergency/performance/outcomes", range);
 }
 
-export function getPerformanceDelayBottlenecks(range, options) {
+export function getPerformanceDelayBottlenecks(range) {
   return emergencyPerformanceRequest(
     "/api/emergency/performance/delay-bottlenecks",
     range,
-    options,
   );
 }

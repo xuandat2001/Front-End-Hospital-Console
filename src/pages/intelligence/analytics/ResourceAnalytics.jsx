@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   weightedMovingAverage,
   exponentialSmoothing,
@@ -837,12 +838,17 @@ export default function ResourceAnalytics({
         </div>
       )}
 
-      {showUploadModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-[560px] rounded-2xl border border-white/10 bg-slate-950 p-5 shadow-2xl">
+      {showUploadModal && createPortal(
+        <div
+          className="console-tinted-popup-layer fixed inset-0 z-[12000] flex items-center justify-center bg-black/60 px-4 py-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="knowledge-upload-title"
+        >
+          <div className="console-tinted-popup max-h-full w-full max-w-[560px] overflow-y-auto rounded-2xl border border-white/10 bg-slate-950 p-5 shadow-2xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-bold text-white">
+                <h2 id="knowledge-upload-title" className="text-lg font-bold text-white">
                   Upload Knowledge Document
                 </h2>
                 <p className="mt-1 text-xs text-white/50">
@@ -1000,15 +1006,21 @@ export default function ResourceAnalytics({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
-      {showKnowledgeDocuments && (
-        <div className="fixed inset-y-20 left-4 right-4 z-50 flex items-start justify-center bg-black/45 px-0 py-4 backdrop-blur-sm xl:bottom-8 xl:left-[246px] xl:right-[310px] xl:top-28">
-          <div className="flex max-h-full w-full max-w-[1120px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
+      {showKnowledgeDocuments && createPortal(
+        <div
+          className="console-tinted-popup-layer fixed inset-0 z-[12000] flex items-center justify-center bg-black/60 px-4 py-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="knowledge-documents-title"
+        >
+          <div className="console-tinted-popup flex max-h-full w-full max-w-[1120px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
             <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-700">
               <div>
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                <h2 id="knowledge-documents-title" className="text-lg font-bold text-slate-900 dark:text-white">
                   Knowledge Documents
                 </h2>
                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -1035,7 +1047,8 @@ export default function ResourceAnalytics({
               />
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {/* ── Section 1: KPI Cards ── */}

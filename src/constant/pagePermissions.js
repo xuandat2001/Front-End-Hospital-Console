@@ -32,6 +32,7 @@ export const PAGE_PERMISSIONS = {
 
   emergency: PERMISSIONS.EMERGENCY_READ,
   "appointment-booking-management": PERMISSIONS.APPOINTMENT_READ,
+  "doctor-follow-up-care": PERMISSIONS.FOLLOW_UP_READ,
 
   patient: PERMISSIONS.ADMISSION_READ,
   "patient-registration-performance": PERMISSIONS.ADMISSION_READ,
@@ -61,7 +62,7 @@ export const PAGE_PERMISSIONS = {
   "clinic-doctor-dashboard": [PERMISSIONS.CLINIC_READ, PERMISSIONS.DOCTOR_READ],
   "clinic-doctor-schedule": [PERMISSIONS.CLINIC_READ, PERMISSIONS.APPOINTMENT_READ],
   "clinic-doctor-patients": PERMISSIONS.PATIENT_READ,
-  "clinic-doctor-surgery-request": PERMISSIONS.SURGERY_READ,
+  "clinic-doctor-surgery-request": [PERMISSIONS.CLINIC_READ, PERMISSIONS.DOCTOR_READ],
   "clinic-doctor-reports": PERMISSIONS.REPORT_READ,
 
   notifications: PERMISSIONS.OVERVIEW_READ,

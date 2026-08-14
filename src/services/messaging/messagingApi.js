@@ -18,17 +18,42 @@ export function createDepartmentConversation(departmentId, departmentName) {
   });
 }
 
-export function createGroupConversation(name, memberIds) {
+export function createGroupConversation(payloadOrName, memberIds) {
+  const payload =
+    typeof payloadOrName === "object"
+      ? payloadOrName
+      : { name: payloadOrName, memberEllyIds: memberIds };
+
   return apiRequest("/messages/conversations/group", {
     method: "POST",
-    body: JSON.stringify({ name, memberIds }),
+    body: JSON.stringify(payload),
   });
+}
+
+export function addGroupMembers(conversationId, memberEllyIds) {
+  return apiRequest(`/messages/conversations/${conversationId}/members`, {
+    method: "PATCH",
+    body: JSON.stringify({ memberEllyIds }),
+  });
+}
+
+export function removeGroupMember(conversationId, ellyId) {
+  return apiRequest(
+    `/messages/conversations/${conversationId}/members/${encodeURIComponent(ellyId)}`,
+    {
+      method: "DELETE",
+    },
+  );
 }
 
 export function getMessages(conversationId, params = {}) {
   const search = new URLSearchParams(params);
   const suffix = search.toString() ? `?${search.toString()}` : "";
   return apiRequest(`/messages/conversations/${conversationId}/messages${suffix}`);
+}
+
+export function getConversationMessages(conversationId, params = {}) {
+  return getMessages(conversationId, params);
 }
 
 export function sendMessage(conversationId, content, options = {}) {
@@ -38,14 +63,32 @@ export function sendMessage(conversationId, content, options = {}) {
   });
 }
 
+export function sendConversationMessage(conversationId, content, options = {}) {
+  return sendMessage(conversationId, content, options);
+}
+
 export function markConversationRead(conversationId) {
   return apiRequest(`/messages/conversations/${conversationId}/read`, {
     method: "PATCH",
   });
 }
 
+export function archiveConversation(conversationId) {
+  return apiRequest(`/messages/conversations/${conversationId}/archive`, {
+    method: "PATCH",
+  });
+}
+
+export function deleteConversation(conversationId) {
+  return archiveConversation(conversationId);
+}
+
 export function getUnread() {
   return apiRequest("/messages/unread");
+}
+
+export function getUnreadSummary() {
+  return getUnread();
 }
 
 export function uploadAttachment(conversationId, file, fields = {}) {

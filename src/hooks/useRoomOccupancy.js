@@ -1,8 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { io } from 'socket.io-client';
-import { MOCK_MODE } from '../mocks/mockSession';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { roomService } from '../services/core-modules/roomApi';
-import { gatewayUrl, hospitalIdentity } from '../services/emergency/emergencyRealtimeApi';
 
 const POLL_INTERVAL = 15000;
 
@@ -10,8 +7,7 @@ export default function useRoomOccupancy() {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [connectionState, setConnectionState] = useState(MOCK_MODE ? 'mock' : 'connecting');
-  const socketRef = useRef(null);
+  const [connectionState] = useState('connected');
 
   const refresh = useCallback(async () => {
     try {
@@ -28,41 +24,9 @@ export default function useRoomOccupancy() {
   useEffect(() => {
     queueMicrotask(refresh);
 
-    if (MOCK_MODE) {
-      return;
-    }
-
-    const socket = io(gatewayUrl, {
-      path: '/realtime/socket.io',
-      auth: hospitalIdentity,
-      transports: ['websocket', 'polling'],
-      reconnection: true,
-    });
-    socketRef.current = socket;
-
-    socket.on('connection:ready', () => {
-      setConnectionState('connected');
-      refresh();
-    });
-
-    socket.on('disconnect', () => setConnectionState('disconnected'));
-    socket.on('connect_error', () => setConnectionState('disconnected'));
-
-    socket.on('room:occupancy-changed', (payload) => {
-      if (!payload?.roomId) return;
-      setRooms((prev) =>
-        prev.map((r) =>
-          r._id === payload.roomId || r.ellyId === payload.roomId || r.roomNumber === payload.roomId
-            ? { ...r, ...payload, bedsAvailable: payload.bedsAvailable, occupancyRate: payload.occupancyRate }
-            : r
-        )
-      );
-    });
-
     const pollTimer = setInterval(refresh, POLL_INTERVAL);
 
     return () => {
-      socket.disconnect();
       clearInterval(pollTimer);
     };
   }, [refresh]);

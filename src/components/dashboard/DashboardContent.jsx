@@ -1,6 +1,12 @@
+import { useMemo } from "react";
 import ModuleBar from "./ModuleBar";
 import FunctionTabBar from "./FunctionTabBar";
 import NotificationBar from "./NotificationBar";
+import Breadcrumbs from "../ui/Breadcrumbs";
+import {
+  buildDashboardBreadcrumbs,
+  navigateDashboardBreadcrumb,
+} from "./dashboardBreadcrumbs";
 import OperationsDashboard from "./CommandsOverview";
 import WorkspacePlaceholder from "./WorkspacePlaceholder";
 import AccessDenied from "../auth/AccessDenied";
@@ -14,15 +20,17 @@ import StaffDepartmentDiscovery from "../../pages/core-modules/staff-and-departm
 import StaffDepartmentManagement from "../../pages/core-modules/staff-and-department/StaffDepartmentManagement";
 import StaffManagement from "../../pages/core-modules/staff-and-department/StaffManagement";
 import AppointmentBookingManagement from "../../pages/appointmentBooking/AppointmentBookingManagement";
+import DoctorAppointmentBooking from "../../pages/appointmentBooking/doctor/DoctorAppointmentBooking";
+import DoctorFollowUpCare from "../../pages/followUp/doctor/DoctorFollowUpCare";
 import StaffSchedule from "../../pages/core-modules/staff-and-department/StaffSchedule";
 import PatientRegistrationQueue from "../../pages/operations/patient-registration/PatientRegistrationQueue";
 import PatientRegistrationPerformance from "../../pages/operations/patient-registration/PatientRegistrationPerformance";
 import PatientRegistrationReports from "../../pages/operations/patient-registration/PatientRegistrationReports";
 import PatientManagement from "../../pages/core-modules/patients/PatientManagement";
-import PatientDashboard from "../../pages/core-modules/patients/PatientDashboard";
-import PatientPerformance from "../../pages/core-modules/patients/PatientPerformance";
-import PatientPlanning from "../../pages/core-modules/patients/PatientPlanning";
-import PatientReports from "../../pages/core-modules/patients/PatientReports";
+import PatientDashboardView from "../../pages/core-modules/patients/PatientDashboardView";
+import PatientPerformanceView from "../../pages/core-modules/patients/PatientPerformanceView";
+import PatientPlanningView from "../../pages/core-modules/patients/PatientPlanningView";
+import PatientReportsView from "../../pages/core-modules/patients/PatientReportsView";
 import RoomManagement from "../../pages/core-modules/rooms/RoomManagement";
 import RoomOccupancy from "../../pages/core-modules/rooms/RoomOccupancy";
 import IcuMonitoring from "../../pages/core-modules/icu/IcuMonitoring";
@@ -44,6 +52,7 @@ import AnalyticsDashboard from "../../pages/intelligence/analytics/AnalyticsDash
 import IntelligencePerformance from "../../pages/intelligence/analytics/PerformanceAnalytics";
 import IntelligenceInsights from "../../pages/intelligence/IntelligenceInsights";
 import ReportList from "../../pages/reports/ReportList";
+import RoomReports from "../../pages/reports/RoomReports";
 import AdmissionPerformance from "../../pages/performance/AdmissionPerformance";
 import SurgeryPerformanceDashboard from "../../pages/performance/SurgeryPerformanceDashboard";
 import ClinicSurgeryRequest from "../../pages/operations/surgery/ClinicSurgeryRequest";
@@ -51,9 +60,16 @@ import ClinicDoctorDashboard from "../../pages/operations/surgery/ClinicDoctorDa
 import WelcomePage from "../../pages/welcome/WelcomePage";
 
 function DashboardContent({
+  activeModule,
+  activeDomain,
   activeFunction,
   activeCenterTab,
+  activeSubsection,
+  onDomainChange,
+  onModuleChange,
   onCenterTabChange,
+  onSubsectionSelect,
+  onPatientSearch,
   emergencyRealtime,
   registrationRealtime,
   emergencyNavigation,
@@ -63,15 +79,31 @@ function DashboardContent({
   onEmergencyRequestOpen,
   onRegistrationRequestOpen,
   selectedRoomId,
+  onNavigateToFunction,
 }) {
   const permissions = useSessionStore((state) => state.permissions);
   const currentUser = useSessionStore((state) => state.currentUser);
   const canViewPage = canAccessFunction(activeFunction, permissions);
   const showRolePlaceholder = usesRolePlaceholder(currentUser?.role);
   const hideFunctionTabBar = activeFunction === "icu-monitoring" || activeFunction === "welcome";
+  const useCompactWorkspaceNavigation = activeFunction === "icu-monitoring";
+  const breadcrumbItems = useMemo(
+    () =>
+      buildDashboardBreadcrumbs({
+        activeCenterTab,
+        activeDomain,
+        activeFunction,
+        activeSubsection,
+      }),
+    [activeCenterTab, activeDomain, activeFunction, activeSubsection],
+  );
 
   const isDoctorConsole =
     currentUser?.role === ROLES.DOCTOR || currentUser?.role === ROLES.CLINIC_DOCTOR;
+  const doctorAppointmentActive =
+    isDoctorConsole && activeFunction === "appointment-booking-management";
+  const doctorFollowUpActive =
+    isDoctorConsole && activeFunction === "doctor-follow-up-care";
   const surgeryDoctorActive = isDoctorConsole && [
     "surgery-records", "surgery-performance", "surgery-planning",
     "surgery-reports", "surgery-management",
@@ -87,7 +119,12 @@ function DashboardContent({
     <div className="h-full overflow-y-auto">
       <ClinicSurgeryRequest />
     </div>
-  ) : showRolePlaceholder && activeFunction !== "clinic-doctor-dashboard" && activeFunction !== "clinic-doctor-surgery-request" ? (
+  ) : showRolePlaceholder &&
+    activeFunction !== "clinic-doctor-dashboard" &&
+    activeFunction !== "clinic-doctor-surgery-request" &&
+    !(isDoctorConsole && activeFunction.startsWith("patient-")) &&
+    !doctorAppointmentActive &&
+    !doctorFollowUpActive ? (
     <RolePagePlaceholder activeFunction={activeFunction} />
   ) : activeFunction === "clinic-doctor-dashboard" ? (
     <div className="h-full overflow-y-auto">
@@ -128,7 +165,15 @@ function DashboardContent({
           </div>
         ) : activeFunction === "appointment-booking-management" ? (
           <div className="h-full overflow-y-auto">
-            <AppointmentBookingManagement activeTab={activeCenterTab} />
+            {doctorAppointmentActive ? (
+              <DoctorAppointmentBooking activeTab={activeCenterTab} />
+            ) : (
+              <AppointmentBookingManagement activeTab={activeCenterTab} />
+            )}
+          </div>
+        ) : activeFunction === "doctor-follow-up-care" ? (
+          <div className="h-full overflow-y-auto">
+            <DoctorFollowUpCare activeTab={activeCenterTab} />
           </div>
         ) : activeFunction === "staff-department-management" ? (
           <div className="h-full overflow-y-auto">
@@ -171,15 +216,15 @@ function DashboardContent({
           </div>
         ) : activeFunction === "patient-dashboard" ? (
           <div className="patient-fit-page h-full min-h-0 overflow-hidden">
-            <PatientDashboard />
+            <PatientDashboardView />
           </div>
         ) : activeFunction === "patient-performance" ? (
-          <div className="patient-fit-page h-full min-h-0 overflow-hidden">
-            <PatientPerformance />
+          <div className="patient-fit-page h-full min-h-0 overflow-y-auto">
+            <PatientPerformanceView />
           </div>
         ) : activeFunction === "patient-planning" ? (
           <div className="patient-fit-page h-full min-h-0 overflow-hidden">
-            <PatientPlanning />
+            <PatientPlanningView />
           </div>
         ) : activeFunction === "patient-management" ? (
           <div className="patient-fit-page h-full min-h-0 overflow-hidden">
@@ -187,11 +232,11 @@ function DashboardContent({
           </div>
         ) : activeFunction === "patient-reports" ? (
           <div className="patient-fit-page h-full min-h-0 overflow-hidden">
-            <PatientReports />
+            <PatientReportsView />
           </div>
         ) : activeFunction === "room-reports" ? (
           <div className="h-full overflow-y-auto">
-            <ReportList category="EQUIPMENT" title="Equipment Reports" showCreate />
+            <RoomReports />
           </div>
         ) : activeFunction === "staff-reports" ? (
           <div className="h-full overflow-y-auto">
@@ -211,7 +256,7 @@ function DashboardContent({
           </div>
         ) : activeFunction === "admissions" ? (
           <div className="h-full overflow-y-auto">
-            <AdmissionList />
+            <AdmissionList onNavigateToFunction={onNavigateToFunction} />
           </div>
         ) : activeFunction === "admission-management" ? (
           <div className="h-full overflow-y-auto">
@@ -219,7 +264,7 @@ function DashboardContent({
           </div>
         ) : activeFunction === "surgery-records" ? (
           <div className="h-full overflow-y-auto">
-            <SurgeryRecords />
+            <SurgeryRecords onNavigateToFunction={onNavigateToFunction} />
           </div>
         ) : activeFunction === "surgery-planning" ? (
           <div className="h-full overflow-y-auto">
@@ -243,7 +288,7 @@ function DashboardContent({
           </div>
         ) : activeFunction === "beds" || activeFunction === "room-occupancy" ? (
           <div className="h-full overflow-y-auto">
-            <RoomOccupancy />
+            <RoomOccupancy onNavigateToFunction={onNavigateToFunction} />
           </div>
         ) : activeFunction === "icu-monitoring" ? (
           <div className="h-full overflow-y-auto">
@@ -296,16 +341,38 @@ function DashboardContent({
 
   return (
     <section className="dashboard-workspace">
-      <ModuleBar
-        onNavigationOpen={onNavigationOpen}
-      />
-      {!hideFunctionTabBar && (
-        <FunctionTabBar
-          activeCenterTab={activeCenterTab}
-          activeFunction={activeFunction}
-          onCenterTabChange={onCenterTabChange}
+      <div
+        className={`dashboard-workspace-navigation${
+          useCompactWorkspaceNavigation ? " has-no-function-bar" : ""
+        }`}
+      >
+        <ModuleBar
+          activeModule={activeModule}
+          onModuleChange={onModuleChange}
+          onNavigationOpen={onNavigationOpen}
+          onPatientSearch={onPatientSearch}
         />
-      )}
+        {!hideFunctionTabBar && (
+          <FunctionTabBar
+            activeCenterTab={activeCenterTab}
+            activeDomain={activeDomain}
+            activeFunction={activeFunction}
+            activeSubsection={activeSubsection}
+            onCenterTabChange={onCenterTabChange}
+          />
+        )}
+      </div>
+      <Breadcrumbs
+        className="dashboard-breadcrumbs"
+        items={breadcrumbItems}
+        maxVisibleItems={4}
+        onNavigate={(item) =>
+          navigateDashboardBreadcrumb(item, {
+            onDomainChange,
+            onSubsectionSelect,
+          })
+        }
+      />
       <div className="dashboard-content-stage">{pageContent}</div>
       <NotificationBar
         realtime={emergencyRealtime}

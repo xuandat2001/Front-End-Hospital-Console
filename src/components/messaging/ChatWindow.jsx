@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Info, UsersRound } from "lucide-react";
 import useMessagingStore from "../../stores/useMessagingStore";
-import ActiveCallBar from "./ActiveCallBar";
+import ActiveCallPanel from "./ActiveCallPanel";
 import IncomingCallModal from "./IncomingCallModal";
 import MessageBubble from "./MessageBubble";
 import MessageComposer from "./MessageComposer";
-import VoiceCallButton from "./VoiceCallButton";
+import VideoCallButton from "./VideoCallButton";
 
 function ChatWindow() {
   const conversationEndRef = useRef(null);
@@ -56,9 +56,9 @@ function ChatWindow() {
         <div className="messaging-chat__actions">
           <button aria-label="View members" type="button">
             <UsersRound size={16} />
-            <span>24</span>
+            <span>{selectedConversation.memberIds?.length || 0}</span>
           </button>
-          <VoiceCallButton conversation={selectedConversation} />
+          <VideoCallButton conversation={selectedConversation} />
           <button aria-label="Conversation information" type="button">
             <Info size={16} />
           </button>
@@ -78,7 +78,7 @@ function ChatWindow() {
       </div>
 
       <IncomingCallModal />
-      <ActiveCallBar />
+      <ActiveCallPanel />
       <MessageComposer conversationId={selectedConversation.id} />
     </section>
   );

@@ -30,7 +30,12 @@ export default function useAppointmentKpis(appointments) {
         ).length,
       );
 
-    const bookedToday = countByStatus("BOOKED", appointmentsToday);
+    const bookedToday = countByStatus("BOOKED", appointmentsToday) +
+      countByStatus("IN_PROGRESS", appointmentsToday);
+    const countActive = (list = appointments) =>
+      list.filter((appointment) =>
+        ["BOOKED", "IN_PROGRESS"].includes(normalizeStatus(appointment.status)),
+      ).length;
     const completedToday = countByStatus("COMPLETED", appointmentsToday);
     const canceledToday = countByStatus("CANCELED", appointmentsToday);
     const noShowToday = countByStatus("NO_SHOW", appointmentsToday);
@@ -47,13 +52,13 @@ export default function useAppointmentKpis(appointments) {
       },
       {
         title: "Active Bookings",
-        value: countByStatus("BOOKED"),
-        description: "Current booked appointments",
-        detail: "Status: BOOKED",
+        value: countActive(),
+        description: "Booked and ongoing appointments",
+        detail: "Status: BOOKED or IN_PROGRESS",
         icon: "Active",
         variant: "green",
-        trend: createTrend(
-          (appointment) => normalizeStatus(appointment.status) === "BOOKED",
+        trend: createTrend((appointment) =>
+          ["BOOKED", "IN_PROGRESS"].includes(normalizeStatus(appointment.status)),
         ),
       },
       {
@@ -92,4 +97,3 @@ export default function useAppointmentKpis(appointments) {
     ];
   }, [appointments]);
 }
-

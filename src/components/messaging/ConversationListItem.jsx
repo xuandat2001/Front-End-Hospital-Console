@@ -19,12 +19,13 @@ const iconByTone = {
   muted: Bell,
 };
 
-function ConversationListItem({ conversation, isSelected, onSelect }) {
+function ConversationListItem({ conversation, isSelected, onContextMenu, onSelect }) {
   const ItemIcon = iconByTone[conversation.tone] || UsersRound;
 
   return (
     <button
       className={`conversation-item${isSelected ? " is-selected" : ""}`}
+      onContextMenu={(event) => onContextMenu?.(event, conversation)}
       onClick={onSelect}
       type="button"
     >

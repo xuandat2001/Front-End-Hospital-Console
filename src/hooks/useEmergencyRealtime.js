@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { io } from "socket.io-client";
-import { MOCK_MODE } from "../mocks/mockSession";
 import {
   acknowledgeEmergencyRequest,
-  gatewayUrl,
   getActiveEmergencyCases,
   getEmergencyDashboardSummary,
   getEmergencyResourceSnapshot,
@@ -25,14 +22,6 @@ export function upsertBy(items, next, key) {
   );
 }
 
-function upsertActiveEmergencyCase(items, next) {
-  const key = next?.alertId || next?.caseId;
-  if (!isActiveEmergencyRequest(next)) {
-    return items.filter((item) => (item.alertId || item.caseId) !== key);
-  }
-  return upsertBy(items, next, next?.alertId ? "alertId" : "caseId");
-}
-
 export default function useEmergencyRealtime() {
   const [requests, setRequests] = useState([]);
   const [activeCases, setActiveCases] = useState([]);
@@ -40,7 +29,7 @@ export default function useEmergencyRealtime() {
   const [summary, setSummary] = useState(null);
   const [resources, setResources] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [connectionState, setConnectionState] = useState(MOCK_MODE ? "mock" : "connecting");
+  const [connectionState] = useState("connected");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [pendingAlertId, setPendingAlertId] = useState("");
@@ -77,61 +66,7 @@ export default function useEmergencyRealtime() {
 
   useEffect(() => {
     queueMicrotask(refresh);
-
-    if (MOCK_MODE) {
-      return;
-    }
-
-    const socket = io(gatewayUrl, {
-      path: "/realtime/socket.io",
-      auth: hospitalIdentity,
-      transports: ["websocket", "polling"],
-      reconnection: true,
-    });
-
-    socket.on("connection:ready", () => {
-      setConnectionState("connected");
-      refresh();
-    });
-    socket.on("disconnect", () => setConnectionState("disconnected"));
-    socket.on("connect_error", () => {
-      setConnectionState("disconnected");
-    });
-    socket.on("emergency-request:new", (request) => {
-      setRequests((current) => upsertBy(current, request, "alertId"));
-      setActiveCases((current) => upsertActiveEmergencyCase(current, request));
-      refreshDashboard().catch(() => {});
-    });
-    socket.on("emergency-request:updated", (request) => {
-      setRequests((current) => upsertBy(current, request, "alertId"));
-      setActiveCases((current) => upsertActiveEmergencyCase(current, request));
-      refreshDashboard().catch(() => {});
-    });
-    socket.on("notification:new", (notification) => {
-      setNotifications((current) =>
-        upsertBy(current, notification, "eventId").slice(0, 100),
-      );
-      setUnreadCount((count) => count + 1);
-      if (notification.eventType?.startsWith("EMERGENCY_")) {
-        refreshDashboard().catch(() => {});
-      }
-    });
-    socket.on("notification:updated", (notification) => {
-      if (notification.allRead) {
-        setUnreadCount(0);
-        setNotifications((current) =>
-          current.map((item) => ({ ...item, read: true })),
-        );
-        return;
-      }
-
-      setNotifications((current) =>
-        upsertBy(current, notification, "eventId"),
-      );
-    });
-
-    return () => socket.disconnect();
-  }, [refresh, refreshDashboard]);
+  }, [refresh]);
 
   const acknowledge = useCallback(
     async (alertId, accepted, rejectionReason) => {

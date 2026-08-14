@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { admissionService } from "../../../services/core-modules/hospitalApi";
 import { patientService } from "../../../services/core-modules/patientApi";
-import { staffService } from "../../../services/core-modules/staffApi";
 import { roomService } from "../../../services/core-modules/roomApi";
 
 const STATUSES = ["PENDING", "ADMITTED", "UNDER_TREATMENT", "TRANSFERRED", "DISCHARGED"];
@@ -20,7 +19,6 @@ const emptyForm = {
 export default function AdmissionManagement() {
   const [admissions, setAdmissions] = useState([]);
   const [patients, setPatients] = useState([]);
-  const [staff, setStaff] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -31,18 +29,15 @@ export default function AdmissionManagement() {
 
   const loadData = async () => {
     setLoading(true);
-    const [admRes, patRes, staffRes, roomRes] = await Promise.allSettled([
+    const [admRes, patRes, roomRes] = await Promise.allSettled([
       admissionService.getAllAdmissions(),
       patientService.getAllPatients(),
-      staffService.getAllStaff(),
       roomService.getAllRooms(),
     ]);
     if (admRes.status === "fulfilled") setAdmissions(admRes.value.data || []);
     else console.error("loadData – admissions:", admRes.reason);
     if (patRes.status === "fulfilled") setPatients(patRes.value.data || []);
     else console.error("loadData – patients:", patRes.reason);
-    if (staffRes.status === "fulfilled") setStaff(staffRes.value.data || []);
-    else console.error("loadData – staff:", staffRes.reason);
     if (roomRes.status === "fulfilled") setRooms(roomRes.value.data || []);
     else console.error("loadData – rooms:", roomRes.reason);
     setLoading(false);
@@ -59,14 +54,6 @@ export default function AdmissionManagement() {
     }
     return map;
   }, [patients]);
-
-  const staffMap = useMemo(() => {
-    const map = {};
-    for (const s of staff) {
-      map[s.ellyId || s._id] = s;
-    }
-    return map;
-  }, [staff]);
 
   const roomMap = useMemo(() => {
     const map = {};
@@ -359,35 +346,35 @@ export default function AdmissionManagement() {
               {editState?.mode === "status" ? null : (
                 <>
                   <div>
-                    <label className="mb-1 block text-xs font-semibold text-slate-500">Room ID</label>
-                    <input name="roomId" value={formData.roomId} onChange={handleChange} placeholder="Room ID" className="w-full rounded border border-slate-300 bg-white p-3 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
+                    <label className="mb-1 block text-xs font-semibold text-slate-500" htmlFor="admission-room-id">Room ID</label>
+                    <input id="admission-room-id" name="roomId" value={formData.roomId} onChange={handleChange} placeholder="Room ID" className="w-full rounded border border-slate-300 bg-white p-3 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-semibold text-slate-500">Bed ID</label>
-                    <input name="bedId" value={formData.bedId} onChange={handleChange} placeholder="Bed ID" className="w-full rounded border border-slate-300 bg-white p-3 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
+                    <label className="mb-1 block text-xs font-semibold text-slate-500" htmlFor="admission-bed-id">Bed ID</label>
+                    <input id="admission-bed-id" name="bedId" value={formData.bedId} onChange={handleChange} placeholder="Bed ID" className="w-full rounded border border-slate-300 bg-white p-3 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
                   </div>
                 </>
               )}
               {editState?.mode === "assign" && (
                 <>
                   <div>
-                    <label className="mb-1 block text-xs font-semibold text-slate-500">Department ID</label>
-                    <input name="department" value={formData.department} onChange={handleChange} placeholder="Department ID" className="w-full rounded border border-slate-300 bg-white p-3 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
+                    <label className="mb-1 block text-xs font-semibold text-slate-500" htmlFor="admission-department-id">Department ID</label>
+                    <input id="admission-department-id" name="department" value={formData.department} onChange={handleChange} placeholder="Department ID" className="w-full rounded border border-slate-300 bg-white p-3 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-semibold text-slate-500">Doctor ID</label>
-                    <input name="doctor" value={formData.doctor} onChange={handleChange} placeholder="Doctor ID" className="w-full rounded border border-slate-300 bg-white p-3 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
+                    <label className="mb-1 block text-xs font-semibold text-slate-500" htmlFor="admission-doctor-id">Doctor ID</label>
+                    <input id="admission-doctor-id" name="doctor" value={formData.doctor} onChange={handleChange} placeholder="Doctor ID" className="w-full rounded border border-slate-300 bg-white p-3 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-semibold text-slate-500">Nurse IDs (comma-separated)</label>
-                    <input name="assignedNurseIds" value={formData.assignedNurseIds} onChange={handleChange} placeholder="NURSE001, NURSE002" className="w-full rounded border border-slate-300 bg-white p-3 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
+                    <label className="mb-1 block text-xs font-semibold text-slate-500" htmlFor="admission-nurse-ids">Nurse IDs (comma-separated)</label>
+                    <input id="admission-nurse-ids" name="assignedNurseIds" value={formData.assignedNurseIds} onChange={handleChange} placeholder="NURSE001, NURSE002" className="w-full rounded border border-slate-300 bg-white p-3 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-white" />
                   </div>
                 </>
               )}
               {editState?.mode === "status" && (
                 <div className="col-span-2">
-                  <label className="mb-1 block text-xs font-semibold text-slate-500">New Status</label>
-                  <select value={editState?.newStatus || editState?.admission?.currentStatus || ""} onChange={(e) => setEditState((prev) => ({ ...prev, newStatus: e.target.value }))} className="w-full rounded border border-slate-300 bg-white p-3 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-white">
+                  <label className="mb-1 block text-xs font-semibold text-slate-500" htmlFor="admission-status">New Status</label>
+                  <select id="admission-status" value={editState?.newStatus || editState?.admission?.currentStatus || ""} onChange={(e) => setEditState((prev) => ({ ...prev, newStatus: e.target.value }))} className="w-full rounded border border-slate-300 bg-white p-3 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-white">
                     {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
@@ -411,14 +398,6 @@ export default function AdmissionManagement() {
                   className="rounded-lg bg-violet-500 px-4 py-2 text-sm font-medium text-white hover:bg-violet-600"
                 >
                   Assign
-                </button>
-              )}
-              {editState?.mode === "full" && (
-                <button
-                  onClick={handleUpdate}
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                >
-                  Update
                 </button>
               )}
             </div>

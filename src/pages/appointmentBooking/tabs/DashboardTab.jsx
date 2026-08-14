@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import AppointmentStatusOverview from "../components/AppointmentStatusOverview";
 import AppointmentFilters from "../components/AppointmentFilters";
 import AppointmentTable from "../components/AppointmentTable";
@@ -216,29 +217,37 @@ function AppointmentBookingListModal({
     { label: "No-show", value: "NO_SHOW" },
   ];
 
-  return (
-    <div className="fixed inset-y-20 left-4 right-4 z-50 flex items-start justify-center bg-black/45 px-0 py-4 backdrop-blur-sm xl:bottom-8 xl:left-[246px] xl:right-[310px] xl:top-28">
-      <div className="flex max-h-full w-full max-w-[1120px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-700">
+  return createPortal(
+    <div
+      className="console-tinted-popup-layer console-tinted-popup-layer--panel-size fixed inset-y-20 left-4 right-4 z-[12000] flex items-start justify-center bg-black/45 px-0 py-4 backdrop-blur-sm xl:bottom-8 xl:left-[246px] xl:right-[310px] xl:top-28"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="appointment-booking-list-title"
+    >
+      <div
+        className="console-tinted-popup appointment-booking-list-popup flex max-h-full w-full max-w-[1120px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-950"
+        data-tone="dense-popup"
+      >
+        <div className="appointment-booking-list-popup__header flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-700">
           <div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+            <h2 id="appointment-booking-list-title" className="text-lg font-bold text-slate-900 dark:text-white">
               Appointment Booking List
             </h2>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              {filteredAppointments.length} booking
-              {filteredAppointments.length === 1 ? "" : "s"} found
+              {pagination.total ?? filteredAppointments.length} booking
+              {(pagination.total ?? filteredAppointments.length) === 1 ? "" : "s"} found
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="relative z-10 inline-flex min-h-10 min-w-16 shrink-0 items-center justify-center rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             Close
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        <div className="appointment-booking-list-popup__body min-h-0 flex-1 overflow-y-auto p-4">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap gap-2">
               {statusFilters.map((statusFilter) => (
@@ -281,7 +290,8 @@ function AppointmentBookingListModal({
           />
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -401,6 +411,7 @@ function ViewAllModal({ modal, onClose }) {
 export default function DashboardTab({
   appointments,
   dashboardData,
+  statusSummary,
   filters,
   onFilterChange,
   onClearFilters,
@@ -436,6 +447,7 @@ export default function DashboardTab({
       />
       <AppointmentStatusOverview
         appointments={appointments}
+        statusSummary={statusSummary}
         typeSummarySlot={
           <TypeSummary
             rows={dashboardData.typeRows}

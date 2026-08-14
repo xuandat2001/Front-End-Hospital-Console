@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Icon from "./Icon";
 import {
   buildActiveNotifications,
@@ -9,12 +9,19 @@ import ReactMarkdown from "react-markdown";
 import KnowledgeUploadModal from "../intelligence/KnowledgeUploadModal";
 import MessageWidget from "../messaging/MessageWidget";
 import useDocumentStore from "../../store/useDocumentStore";
+import ellyLogo from "../../assets/elly-logo.png";
 
 const initialAlerts = [
   { id: 1, label: "Oxygen supply check overdue", level: "Critical" },
   { id: 2, label: "Surgery room 3 turnover blocked", level: "Warning" },
   { id: 3, label: "Blood lab result exception", level: "Warning" },
   { id: 4, label: "Daily capacity entry complete", level: "Info" },
+];
+
+const KNOWLEDGE_EXAMPLE_PROMPTS = [
+  "What is the diabetes?",
+  "Teach me how insulin works step by step.",
+  "Brainstorm five ideas to improve the clinic waiting experience.",
 ];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -39,6 +46,29 @@ async function askKnowledgeWithRetry(question) {
   return null;
 }
 
+function CompanyCard() {
+  return (
+    <section className="utility-card right-rail-company-card">
+      <div className="right-rail-company-card__brand">
+        <img
+          alt="ELLY"
+          className="right-rail-company-card__logo"
+          src={ellyLogo}
+        />
+        <span className="right-rail-company-card__name">ElectraWireless</span>
+      </div>
+      <button
+        aria-label="Open library"
+        className="right-rail-company-card__library"
+        type="button"
+      >
+        <Icon name="records" size={13} />
+        Library
+      </button>
+    </section>
+  );
+}
+
 function RightRail({ emergencyRealtime, onEmergencyRequestOpen }) {
   const [alerts, setAlerts] = useState(initialAlerts);
   const [knowledgeQuestion, setKnowledgeQuestion] = useState("");
@@ -46,6 +76,7 @@ function RightRail({ emergencyRealtime, onEmergencyRequestOpen }) {
   const [knowledgeLoading, setKnowledgeLoading] = useState(false);
   const [knowledgeError, setKnowledgeError] = useState("");
   const [knowledgeMeta, setKnowledgeMeta] = useState(null);
+  const knowledgeInputRef = useRef(null);
   const [showQuickUploadModal, setShowQuickUploadModal] = useState(false);
   const [quickUploadStatus, setQuickUploadStatus] = useState("");
   const enterDocumentMode = useDocumentStore((state) => state.enterDocumentMode);
@@ -55,6 +86,15 @@ function RightRail({ emergencyRealtime, onEmergencyRequestOpen }) {
     emergencyRealtime,
     null,
   ).filter((alert) => alert.type === "emergency");
+
+  const handleExamplePrompt = (prompt) => {
+    setKnowledgeQuestion(prompt);
+    setKnowledgeError("");
+
+    requestAnimationFrame(() => {
+      knowledgeInputRef.current?.focus();
+    });
+  };
 
   const handleAskKnowledge = async (event) => {
     event.preventDefault();
@@ -95,6 +135,7 @@ function RightRail({ emergencyRealtime, onEmergencyRequestOpen }) {
   return (
     <aside className="dashboard-right-rail">
       <div className="dashboard-utility-stack">
+        <CompanyCard />
         <MessageWidget />
 
         <section className="utility-card ai-prompt-card">
@@ -106,13 +147,45 @@ function RightRail({ emergencyRealtime, onEmergencyRequestOpen }) {
             <Icon name="sparkle" size={18} />
           </div>
 
-          <p>Ask questions based on approved hospital knowledge documents.</p>
+          <p>
+            Ask questions based on approved hospital knowledge
+            documents.
+          </p>
 
-          <form onSubmit={handleAskKnowledge} className="message-composer">
+          <div className="knowledge-example-prompts">
+            <span>Example prompts</span>
+
+            <div className="knowledge-example-prompt-list">
+              {KNOWLEDGE_EXAMPLE_PROMPTS.map((prompt) => (
+                <button
+                  key={prompt}
+                  type="button"
+                  disabled={knowledgeLoading}
+                  className={
+                    knowledgeQuestion === prompt
+                      ? "is-selected"
+                      : ""
+                  }
+                  onClick={() => handleExamplePrompt(prompt)}
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <form
+            onSubmit={handleAskKnowledge}
+            className="message-composer"
+          >
             <input
+              ref={knowledgeInputRef}
               value={knowledgeQuestion}
-              onChange={(event) => setKnowledgeQuestion(event.target.value)}
-              placeholder="Ask 'What is the diabeties ?'..."
+              onChange={(event) =>
+                setKnowledgeQuestion(event.target.value)
+              }
+              placeholder="Ask about hospital knowledge..."
+              aria-label="Ask Elly a hospital knowledge question"
             />
 
             <button type="submit" disabled={knowledgeLoading}>

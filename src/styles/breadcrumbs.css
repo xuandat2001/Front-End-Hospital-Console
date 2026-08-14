@@ -1,0 +1,214 @@
+.breadcrumbs {
+  position: relative;
+  z-index: 75;
+  display: flex;
+  min-width: 0;
+  min-height: 28px;
+  align-items: center;
+  overflow: visible;
+  padding: 0 4px;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.breadcrumbs__list,
+.breadcrumbs__item {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.breadcrumbs__list {
+  max-width: 100%;
+  margin: 0;
+  gap: 10px;
+  overflow: visible;
+  padding: 0;
+  list-style: none;
+}
+
+.breadcrumbs__item {
+  position: relative;
+  flex: 0 1 auto;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.breadcrumbs__separator {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  color: var(--text-muted);
+  opacity: 0.78;
+}
+
+.breadcrumbs a,
+.breadcrumbs__current {
+  display: block;
+  min-width: 0;
+  max-width: min(24vw, 240px);
+  overflow: hidden;
+  color: inherit;
+  text-overflow: ellipsis;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.breadcrumbs a {
+  transition: color 160ms ease;
+}
+
+.breadcrumbs__item > a,
+.breadcrumbs__item > a:hover,
+.breadcrumbs__item > a:active {
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
+}
+
+.breadcrumbs__item > a:hover {
+  color: var(--center-nav-active-text);
+}
+
+.breadcrumbs a:focus-visible,
+.breadcrumbs__ellipsis > button:focus-visible,
+.breadcrumbs__menu a:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid
+    color-mix(in srgb, var(--center-nav-accent) 72%, transparent);
+  outline-offset: 3px;
+}
+
+.breadcrumbs__current {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.breadcrumbs__ellipsis > button {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  place-items: center;
+  overflow: visible;
+  border: 0;
+  border-radius: 5px;
+  padding: 0 0 4px;
+  color: var(--text-muted);
+  background: transparent;
+  box-shadow: none;
+  font: inherit;
+  font-size: 18px;
+  line-height: 1;
+  transform: none !important;
+}
+
+.breadcrumbs__ellipsis > button:hover,
+.breadcrumbs__ellipsis > button[aria-expanded="true"] {
+  color: var(--center-nav-active-text);
+  background: transparent;
+  box-shadow: none;
+}
+
+.breadcrumbs__menu {
+  position: absolute;
+  z-index: 200;
+  top: calc(100% + 7px);
+  left: 25px;
+  display: grid;
+  width: max-content;
+  min-width: 168px;
+  max-width: min(280px, calc(100vw - 32px));
+  gap: 3px;
+  border: 1px solid var(--console-liquid-border);
+  border-radius: 12px;
+  padding: 6px;
+  color: var(--text-muted);
+  background: color-mix(
+    in srgb,
+    var(--liquid-fallback-content) 88%,
+    transparent
+  );
+  box-shadow: var(--console-liquid-inset-shadow);
+  backdrop-filter: blur(18px) saturate(1.08);
+  -webkit-backdrop-filter: blur(18px) saturate(1.08);
+}
+
+.breadcrumbs__menu[hidden] {
+  display: none;
+}
+
+.breadcrumbs__menu a,
+.breadcrumbs__menu-label {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: 7px;
+  padding: 8px 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.breadcrumbs__menu-label {
+  color: var(--text-muted);
+}
+
+.breadcrumbs__menu a:hover {
+  color: var(--center-nav-active-text);
+  background: var(--center-nav-hover-bg);
+}
+
+.breadcrumbs__mobile-ellipsis {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .breadcrumbs {
+    min-height: 26px;
+    padding-inline: 2px;
+    font-size: 13px;
+  }
+
+  .breadcrumbs__list {
+    width: 100%;
+    gap: 8px;
+  }
+
+  .breadcrumbs__desktop-ellipsis,
+  .breadcrumbs__item--mobile-collapsible {
+    display: none;
+  }
+
+  .breadcrumbs__mobile-ellipsis {
+    display: flex;
+  }
+
+  .breadcrumbs__item:last-child {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .breadcrumbs__item:last-child .breadcrumbs__current {
+    max-width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .breadcrumbs *,
+  .breadcrumbs *::before,
+  .breadcrumbs *::after {
+    transition-duration: 1ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .breadcrumbs a:focus-visible,
+  .breadcrumbs__ellipsis > button:focus-visible {
+    outline-color: Highlight;
+  }
+}

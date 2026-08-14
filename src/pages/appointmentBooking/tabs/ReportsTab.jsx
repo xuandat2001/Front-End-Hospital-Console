@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import useReportData from "../hooks/useReportData";
+import useAppointmentAnalyticsQuery from "../hooks/useAppointmentAnalyticsQuery";
+import { adaptReportsResponse } from "../adapters/appointmentAnalyticsAdapters";
 import {
   addDays,
   getDepartmentName,
@@ -374,29 +376,34 @@ export default function ReportsTab({ appointments, loading, onView }) {
   const [detailModal, setDetailModal] = useState(null);
   const [activeReportTable, setActiveReportTable] = useState("department");
   const [isReportGeneratorOpen, setIsReportGeneratorOpen] = useState(false);
-  const report = useReportData(appointments, reportFilters);
+  const fallbackReport = useReportData(appointments, reportFilters);
+  const { data, loading: queryLoading } = useAppointmentAnalyticsQuery("reports", {
+    from: reportFilters.startDate ? `${reportFilters.startDate}T00:00:00.000` : "",
+    to: reportFilters.endDate ? `${reportFilters.endDate}T23:59:59.999` : "",
+    status: reportFilters.status === "ALL" ? "" : reportFilters.status,
+    consultationType: reportFilters.type === "ALL" ? "" : reportFilters.type,
+  });
+  const report = data ? adaptReportsResponse(data) : fallbackReport;
 
   const departmentOptions = useMemo(
     () =>
       [
         ...new Set(
-          appointments
-            .map(getDepartmentName)
+          [...appointments.map(getDepartmentName), ...report.departmentRows.map((row) => row.department)]
             .filter((value) => value && value !== "N/A"),
         ),
       ].sort(),
-    [appointments],
+    [appointments, report.departmentRows],
   );
   const doctorOptions = useMemo(
     () =>
       [
         ...new Set(
-          appointments
-            .map(getDoctorName)
+          [...appointments.map(getDoctorName), ...report.doctorRows.map((row) => row.doctor)]
             .filter((value) => value && value !== "N/A"),
         ),
       ].sort(),
-    [appointments],
+    [appointments, report.doctorRows],
   );
 
   const updateFilter = (event) =>
@@ -486,7 +493,7 @@ export default function ReportsTab({ appointments, loading, onView }) {
     URL.revokeObjectURL(url);
   };
 
-  if (loading)
+  if (loading || queryLoading)
     return (
       <div className={`${cardClass} p-10 text-center text-sm text-slate-500`}>
         Preparing report data

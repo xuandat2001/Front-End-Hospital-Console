@@ -144,12 +144,103 @@ export const intelligenceService = {
     });
   },
 
+  generateCapacityPlanning({
+    hospitalEllyId = DEFAULT_HOSPITAL_ID,
+    hospitalMongoId,
+    ...request
+  } = {}) {
+    return intelligenceRequest(
+      "/ai/intelligence/capacity-planning",
+      hospitalEllyId,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          hospitalEllyId,
+          hospitalMongoId,
+          ...request,
+        }),
+      },
+    );
+  },
+
+  generateDepartmentPressureAnalysis({
+    hospitalEllyId = DEFAULT_HOSPITAL_ID,
+    hospitalMongoId,
+    ...request
+  } = {}) {
+    return intelligenceRequest(
+      "/ai/intelligence/department-pressure-analysis",
+      hospitalEllyId,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          hospitalEllyId,
+          hospitalMongoId,
+          ...request,
+        }),
+      },
+    );
+  },
+
+  generateExecutiveSummary({
+    hospitalEllyId = DEFAULT_HOSPITAL_ID,
+    hospitalMongoId,
+    ...request
+  } = {}) {
+    return intelligenceRequest(
+      "/ai/intelligence/executive-summary",
+      hospitalEllyId,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          hospitalEllyId,
+          hospitalMongoId,
+          ...request,
+        }),
+      },
+    );
+  },
   // Logic-based patient performance: ALOS vs. target, discharge velocity /
   // throughput, and on-time discharge rate. The AI-based Readmission Risk
   // Tracker is returned as a disabled placeholder until that layer is built.
-  getPatientPerformance: async ({ days } = {}) => {
-    const query = days ? `?days=${encodeURIComponent(days)}` : '';
+  getPatientPerformance: async ({ days, hospitalId } = {}) => {
+    const params = new URLSearchParams();
+    if (days) params.set("days", days);
+    if (hospitalId) params.set("hospitalId", hospitalId);
+    const query = params.toString() ? `?${params.toString()}` : "";
     return await apiRequest(`/intelligence/patient-performance${query}`);
+  },
+
+  getPatientPerformanceRecords: async ({ hospitalId, patientId, doctorId } = {}) => {
+    const params = new URLSearchParams();
+    if (hospitalId) params.set("hospitalId", hospitalId);
+    if (patientId) params.set("patientId", patientId);
+    if (doctorId) params.set("doctorId", doctorId);
+    const query = params.toString() ? `?${params.toString()}` : "";
+    return await apiRequest(`/intelligence/patient-performance/records${query}`);
+  },
+
+  getDoctorPatientPerformanceRecords: async (doctorId, { hospitalId } = {}) => {
+    const params = new URLSearchParams();
+    if (hospitalId) params.set("hospitalId", hospitalId);
+    const query = params.toString() ? `?${params.toString()}` : "";
+    return await apiRequest(
+      `/intelligence/patient-performance/doctor/${encodeURIComponent(doctorId)}/records${query}`,
+    );
+  },
+
+  createPatientPerformanceRecord: async (data) => {
+    return await apiRequest("/intelligence/patient-performance/records", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  updatePatientPerformanceRecord: async (id, data) => {
+    return await apiRequest(`/intelligence/patient-performance/records/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
   },
 
   // Logic-based patient registration performance: door-to-bed time vs. target,

@@ -7,6 +7,7 @@ import Icon from '../../components/dashboard/Icon';
 import ImageViewer from './ImageViewer';
 import PDFViewer from './PDFViewer';
 import { formatDateTime } from '../../utils/dateFormat';
+import useSessionStore from '../../store/useSessionStore';
 
 const PRIORITY_COLORS = {
   CRITICAL: { bg: '#fef2f2', text: '#dc2626', dot: '#ef4444' },
@@ -14,6 +15,16 @@ const PRIORITY_COLORS = {
   MEDIUM: { bg: '#fefce8', text: '#ca8a04', dot: '#eab308' },
   LOW: { bg: '#f0fdf4', text: '#16a34a', dot: '#22c55e' },
 };
+
+function canAuthorDiagnosticResult(role, department) {
+  if (department === 'RADIOLOGY') return role === 'RADIOLOGIST';
+  if (department === 'LABORATORY') return role === 'LAB_DOCTOR' || role === 'PATHOLOGIST';
+  return false;
+}
+
+function canDraftClinicalOpinion(role) {
+  return role === 'DOCTOR' || role === 'CLINIC_DOCTOR' || role === 'ATTENDING_DOCTOR';
+}
 
 function PriorityBadge({ priority }) {
   const c = PRIORITY_COLORS[priority] || PRIORITY_COLORS.MEDIUM;
@@ -33,10 +44,12 @@ function PriorityBadge({ priority }) {
 }
 
 export default function ResultReviewModal({ diagnosticId, department, onClose, onFinalized }) {
+  const sessionRole = useSessionStore((state) => state.role || state.currentUser?.role);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [draftReport, setDraftReport] = useState('');
   const [finalReport, setFinalReport] = useState('');
+  const [clinicalOpinion, setClinicalOpinion] = useState('');
   const [saving, setSaving] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [error, setError] = useState('');
@@ -103,7 +116,10 @@ export default function ResultReviewModal({ diagnosticId, department, onClose, o
   const pdfBlobUrlRef = useRef(null);
 
   useEffect(() => {
-    if (!viewingPdf) { setPdfBlobUrl(null); return undefined; }
+    if (!viewingPdf) {
+      queueMicrotask(() => setPdfBlobUrl(null));
+      return undefined;
+    }
     let isCurrent = true;
     const id = viewingPdf._id;
     apiRequestBlob(`/diagnostics/attachments/${id}/file`)
@@ -129,13 +145,17 @@ export default function ResultReviewModal({ diagnosticId, department, onClose, o
 
   useEffect(() => {
     if (!diagnosticId) return;
-    setLoading(true);
-    diagnosticsService.getById(diagnosticId)
+    Promise.resolve()
+      .then(() => {
+        setLoading(true);
+        return diagnosticsService.getById(diagnosticId);
+      })
       .then((res) => {
         const d = res.data || res;
         setData(d);
         setDraftReport(d.review?.draftReport || '');
         setFinalReport(d.review?.finalReport || '');
+        setClinicalOpinion(d.review?.clinicalNotes || '');
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -152,6 +172,20 @@ export default function ResultReviewModal({ diagnosticId, department, onClose, o
       setSaving(false);
     }
   }, [diagnosticId, draftReport]);
+
+  const handleSaveClinicalOpinion = useCallback(async () => {
+    if (!clinicalOpinion.trim()) return;
+    setSaving(true);
+    try {
+      const res = await diagnosticsService.saveClinicalOpinion(diagnosticId, clinicalOpinion);
+      setData((prev) => ({ ...prev, review: res.data || res }));
+      toast('Clinical opinion saved');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }, [diagnosticId, clinicalOpinion]);
 
   async function handleUpload(e) {
     const file = e.target.files?.[0];
@@ -184,6 +218,20 @@ export default function ResultReviewModal({ diagnosticId, department, onClose, o
     }
   }, [diagnosticId, finalReport, onClose, onFinalized]);
 
+  const handleFinalizeClinicalOpinion = useCallback(async () => {
+    if (!clinicalOpinion.trim()) return;
+    setFinalizing(true);
+    try {
+      await diagnosticsService.finalize(diagnosticId, clinicalOpinion);
+      onFinalized?.(diagnosticId);
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setFinalizing(false);
+    }
+  }, [clinicalOpinion, diagnosticId, onClose, onFinalized]);
+
   if (loading) {
     return (
       <div className="diagnostics-sub-overlay" onClick={onClose}>
@@ -210,6 +258,10 @@ export default function ResultReviewModal({ diagnosticId, department, onClose, o
   const aiAnalysis = data?.aiAnalysis || {};
   const review = data?.review || {};
   const isFinalized = diagnostic.status === 'FINALIZED';
+  const canAuthorResult = canAuthorDiagnosticResult(sessionRole, diagnostic.department || department);
+  const canEditClinicalOpinion = !canAuthorResult && !isFinalized && canDraftClinicalOpinion(sessionRole);
+  const canFinalizeClinicalOpinion = canEditClinicalOpinion && diagnostic.status === 'IN_REVIEW';
+  const displayedClinicalReport = review?.finalReport || review?.draftReport || review?.clinicalNotes || '';
 
   return (
     <>
@@ -335,58 +387,106 @@ export default function ResultReviewModal({ diagnosticId, department, onClose, o
           </div>
         )}
 
-        <div style={{ marginBottom: 12 }}>
-          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4, color: 'var(--text)' }}>
-            Draft Report
-          </label>
-          <textarea
-            value={draftReport}
-            onChange={(e) => setDraftReport(e.target.value)}
-            disabled={isFinalized}
-            placeholder="Enter preliminary observations..."
-            rows={3}
-            style={{ width: '100%', padding: 8, fontSize: 13, borderRadius: 6, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', resize: 'vertical' }}
-          />
-          <button
-            onClick={handleSaveDraft}
-            disabled={saving || isFinalized || !draftReport.trim()}
-            style={{ marginTop: 6, padding: '6px 16px', fontSize: 12, fontWeight: 600, border: '1px solid var(--line)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text)', cursor: 'pointer', opacity: saving || isFinalized || !draftReport.trim() ? 0.5 : 1 }}
-          >
-            {saving ? 'Saving...' : 'Save Draft'}
-          </button>
-        </div>
+        {canAuthorResult ? (
+          <>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4, color: 'var(--text)' }}>
+                Draft Report
+              </label>
+              <textarea
+                value={draftReport}
+                onChange={(e) => setDraftReport(e.target.value)}
+                disabled={isFinalized}
+                placeholder="Enter preliminary observations..."
+                rows={3}
+                style={{ width: '100%', padding: 8, fontSize: 13, borderRadius: 6, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', resize: 'vertical' }}
+              />
+              <button
+                onClick={handleSaveDraft}
+                disabled={saving || isFinalized || !draftReport.trim()}
+                style={{ marginTop: 6, padding: '6px 16px', fontSize: 12, fontWeight: 600, border: '1px solid var(--line)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text)', cursor: 'pointer', opacity: saving || isFinalized || !draftReport.trim() ? 0.5 : 1 }}
+              >
+                {saving ? 'Saving...' : 'Save Draft'}
+              </button>
+            </div>
 
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4, color: 'var(--text)' }}>
-            Final Report
-          </label>
-          <textarea
-            value={finalReport}
-            onChange={(e) => setFinalReport(e.target.value)}
-            disabled={isFinalized}
-            placeholder="Enter final interpretation..."
-            rows={4}
-            style={{ width: '100%', padding: 8, fontSize: 13, borderRadius: 6, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', resize: 'vertical' }}
-          />
-        </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4, color: 'var(--text)' }}>
+                Final Report
+              </label>
+              <textarea
+                value={finalReport}
+                onChange={(e) => setFinalReport(e.target.value)}
+                disabled={isFinalized}
+                placeholder="Enter final interpretation..."
+                rows={4}
+                style={{ width: '100%', padding: 8, fontSize: 13, borderRadius: 6, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', resize: 'vertical' }}
+              />
+            </div>
 
-        {isFinalized ? (
-          <div style={{ padding: '8px 12px', borderRadius: 6, background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#16a34a', fontSize: 13, fontWeight: 600 }}>
-            Finalized{formatDateTime(review?.finalizedAt || diagnostic.updatedAt) ? ` on ${formatDateTime(review?.finalizedAt || diagnostic.updatedAt)}` : ''}
-          </div>
+            {isFinalized ? (
+              <div style={{ padding: '8px 12px', borderRadius: 6, background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#16a34a', fontSize: 13, fontWeight: 600 }}>
+                Finalized{formatDateTime(review?.finalizedAt || diagnostic.updatedAt) ? ` on ${formatDateTime(review?.finalizedAt || diagnostic.updatedAt)}` : ''}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button
+                  onClick={handleFinalize}
+                  disabled={finalizing || !finalReport.trim()}
+                  style={{
+                    padding: '8px 24px', fontSize: 13, fontWeight: 700, border: 'none', borderRadius: 6,
+                    background: '#16a34a', color: '#fff', cursor: 'pointer',
+                    opacity: finalizing || !finalReport.trim() ? 0.5 : 1,
+                  }}
+                >
+                  {finalizing ? 'Finalizing...' : 'Finalize'}
+                </button>
+              </div>
+            )}
+          </>
         ) : (
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button
-              onClick={handleFinalize}
-              disabled={finalizing || !finalReport.trim()}
-              style={{
-                padding: '8px 24px', fontSize: 13, fontWeight: 700, border: 'none', borderRadius: 6,
-                background: '#16a34a', color: '#fff', cursor: 'pointer',
-                opacity: finalizing || !finalReport.trim() ? 0.5 : 1,
-              }}
-            >
-              {finalizing ? 'Finalizing...' : 'Finalize'}
-            </button>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4, color: 'var(--text)' }}>
+              {canEditClinicalOpinion ? 'Clinical Opinion' : 'Clinical Report'}
+            </label>
+            {canEditClinicalOpinion ? (
+              <>
+                <textarea
+                  value={clinicalOpinion}
+                  onChange={(e) => setClinicalOpinion(e.target.value)}
+                  placeholder="Draft your clinical opinion for this order..."
+                  rows={5}
+                  style={{ width: '100%', padding: 10, fontSize: 13, lineHeight: 1.5, borderRadius: 6, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', resize: 'vertical' }}
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveClinicalOpinion}
+                  disabled={saving || !clinicalOpinion.trim()}
+                  style={{ marginTop: 6, padding: '6px 16px', fontSize: 12, fontWeight: 600, border: '1px solid var(--line)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text)', cursor: 'pointer', opacity: saving || !clinicalOpinion.trim() ? 0.5 : 1 }}
+                >
+                  {saving ? 'Saving...' : 'Save Opinion'}
+                </button>
+                {canFinalizeClinicalOpinion && (
+                  <button
+                    type="button"
+                    onClick={handleFinalizeClinicalOpinion}
+                    disabled={finalizing || !clinicalOpinion.trim()}
+                    style={{ marginTop: 6, marginLeft: 8, padding: '6px 16px', fontSize: 12, fontWeight: 700, border: 'none', borderRadius: 6, background: '#16a34a', color: '#fff', cursor: 'pointer', opacity: finalizing || !clinicalOpinion.trim() ? 0.5 : 1 }}
+                  >
+                    {finalizing ? 'Finalizing...' : 'Finalize'}
+                  </button>
+                )}
+              </>
+            ) : (
+              <div style={{ minHeight: 112, padding: 10, fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre-wrap', borderRadius: 6, border: '1px solid var(--line)', background: 'var(--surface-muted)', color: displayedClinicalReport ? 'var(--text)' : 'var(--text-muted)' }}>
+                {displayedClinicalReport || 'Awaiting finalized clinical result.'}
+              </div>
+            )}
+            {isFinalized && (
+              <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 6, background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#16a34a', fontSize: 13, fontWeight: 600 }}>
+                Finalized{formatDateTime(review?.finalizedAt || diagnostic.updatedAt) ? ` on ${formatDateTime(review?.finalizedAt || diagnostic.updatedAt)}` : ''}
+              </div>
+            )}
           </div>
         )}
 

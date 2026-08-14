@@ -108,7 +108,7 @@ export default function AdmissionPerformance() {
   }, [records]);
 
   return (
-    <div className="flex h-full flex-col gap-4 p-4">
+    <div className="flex h-full flex-col gap-4 p-4 overflow-y-auto">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-bold dark:text-white">Admission Performance</h1>
@@ -186,7 +186,7 @@ export default function AdmissionPerformance() {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="shrink-0 overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <table className="w-full border-collapse">
           <thead>
             <tr className="border-b border-slate-200 text-left text-[10px] font-semibold uppercase text-slate-500 dark:border-slate-700">

@@ -1,30 +1,92 @@
 .hospital-access-shell {
+  --access-page-gutter: clamp(14px, 2vw, 24px);
+  --access-shell-sheen: rgba(255, 255, 255, 0.56);
+  --access-shell-bloom: rgba(219, 234, 255, 0.82);
+  --access-panel-fill: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.72),
+    rgba(242, 248, 255, 0.5) 54%,
+    rgba(248, 230, 246, 0.48)
+  );
+  --access-panel-sheen: rgba(255, 255, 255, 0.48);
+  --access-card-fill: linear-gradient(
+    150deg,
+    rgba(255, 255, 255, 0.94),
+    rgba(248, 251, 255, 0.84) 58%,
+    rgba(247, 239, 255, 0.78)
+  );
+  --access-preview-fill: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.74),
+    rgba(240, 235, 255, 0.58)
+  );
+  --access-tile-fill: rgba(255, 255, 255, 0.66);
+  --access-tile-fill-strong: rgba(255, 255, 255, 0.82);
+  --access-field-fill: rgba(255, 255, 255, 0.78);
+  --access-field-focus: rgba(255, 255, 255, 0.96);
+  --access-ring-center: rgba(255, 255, 255, 0.94);
+  --access-border: var(--glass-line);
+  --access-highlight: var(--glass-highlight);
+  --access-heading: #201944;
+  --access-shadow: rgba(70, 82, 135, 0.18);
   min-height: 100vh;
-  padding: clamp(18px, 3vw, 34px);
+  min-height: 100svh;
+  padding: var(--access-page-gutter);
   color: var(--text);
   background:
-    linear-gradient(112deg, rgba(255, 255, 255, 0.56), transparent 42%),
-    linear-gradient(205deg, rgba(219, 234, 255, 0.82), transparent 54%),
+    linear-gradient(112deg, var(--access-shell-sheen), transparent 42%),
+    linear-gradient(205deg, var(--access-shell-bloom), transparent 54%),
     var(--surface-gradient);
+}
+
+.dark .hospital-access-shell {
+  --access-shell-sheen: rgba(217, 70, 239, 0.08);
+  --access-shell-bloom: rgba(88, 28, 135, 0.2);
+  --access-panel-fill: linear-gradient(
+    145deg,
+    rgba(31, 16, 46, 0.95),
+    rgba(10, 7, 16, 0.96) 54%,
+    rgba(35, 14, 51, 0.92)
+  );
+  --access-panel-sheen: rgba(232, 121, 249, 0.1);
+  --access-card-fill: linear-gradient(
+    150deg,
+    rgba(25, 13, 38, 0.98),
+    rgba(8, 6, 12, 0.98) 60%,
+    rgba(29, 11, 43, 0.97)
+  );
+  --access-preview-fill: linear-gradient(
+    145deg,
+    rgba(29, 14, 43, 0.96),
+    rgba(8, 5, 12, 0.96)
+  );
+  --access-tile-fill: rgba(31, 16, 45, 0.84);
+  --access-tile-fill-strong: rgba(43, 21, 62, 0.92);
+  --access-field-fill: rgba(32, 17, 47, 0.94);
+  --access-field-focus: rgba(45, 22, 64, 0.98);
+  --access-ring-center: rgba(10, 7, 16, 0.98);
+  --access-border: rgba(216, 180, 254, 0.18);
+  --access-highlight: rgba(255, 255, 255, 0.12);
+  --access-heading: #f8fbff;
+  --access-shadow: rgba(0, 3, 14, 0.42);
 }
 
 .hospital-access-panel {
   position: relative;
   display: grid;
-  min-height: calc(100vh - clamp(36px, 6vw, 68px));
+  min-height: calc(100vh - var(--access-page-gutter) - var(--access-page-gutter));
+  min-height: calc(100svh - var(--access-page-gutter) - var(--access-page-gutter));
   grid-template-columns: minmax(0, 0.95fr) minmax(520px, 0.9fr);
   align-items: center;
-  gap: clamp(30px, 4vw, 60px);
+  gap: clamp(26px, 3vw, 48px);
   overflow: hidden;
-  border: 1px solid var(--glass-line);
+  border: 1px solid var(--access-border);
   border-radius: 28px;
-  padding: clamp(34px, 5vw, 64px);
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.58), rgba(242, 248, 255, 0.34) 54%, rgba(248, 230, 246, 0.34)),
-    color-mix(in srgb, var(--surface-strong) 62%, transparent);
+  padding: clamp(28px, 3.4vw, 48px);
+  background: var(--access-panel-fill);
   box-shadow:
-    0 30px 80px rgba(80, 88, 145, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+    0 30px 80px var(--access-shadow),
+    inset 0 1px 0 color-mix(in srgb, var(--access-highlight) 82%, transparent);
   backdrop-filter: blur(30px) saturate(1.22);
   -webkit-backdrop-filter: blur(30px) saturate(1.22);
 }
@@ -33,7 +95,7 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.48), transparent 38%);
+  background: linear-gradient(90deg, var(--access-panel-sheen), transparent 38%);
   content: "";
 }
 
@@ -47,7 +109,7 @@
   display: grid;
   max-width: 720px;
   align-content: center;
-  gap: clamp(22px, 3vw, 34px);
+  gap: clamp(18px, 2.2vw, 28px);
 }
 
 .hospital-access-brand,
@@ -81,8 +143,8 @@
 .hospital-access-copy h1 {
   margin: 0;
   max-width: 430px;
-  color: #201944;
-  font-size: clamp(2rem, 4vw, 3.25rem);
+  color: var(--access-heading);
+  font-size: clamp(2rem, 3.4vw, 3rem);
   font-weight: 850;
   letter-spacing: 0;
   line-height: 1.08;
@@ -99,19 +161,17 @@
 .hospital-preview {
   display: grid;
   width: min(100%, 700px);
-  min-height: 330px;
-  grid-template-columns: 146px minmax(0, 1fr);
-  gap: 18px;
+  min-height: 300px;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 16px;
   transform: rotate(-2.5deg);
-  border: 1px solid rgba(255, 255, 255, 0.8);
+  border: 1px solid var(--access-border);
   border-radius: 26px;
-  padding: 18px;
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.58), rgba(246, 241, 255, 0.38)),
-    rgba(255, 255, 255, 0.38);
+  padding: 16px;
+  background: var(--access-preview-fill);
   box-shadow:
-    0 28px 58px rgba(104, 112, 176, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.76);
+    0 28px 58px var(--access-shadow),
+    inset 0 1px 0 var(--access-highlight);
   backdrop-filter: blur(22px) saturate(1.2);
   -webkit-backdrop-filter: blur(22px) saturate(1.2);
 }
@@ -122,7 +182,7 @@
   gap: 15px;
   border-radius: 20px;
   padding: 18px 14px;
-  background: rgba(255, 255, 255, 0.46);
+  background: var(--access-tile-fill);
 }
 
 .hospital-preview-avatar {
@@ -170,10 +230,10 @@
 .hospital-preview-grid,
 .hospital-preview-analysis,
 .hospital-preview-metrics {
-  border: 1px solid rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--access-border);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.5);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
+  background: var(--access-tile-fill);
+  box-shadow: inset 0 1px 0 var(--access-highlight);
 }
 
 .hospital-preview-topline {
@@ -218,7 +278,7 @@
   place-items: center;
   border-radius: 50%;
   background:
-    radial-gradient(circle at center, rgba(255, 255, 255, 0.92) 0 47%, transparent 48%),
+    radial-gradient(circle at center, var(--access-ring-center) 0 47%, transparent 48%),
     conic-gradient(#8b5cf6 0 46%, #62d2ae 46% 72%, rgba(139, 92, 246, 0.14) 72% 100%);
 }
 
@@ -317,7 +377,7 @@
   gap: 4px;
   border-radius: 14px;
   padding: 10px;
-  background: rgba(255, 255, 255, 0.48);
+  background: var(--access-tile-fill-strong);
 }
 
 .hospital-preview-metric span {
@@ -358,18 +418,16 @@
 }
 
 .hospital-access-card {
-  width: min(100%, 660px);
+  width: min(100%, 620px);
   justify-self: center;
   overflow: hidden;
-  border: 1px solid var(--glass-line);
+  border: 1px solid var(--access-border);
   border-radius: 28px;
-  padding: clamp(34px, 5vw, 58px);
-  background:
-    linear-gradient(150deg, rgba(255, 255, 255, 0.82), rgba(248, 251, 255, 0.66) 58%, rgba(250, 239, 255, 0.56)),
-    rgba(255, 255, 255, 0.68);
+  padding: clamp(28px, 3vw, 44px);
+  background: var(--access-card-fill);
   box-shadow:
-    0 28px 70px rgba(70, 82, 135, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.88);
+    0 28px 70px var(--access-shadow),
+    inset 0 1px 0 color-mix(in srgb, var(--access-highlight) 88%, transparent);
   backdrop-filter: blur(30px) saturate(1.26);
   -webkit-backdrop-filter: blur(30px) saturate(1.26);
 }
@@ -379,8 +437,8 @@
 }
 
 .hospital-access-card__brand img {
-  width: 58px;
-  height: 58px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   object-fit: cover;
 }
@@ -390,7 +448,7 @@
 }
 
 .hospital-access-card__heading {
-  margin-top: 34px;
+  margin-top: 26px;
   text-align: center;
 }
 
@@ -413,7 +471,7 @@
 .hospital-access-field {
   display: grid;
   gap: 11px;
-  margin-top: 36px;
+  margin-top: 28px;
 }
 
 .hospital-access-field > span {
@@ -425,17 +483,17 @@
 
 .hospital-access-input-wrap {
   display: flex;
-  min-height: 58px;
+  min-height: 54px;
   align-items: center;
   gap: 12px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--access-border);
   border-radius: 18px;
   padding: 0 17px;
   color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.62);
+  background: var(--access-field-fill);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.84),
-    0 12px 22px rgba(80, 88, 145, 0.06);
+    inset 0 1px 0 var(--access-highlight),
+    0 12px 22px color-mix(in srgb, var(--access-shadow) 72%, transparent);
   transition:
     border-color 180ms ease,
     box-shadow 180ms ease,
@@ -444,10 +502,10 @@
 
 .hospital-access-input-wrap:focus-within {
   border-color: color-mix(in srgb, var(--primary) 72%, var(--line-strong));
-  background: rgba(255, 255, 255, 0.78);
+  background: var(--access-field-focus);
   box-shadow:
     0 0 0 4px var(--primary-soft),
-    0 16px 28px rgba(80, 88, 145, 0.1);
+    0 16px 28px color-mix(in srgb, var(--access-shadow) 78%, transparent);
 }
 
 .hospital-access-input-wrap input {
@@ -459,6 +517,12 @@
   background: transparent;
   font-size: 0.96rem;
   outline: 0;
+}
+
+.hospital-access-input-wrap input:focus,
+.hospital-access-input-wrap input:focus-visible {
+  outline: 0;
+  box-shadow: none;
 }
 
 .hospital-access-input-wrap input::placeholder {
@@ -483,7 +547,7 @@
   border: 1px solid color-mix(in srgb, var(--success) 30%, var(--line));
   border-radius: 16px;
   padding: 14px 15px;
-  background: color-mix(in srgb, var(--success) 9%, white);
+  background: color-mix(in srgb, var(--success) 12%, var(--access-tile-fill-strong));
 }
 
 .hospital-access-resolved div {
@@ -522,7 +586,7 @@
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 5px;
-  background: rgba(255, 255, 255, 0.42);
+  background: var(--access-tile-fill);
 }
 
 .hospital-access-mode button {
@@ -537,7 +601,7 @@
 
 .hospital-access-mode button.is-active {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.84);
+  background: var(--access-tile-fill-strong);
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
 }
 
@@ -572,13 +636,13 @@
   border-radius: 13px;
   padding: 10px 12px;
   color: var(--text);
-  background: rgba(255, 255, 255, 0.54);
+  background: var(--access-tile-fill);
   text-align: left;
 }
 
 .hospital-access-workspaces button.is-selected {
   border-color: color-mix(in srgb, var(--primary) 54%, var(--line));
-  background: color-mix(in srgb, var(--primary) 8%, white);
+  background: color-mix(in srgb, var(--primary) 14%, var(--access-tile-fill-strong));
   box-shadow: 0 0 0 3px var(--primary-soft);
 }
 
@@ -592,11 +656,11 @@
 .hospital-access-submit {
   display: inline-flex;
   width: 100%;
-  min-height: 58px;
+  min-height: 54px;
   align-items: center;
   justify-content: center;
   gap: 12px;
-  margin-top: 34px;
+  margin-top: 26px;
   border: 1px solid rgba(255, 255, 255, 0.62);
   border-radius: 18px;
   color: #fff;
@@ -622,7 +686,7 @@
   align-items: center;
   justify-content: center;
   gap: 9px;
-  margin-top: 20px;
+  margin-top: 14px;
   border: 0;
   color: var(--primary-strong);
   background: transparent;
@@ -630,9 +694,95 @@
   font-weight: 720;
 }
 
+.hospital-access-help:hover,
+.hospital-access-help:focus-visible {
+  color: var(--text);
+}
+
+.hospital-access-help-panel {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+  border: 1px solid color-mix(in srgb, var(--line-strong) 72%, transparent);
+  border-radius: 16px;
+  padding: 16px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-strong) 82%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 14px 28px rgba(0, 8, 24, 0.12);
+}
+
+.hospital-access-help-panel__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hospital-access-help-panel h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.98rem;
+  font-weight: 820;
+  letter-spacing: 0;
+  line-height: 1.3;
+}
+
+.hospital-access-help-panel p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  font-weight: 560;
+  line-height: 1.55;
+}
+
+.hospital-access-help-panel__close {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--surface-muted) 78%, transparent);
+}
+
+.hospital-access-help-panel__close:hover,
+.hospital-access-help-panel__close:focus-visible {
+  border-color: var(--line-strong);
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-strong) 86%, transparent);
+}
+
+.hospital-access-help-panel__link {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 40px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid color-mix(in srgb, var(--primary) 36%, var(--line));
+  border-radius: 12px;
+  padding: 0 13px;
+  color: var(--primary-strong);
+  background: color-mix(in srgb, var(--primary-soft) 68%, transparent);
+  font-size: 0.88rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.hospital-access-help-panel__link:hover,
+.hospital-access-help-panel__link:focus-visible {
+  border-color: color-mix(in srgb, var(--primary) 58%, var(--line-strong));
+  color: var(--text);
+  background: color-mix(in srgb, var(--primary-soft) 92%, transparent);
+}
+
 .hospital-access-divider {
   height: 1px;
-  margin: 28px 0;
+  margin: 22px 0;
   background: linear-gradient(90deg, transparent, var(--line), transparent);
 }
 
@@ -709,31 +859,31 @@
   }
 }
 
-@media (min-width: 1121px) and (max-height: 820px) {
+@media (min-width: 1121px) and (max-height: 940px) {
   .hospital-access-panel {
     align-items: center;
-    padding: 28px clamp(42px, 4vw, 56px);
+    padding: 24px clamp(34px, 3vw, 44px);
   }
 
   .hospital-access-intro {
-    gap: 18px;
+    gap: 16px;
   }
 
   .hospital-access-copy h1 {
     max-width: 520px;
-    font-size: 2.65rem;
+    font-size: 2.5rem;
   }
 
   .hospital-access-copy p {
-    margin-top: 12px;
-    font-size: 0.98rem;
+    margin-top: 10px;
+    font-size: 0.94rem;
   }
 
   .hospital-preview {
-    min-height: 250px;
-    grid-template-columns: 110px minmax(0, 1fr);
-    gap: 12px;
-    padding: 14px;
+    min-height: 230px;
+    grid-template-columns: 104px minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px;
     transform: rotate(-1.6deg);
   }
 
@@ -743,32 +893,32 @@
   }
 
   .hospital-preview-grid {
-    padding: 12px;
+    padding: 10px;
   }
 
   .hospital-preview-ring {
-    width: 76px;
-    height: 76px;
+    width: 68px;
+    height: 68px;
   }
 
   .hospital-access-card {
-    padding: 34px 48px;
+    padding: 26px 40px;
   }
 
   .hospital-access-card__heading {
-    margin-top: 24px;
+    margin-top: 20px;
   }
 
   .hospital-access-field {
-    margin-top: 24px;
+    margin-top: 20px;
   }
 
   .hospital-access-submit {
-    margin-top: 24px;
+    margin-top: 20px;
   }
 
   .hospital-access-divider {
-    margin: 18px 0;
+    margin: 16px 0;
   }
 }
 
@@ -805,5 +955,10 @@
     min-height: 56px;
     align-items: flex-start;
     padding: 15px;
+  }
+
+  .hospital-access-help-panel__link {
+    width: 100%;
+    justify-content: center;
   }
 }

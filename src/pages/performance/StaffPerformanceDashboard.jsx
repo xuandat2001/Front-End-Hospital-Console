@@ -24,11 +24,11 @@ export default function StaffPerformanceDashboard() {
   const [showSearch, setShowSearch] = useState(false);
 
   useEffect(() => {
-    Promise.allSettled([
+    Promise.resolve().then(() => Promise.allSettled([
       performanceService.getAllPerformances(),
       staffService.getAllStaff(),
       hospitalService.getAllDepartmentsList(),
-    ]).then(([perfRes, staffRes, deptRes]) => {
+    ])).then(([perfRes, staffRes, deptRes]) => {
       if (perfRes.status === "fulfilled") setPerformances(perfRes.value.data || []);
       if (staffRes.status === "fulfilled") {
         const map = {};
@@ -125,46 +125,46 @@ export default function StaffPerformanceDashboard() {
   }
 
   return (
-    <div className="p-6">
-      <div>
-        <h1 className="mb-2 text-2xl font-bold dark:text-white">Staff Performance</h1>
-        <div className="mb-6 flex items-center justify-between">
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+    <div className="p-3">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold dark:text-white">Staff Performance</h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             Performance ratings, mental health scores, and risk indicators.
           </p>
-          <button
-            onClick={() => setShowSearch(!showSearch)}
-            className="btn btn-primary"
-            type="button"
-          >
-            {showSearch ? "Hide Search" : "Search"}
-          </button>
         </div>
+        <button
+          onClick={() => setShowSearch(!showSearch)}
+          className="btn btn-primary shrink-0 px-3 py-1.5 text-xs"
+          type="button"
+        >
+          {showSearch ? "Hide Search" : "Search"}
+        </button>
       </div>
 
-      <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border bg-white p-4 shadow-sm dark:bg-slate-800 dark:border-slate-700">
-          <p className="mb-2 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Burnout Risk</p>
+      <div className="mb-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-lg border bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <p className="mb-1 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">Burnout Risk</p>
           <MiniPieChart slices={burnoutSlices} centerLabel={`${filteredPerformances.length}\nStaff`} />
         </div>
-        <div className="rounded-xl border bg-white p-4 shadow-sm dark:bg-slate-800 dark:border-slate-700">
-          <p className="mb-2 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Stress Level</p>
+        <div className="rounded-lg border bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <p className="mb-1 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">Stress Level</p>
           <MiniPieChart slices={stressSlices} centerLabel={`${filteredPerformances.length}\nStaff`} />
         </div>
-        <div className="rounded-xl border bg-white p-4 shadow-sm dark:bg-slate-800 dark:border-slate-700 sm:col-span-2">
-          <p className="mb-2 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Top Performers by Success Rate</p>
-          <div className="space-y-2">
+        <div className="rounded-lg border bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:col-span-2">
+          <p className="mb-1 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">Top Performers by Success Rate</p>
+          <div className="space-y-1.5">
             {topPerformers.map((item, i) => (
-              <div key={item.id} className="flex items-center gap-3">
-                <span className="w-5 text-center text-sm font-bold text-slate-400">#{i + 1}</span>
+              <div key={item.id} className="flex items-center gap-2">
+                <span className="w-5 text-center text-xs font-bold text-slate-400">#{i + 1}</span>
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium dark:text-white">{item.name}</span>
-                    <span className="text-sm font-bold dark:text-white">{item.rate}%</span>
+                    <span className="truncate text-xs font-medium dark:text-white">{item.name}</span>
+                    <span className="shrink-0 text-xs font-bold dark:text-white">{item.rate}%</span>
                   </div>
-                  <div className="mt-1 h-2 w-full rounded-full bg-slate-100 dark:bg-slate-700">
+                  <div className="mt-1 h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-700">
                     <div
-                      className="h-2 rounded-full bg-gradient-to-r from-violet-500 to-indigo-500"
+                      className="h-1.5 rounded-full bg-gradient-to-r from-violet-500 to-indigo-500"
                       style={{ width: `${item.rate}%` }}
                     />
                   </div>
@@ -176,20 +176,20 @@ export default function StaffPerformanceDashboard() {
       </div>
 
       {performances.length > 1 && (
-        <div className="mb-8 flex flex-wrap gap-4">
-          <div className="rounded-xl border bg-white p-4 shadow-sm dark:bg-slate-800 dark:border-slate-700 flex-1 min-w-[320px]">
-            <p className="mb-2 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Average Scores</p>
+        <div className="mb-3 grid gap-2 lg:grid-cols-2">
+          <div className="min-w-0 rounded-lg border bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <p className="mb-1 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">Average Scores</p>
             <BarChart data={avgScores.data} labels={avgScores.labels} compact />
           </div>
-          <div className="rounded-xl border bg-white p-4 shadow-sm dark:bg-slate-800 dark:border-slate-700 flex-1 min-w-[320px]">
-            <p className="mb-2 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Attendance by Department</p>
+          <div className="min-w-0 rounded-lg border bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <p className="mb-1 text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">Attendance by Department</p>
             <BarChart data={attendanceByDept.data} labels={attendanceByDept.labels} compact />
           </div>
         </div>
       )}
 
       {showSearch && (<>
-      <div className="mb-6 max-w-xs">
+      <div className="mb-3 max-w-xs">
         <StaffSearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
       </div>
 
@@ -197,14 +197,14 @@ export default function StaffPerformanceDashboard() {
         <p className="text-sm text-slate-400">No performance records found.</p>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
         {filteredPerformances.map((perf) => {
           const staff = staffMap[perf.staffId];
           return (
-            <div key={perf._id || perf.performanceId} className="rounded-xl border bg-white p-5 shadow-sm dark:bg-slate-800 dark:border-slate-700">
-              <div className="mb-3 flex items-center justify-between">
-                <div>
-                  <h3 className="text-base font-bold dark:text-white">
+            <div key={perf._id || perf.performanceId} className="rounded-lg border bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+              <div className="mb-2 flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <h3 className="truncate text-sm font-bold dark:text-white">
                     {staff?.fullName || perf.staffId}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -215,7 +215,7 @@ export default function StaffPerformanceDashboard() {
                 <span className="text-[10px] text-slate-400">{new Date(perf.calculatedAt).toLocaleDateString()}</span>
               </div>
 
-              <div className="mb-3 grid grid-cols-2 gap-2 text-sm">
+              <div className="mb-2 grid grid-cols-2 gap-1.5 text-xs">
                 <div>
                   <span className="text-[10px] font-semibold uppercase text-slate-400">Success</span>
                   <p className="font-bold dark:text-white">{getCasesRate(perf)}%</p>
@@ -234,21 +234,21 @@ export default function StaffPerformanceDashboard() {
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-3 border-t pt-3 dark:border-slate-700">
-                <div className="flex items-center gap-1.5 text-xs">
+              <div className="flex flex-wrap gap-x-3 gap-y-1.5 border-t pt-2 dark:border-slate-700">
+                <div className="flex items-center gap-1.5 text-[11px]">
                   <span className="font-medium text-slate-500 dark:text-slate-400">Teamwork:</span>
                   <span className="font-semibold dark:text-white">{perf.teamworkScore ?? "—"}</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs">
+                <div className="flex items-center gap-1.5 text-[11px]">
                   <span className="font-medium text-slate-500 dark:text-slate-400">Mental:</span>
                   <span className="font-semibold dark:text-white">{perf.mentalHealthScore ?? "—"}</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs">
+                <div className="flex items-center gap-1.5 text-[11px]">
                   <span className="h-2 w-2 rounded-full" style={{ backgroundColor: RISK_COLORS[perf.burnoutRisk] || "#6B7280" }} />
                   <span className="font-medium text-slate-500 dark:text-slate-400">Burnout:</span>
                   <span className="font-semibold dark:text-white">{perf.burnoutRisk || "—"}</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs">
+                <div className="flex items-center gap-1.5 text-[11px]">
                   <span className="h-2 w-2 rounded-full" style={{ backgroundColor: RISK_COLORS[perf.stressLevel] || "#6B7280" }} />
                   <span className="font-medium text-slate-500 dark:text-slate-400">Stress:</span>
                   <span className="font-semibold dark:text-white">{perf.stressLevel || "—"}</span>

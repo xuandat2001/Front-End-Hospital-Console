@@ -1,56 +1,16 @@
-import { MOCK_MODE } from "../../mocks/mockSession";
 import { mockDirectData } from "../mock/mockApi";
 
-const apiBaseUrl =
-  import.meta.env.VITE_API_BASE_URL ||
-  "http://localhost:3000/api";
-
-export const gatewayUrl =
-  import.meta.env.VITE_API_GATEWAY_URL ||
-  apiBaseUrl.replace(/\/api\/?$/, "");
+export const gatewayUrl = "mock://elly-prototype";
 
 export const hospitalIdentity = {
-  ellyId: import.meta.env.VITE_ELLY_ID || "ELLY-STAFF-001",
-  partnerId: import.meta.env.VITE_ELLY_PARTNER_ID || "HCM-2048",
-  role: import.meta.env.VITE_ELLY_ROLE || "HOSPITAL_ADMIN",
+  ellyId: "ELLY-USER-HOSP-ADMIN-001",
+  partnerId: "ELLY-ORG-019EA2DD-FBD5-76B8-9CEC-19DA332BA2CD",
+  role: "HOSPITAL_ADMIN",
 };
 
-const identityHeaders = {
-  "Content-Type": "application/json",
-  "x-elly-id": hospitalIdentity.ellyId,
-  "x-elly-partner-id": hospitalIdentity.partnerId,
-  "x-elly-role": hospitalIdentity.role,
-};
-
-async function registrationRequest(path, options = {}) {
-  if (MOCK_MODE) {
-    return mockDirectData(path, options);
-  }
-
-  let response;
-
-  try {
-    response = await fetch(`${gatewayUrl}${path}`, {
-      ...options,
-      headers: {
-        ...identityHeaders,
-        ...(options.headers || {}),
-      },
-    });
-  } catch {
-    throw new Error(
-      `Cannot reach API Gateway at ${gatewayUrl}. Make sure the gateway is running.`,
-    );
-  }
-
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(
-      body.message || `Registration request failed with status ${response.status}`,
-    );
-  }
-
-  return body.data;
+async function registrationRequest(path) {
+  const payload = await mockDirectData(path);
+  return payload?.data ?? payload;
 }
 
 export function getRegistrationNotifications() {

@@ -3,26 +3,17 @@ import { staffService } from "../../../services/core-modules/staffApi";
 import { hospitalService } from "../../../services/core-modules/hospitalApi";
 import StaffSearchBar from "../../../components/staff/StaffSearchBar";
 import StaffCalendar from "../../../components/staff/StaffCalendar";
+import {
+  addLocalDays,
+  formatLocalDate,
+  getMonday,
+  parseLocalDate,
+} from "../../../components/staff/staffScheduleDate";
 
 const DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
 
-function getMonday(d) {
-  const date = new Date(d);
-  const day = date.getDay();
-  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-  date.setDate(diff);
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-
-function formatDate(date) {
-  return date.toISOString().split("T")[0];
-}
-
 function addWeek(date, weeks) {
-  const d = new Date(date);
-  d.setDate(d.getDate() + weeks * 7);
-  return d;
+  return addLocalDays(date, weeks * 7);
 }
 
 export default function StaffSchedule() {
@@ -32,7 +23,7 @@ export default function StaffSchedule() {
   const [schedule, setSchedule] = useState([]);
   const [message, setMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [weekStart, setWeekStart] = useState(() => formatDate(getMonday(new Date())));
+  const [weekStart, setWeekStart] = useState(() => formatLocalDate(getMonday(new Date())));
 
   useEffect(() => {
     const load = async () => {
@@ -46,30 +37,36 @@ export default function StaffSchedule() {
     load();
   }, []);
 
-  const filteredStaff = searchTerm.trim()
-    ? staff.filter((p) =>
-        p.ellyId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p._id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.fullName?.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    : staff;
+  const filteredStaff = useMemo(() => {
+    const search = searchTerm.trim().toLowerCase();
+    if (!search) return staff;
+    return staff.filter((p) =>
+      p.ellyId?.toLowerCase().includes(search) ||
+      p._id?.toLowerCase().includes(search) ||
+      p.fullName?.toLowerCase().includes(search)
+    );
+  }, [staff, searchTerm]);
+
+  const selectedStaff = useMemo(
+    () => staff.find((m) => m.ellyId === selectedMember || m._id === selectedMember),
+    [staff, selectedMember],
+  );
+  const showStaffResults = !selectedMember || Boolean(searchTerm.trim());
 
   const weekEnd = useMemo(() => {
-    const d = new Date(weekStart);
-    d.setDate(d.getDate() + 6);
-    return d;
+    return addLocalDays(weekStart, 6);
   }, [weekStart]);
 
   const weekLabel = useMemo(() => {
-    const start = new Date(weekStart);
+    const start = parseLocalDate(weekStart);
     const end = new Date(weekEnd);
     const opts = { month: "short", day: "numeric", year: "numeric" };
     return `${start.toLocaleDateString("en-US", opts)} — ${end.toLocaleDateString("en-US", opts)}`;
   }, [weekStart, weekEnd]);
 
-  const goBack = () => setWeekStart(formatDate(addWeek(new Date(weekStart), -1)));
-  const goForward = () => setWeekStart(formatDate(addWeek(new Date(weekStart), 1)));
-  const goToday = () => setWeekStart(formatDate(getMonday(new Date())));
+  const goBack = () => setWeekStart(formatLocalDate(addWeek(weekStart, -1)));
+  const goForward = () => setWeekStart(formatLocalDate(addWeek(weekStart, 1)));
+  const goToday = () => setWeekStart(formatLocalDate(getMonday(new Date())));
 
   const loadSchedule = useCallback(async (memberId, ws) => {
     if (!memberId) { setSchedule([]); return; }
@@ -79,13 +76,15 @@ export default function StaffSchedule() {
     } catch {
       const member = staff.find((m) => m.ellyId === memberId || m._id === memberId);
       const all = member?.schedule || [];
-      const monday = getMonday(new Date(ws)).toISOString().split("T")[0];
+      const monday = formatLocalDate(getMonday(ws));
       setSchedule(all.filter((s) => !s.weekStart || s.weekStart === monday));
     }
   }, [staff]);
 
-  const handleMemberChange = (memberId) => {
+  const handleMemberSelect = (member) => {
+    const memberId = member?.ellyId || member?._id || "";
     setSelectedMember(memberId);
+    setSearchTerm("");
     loadSchedule(memberId, weekStart);
   };
 
@@ -114,15 +113,48 @@ export default function StaffSchedule() {
     }
   };
 
+  const handleCalendarShiftDelete = async (member, shift, shiftDate) => {
+    const memberId = member?.ellyId || member?._id;
+    if (!memberId || !shift?.day) return;
+
+    const targetWeekStart = shift.weekStart || formatLocalDate(getMonday(shiftDate));
+    const updatedMemberSchedule = (member.schedule || []).filter((item) => {
+      const itemWeekStart = item.weekStart || targetWeekStart;
+      return !(item.day === shift.day && itemWeekStart === targetWeekStart);
+    });
+    const updatedWeekSchedule = updatedMemberSchedule.filter((item) => {
+      const itemWeekStart = item.weekStart || targetWeekStart;
+      return itemWeekStart === targetWeekStart;
+    });
+
+    try {
+      await staffService.updateSchedule(memberId, updatedWeekSchedule, targetWeekStart);
+      setStaff((current) =>
+        current.map((item) =>
+          (item.ellyId || item._id) === memberId
+            ? { ...item, schedule: updatedMemberSchedule }
+            : item
+        )
+      );
+      if (selectedMember === memberId && weekStart === targetWeekStart) {
+        setSchedule((current) => current.filter((item) => item.day !== shift.day));
+      }
+      setMessage("Shift deleted.");
+    } catch (error) {
+      setMessage(error.message);
+    }
+  };
+
   const isDayOff = (day) => {
-    const shift = schedule.find((s) => s.day === day && s.weekStart === weekStart);
+    const shift = schedule.find((s) => s.day === day);
     return !shift || (!shift.startTime && !shift.endTime);
   };
 
-  const toggleDayOff = (day) => {
+  const toggleDayOff = (day, checked) => {
     setSchedule((prev) => {
       const existing = prev.find((s) => s.day === day);
-      if (existing) return prev.filter((s) => s.day !== day);
+      if (checked) return prev.filter((s) => s.day !== day);
+      if (existing) return prev;
       return [...prev, { day, weekStart, startTime: "", endTime: "" }];
     });
   };
@@ -147,65 +179,101 @@ export default function StaffSchedule() {
         )}
 
         <div className="space-y-3">
-          <label className="mb-2 block font-semibold dark:text-white">Select Staff</label>
-          <StaffSearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
-          <select
-            value={selectedMember}
-            onChange={(e) => handleMemberChange(e.target.value)}
-            className="w-full rounded border p-2 dark:bg-slate-800 dark:text-white dark:border-slate-600"
-          >
-            <option value="">Select Staff</option>
-            {filteredStaff.map((m) => (
-              <option key={m.ellyId || m._id} value={m.ellyId || m._id}>{m.fullName}</option>
-            ))}
-          </select>
+          <label className="mb-2 block font-semibold dark:text-white">Find Staff</label>
+          <StaffSearchBar
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            placeholder="Search staff name or ID..."
+          />
+          {selectedMember && (
+            <div className="rounded-xl border border-teal-100 bg-teal-50 p-3 text-sm text-teal-900 dark:border-teal-900/60 dark:bg-teal-950/40 dark:text-teal-100">
+              <span className="block text-xs font-semibold uppercase tracking-wide text-teal-700 dark:text-teal-300">
+                Edit weekly shifts
+              </span>
+              Viewing shifts for <strong>{selectedStaff?.fullName || selectedMember}</strong>
+            </div>
+          )}
+          {showStaffResults && (
+            <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
+              {filteredStaff.length ? (
+                filteredStaff.map((m) => {
+                  const memberId = m.ellyId || m._id;
+                  const isSelected = selectedMember === memberId;
+                  return (
+                    <button
+                      key={memberId}
+                      type="button"
+                      onClick={() => handleMemberSelect(m)}
+                      className={`flex w-full items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 text-left last:border-b-0 hover:bg-purple-50 dark:border-slate-700 dark:hover:bg-slate-700 ${
+                        isSelected ? "bg-purple-100 dark:bg-purple-900/40" : ""
+                      }`}
+                    >
+                      <span className="min-w-0">
+                        <span className="block break-words text-sm font-semibold text-slate-900 dark:text-white">
+                          {m.fullName || "Unnamed staff"}
+                        </span>
+                        <span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">
+                          {[m.role, m.ellyId || m._id].filter(Boolean).join(" · ")}
+                        </span>
+                      </span>
+                      <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-700 dark:text-slate-200">
+                        {isSelected ? "Viewing" : "View shifts"}
+                      </span>
+                    </button>
+                  );
+                })
+              ) : (
+                <p className="px-4 py-5 text-sm text-slate-500 dark:text-slate-400">
+                  No staff matched your search.
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {selectedMember && (
           <div>
-            <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:bg-slate-800">
-              <table className="w-full">
-                <thead className="bg-slate-100 dark:bg-slate-700">
-                  <tr>
-                    <th className="p-4 text-left dark:text-white">Day</th>
-                    <th className="p-4 text-left dark:text-white">Start Time</th>
-                    <th className="p-4 text-left dark:text-white">End Time</th>
-                    <th className="p-4 text-left dark:text-white">Day Off</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {DAYS.map((day) => {
-                    const shift = schedule.find((s) => s.day === day);
-                    return (
-                      <tr key={day} className="border-t border-slate-200 dark:border-slate-700">
-                        <td className="p-4 font-medium dark:text-white">{day}</td>
-                        <td className="p-4">
-                          <input
-                            type="time"
-                            value={shift?.startTime || ""}
-                            onChange={(e) => updateShift(day, "startTime", e.target.value)}
-                            className="rounded border p-2 dark:bg-slate-700 dark:text-white"
-                          />
-                        </td>
-                        <td className="p-4">
-                          <input
-                            type="time"
-                            value={shift?.endTime || ""}
-                            onChange={(e) => updateShift(day, "endTime", e.target.value)}
-                            className="rounded border p-2 dark:bg-slate-700 dark:text-white"
-                          />
-                        </td>
-                        <td className="p-4">
-                          <label className="flex items-center gap-2 dark:text-white">
-                            <input type="checkbox" checked={isDayOff(day)} onChange={() => toggleDayOff(day)} />
-                            Off Day
-                          </label>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div className="rounded-xl border bg-white shadow-sm dark:bg-slate-800">
+              <div className="grid grid-cols-[72px_minmax(92px,1fr)_minmax(92px,1fr)_72px] gap-2 rounded-t-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-500 dark:bg-slate-700 dark:text-slate-300">
+                <span>Day</span>
+                <span>Start</span>
+                <span>End</span>
+                <span>Off</span>
+              </div>
+              <div className="divide-y divide-slate-200 dark:divide-slate-700">
+                {DAYS.map((day) => {
+                  const shift = schedule.find((s) => s.day === day);
+                  return (
+                    <div
+                      key={day}
+                      className="grid grid-cols-[72px_minmax(92px,1fr)_minmax(92px,1fr)_72px] items-center gap-2 px-3 py-2"
+                    >
+                      <span className="text-xs font-semibold dark:text-white">{day.slice(0, 3)}</span>
+                      <input
+                        type="time"
+                        value={shift?.startTime || ""}
+                        onChange={(e) => updateShift(day, "startTime", e.target.value)}
+                        className="w-full rounded border p-2 text-sm [color-scheme:light] dark:bg-slate-700 dark:text-white dark:[color-scheme:dark]"
+                      />
+                      <input
+                        type="time"
+                        value={shift?.endTime || ""}
+                        onChange={(e) => updateShift(day, "endTime", e.target.value)}
+                        className="w-full rounded border p-2 text-sm [color-scheme:light] dark:bg-slate-700 dark:text-white dark:[color-scheme:dark]"
+                      />
+                      <label className="inline-flex items-center justify-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-xs font-semibold text-slate-700 dark:border-slate-600 dark:bg-slate-700 dark:text-white">
+                        <input
+                          type="checkbox"
+                          checked={isDayOff(day)}
+                          onChange={(e) => toggleDayOff(day, e.target.checked)}
+                          className="h-4 w-4 accent-teal-600"
+                        />
+                        Off
+                      </label>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="mt-6">
@@ -224,7 +292,11 @@ export default function StaffSchedule() {
       <div className="w-1/2 min-w-0 overflow-y-auto">
         <h2 className="mb-2 text-2xl font-bold dark:text-white">Calendar</h2>
         <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">Staff color-coded by department.</p>
-        <StaffCalendar staff={staff} departments={departments} />
+        <StaffCalendar
+          staff={staff}
+          departments={departments}
+          onShiftDelete={handleCalendarShiftDelete}
+        />
       </div>
     </div>
   );

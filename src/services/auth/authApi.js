@@ -3,6 +3,7 @@ import { apiRequest } from "../config/config";
 export function resolveEllyId(ellyId) {
   return apiRequest("/auth/resolve-elly-id", {
     method: "POST",
+    skipAuthRefresh: true,
     body: JSON.stringify({ ellyId }),
   });
 }
@@ -10,6 +11,7 @@ export function resolveEllyId(ellyId) {
 export function login(credentials) {
   return apiRequest("/auth/login", {
     method: "POST",
+    skipAuthRefresh: true,
     body: JSON.stringify(credentials),
   });
 }
@@ -31,6 +33,7 @@ export function loginWithEllyId(ellyIdOrPayload) {
 export function logout(refreshToken) {
   return apiRequest("/auth/logout", {
     method: "POST",
+    skipAuthRefresh: true,
     body: JSON.stringify({ refreshToken }),
   });
 }
@@ -38,6 +41,7 @@ export function logout(refreshToken) {
 export function refresh(refreshToken) {
   return apiRequest("/auth/refresh", {
     method: "POST",
+    skipAuthRefresh: true,
     body: JSON.stringify({ refreshToken }),
   });
 }

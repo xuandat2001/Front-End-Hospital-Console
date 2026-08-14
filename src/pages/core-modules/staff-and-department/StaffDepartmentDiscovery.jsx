@@ -9,6 +9,9 @@ import BarChart from "../../../components/graphs/BarChart";
 const STAFF_PAGE_SIZE = 8;
 const DEPARTMENT_PAGE_SIZE = 6;
 
+const includesSearch = (value, query) =>
+  String(value || "").toLowerCase().includes(query);
+
 export default function StaffDepartmentDiscovery({ defaultMode = "staff" }) {
   const [allStaff, setAllStaff] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -114,6 +117,8 @@ export default function StaffDepartmentDiscovery({ defaultMode = "staff" }) {
 
   const getDepartmentHospital = useCallback(
     (dept) => {
+      if (dept.hospital && typeof dept.hospital === "object")
+        return dept.hospital;
       if (dept.hospitalId && typeof dept.hospitalId === "object")
         return dept.hospitalId;
       const h = hospitalLookup.get(
@@ -162,16 +167,20 @@ export default function StaffDepartmentDiscovery({ defaultMode = "staff" }) {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return departments;
     return departments.filter((d) => {
+      const hosp = getDepartmentHospital(d);
       const matchesSearch =
-        d.name?.toLowerCase().includes(q) ||
-        d.specialty?.toLowerCase().includes(q) ||
-        d.description?.toLowerCase().includes(q);
-      if (searchMode === "hospital") {
-        const hosp = getDepartmentHospital(d);
-        return (
-          hosp.hospitalName?.toLowerCase().includes(q) || matchesSearch
-        );
-      }
+        includesSearch(d.name, q) ||
+        includesSearch(d.specialty, q) ||
+        includesSearch(d.description, q) ||
+        includesSearch(d.ellyDepartmentId, q) ||
+        includesSearch(d._id, q) ||
+        includesSearch(d.id, q) ||
+        includesSearch(d.status, q) ||
+        includesSearch(d.floor, q) ||
+        includesSearch(d.roomPrefix, q) ||
+        includesSearch(d.hospitalName, q) ||
+        includesSearch(hosp.hospitalName, q) ||
+        includesSearch(hosp.ellyHospitalId, q);
       return matchesSearch;
     });
   }, [departments, searchQuery, searchMode, getDepartmentHospital]);
@@ -259,7 +268,7 @@ export default function StaffDepartmentDiscovery({ defaultMode = "staff" }) {
   }, [departments, getStaffForDepartment]);
 
   const showStaff = searchMode === "staff";
-  const showDepartments = searchMode === "department" || searchMode === "hospital";
+  const showDepartments = searchMode === "department";
 
   return (
     <div className="discovery-page">
@@ -365,9 +374,7 @@ export default function StaffDepartmentDiscovery({ defaultMode = "staff" }) {
               <small>Search by</small>
               {searchMode === "staff"
                 ? "Staff Name/ID"
-                : searchMode === "department"
-                  ? "Department/Specialty"
-                  : "Hospital"}
+                : "Department/Specialty"}
             </span>
             <select
               aria-label="Search mode"
@@ -376,7 +383,6 @@ export default function StaffDepartmentDiscovery({ defaultMode = "staff" }) {
             >
               <option value="staff">Staff Name/ID</option>
               <option value="department">Department/Specialty</option>
-              <option value="hospital">Hospital</option>
             </select>
             <Icon name="chevronDown" size={15} />
           </label>
@@ -393,9 +399,7 @@ export default function StaffDepartmentDiscovery({ defaultMode = "staff" }) {
               placeholder={
                 searchMode === "staff"
                   ? "Search by staff name or ID..."
-                  : searchMode === "department"
-                    ? "Cardiology, neurology, emergency..."
-                    : "Search hospital name..."
+                  : "Cardiology, neurology, emergency..."
               }
             />
           </label>
@@ -534,11 +538,7 @@ export default function StaffDepartmentDiscovery({ defaultMode = "staff" }) {
               <div className="discovery-section-heading">
                 <div>
                   <h2>Departments</h2>
-                  <p>
-                    {searchMode === "hospital"
-                      ? "Departments in matching hospitals."
-                      : "Clinical departments matching your search."}
-                  </p>
+                  <p>Clinical departments matching your search.</p>
                 </div>
                 <span>{filteredDepartments.length} matches</span>
               </div>

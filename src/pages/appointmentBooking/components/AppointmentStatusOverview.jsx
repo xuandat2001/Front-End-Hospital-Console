@@ -10,10 +10,11 @@ export default function AppointmentStatusOverview({
   appointments,
   typeSummarySlot,
   aiSummarySlot,
+  statusSummary,
 }) {
   const todayKey = getTodayDateKey();
 
-  const distribution = useMemo(() => {
+  const calculatedDistribution = useMemo(() => {
     const selectedAppointments = appointments.filter((appointment) => {
       const dateKey = getLocalDateKey(appointment.appointmentDateTime);
       return dateKey === todayKey;
@@ -23,12 +24,14 @@ export default function AppointmentStatusOverview({
         (appointment) => normalizeStatus(appointment.status) === status,
       ).length;
     return {
-      active: count("BOOKED"),
+      active: count("BOOKED") + count("IN_PROGRESS"),
       completed: count("COMPLETED"),
       cancelled: count("CANCELED"),
       noShow: count("NO_SHOW"),
     };
   }, [appointments, todayKey]);
+
+  const distribution = statusSummary || calculatedDistribution;
 
   const { active, completed, cancelled, noShow } = distribution;
   const total = active + completed + cancelled + noShow;
@@ -36,7 +39,7 @@ export default function AppointmentStatusOverview({
     total ? Math.round((value / total) * 1000) / 10 : 0;
   const rows = [
     {
-      label: "Active (Booked)",
+      label: "Booked",
       value: active,
       color: "#22C55E",
       dotClass: "bg-emerald-500",

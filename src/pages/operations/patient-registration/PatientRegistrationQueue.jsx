@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import useRegistrationStore from "../../../hooks/useRegistrationStore";
 import useRegistrationQueue from "../../../hooks/useRegistrationQueue";
 import { patientService } from "../../../services/core-modules/patientApi";
@@ -13,6 +14,13 @@ function isSameDay(value) {
     date.getMonth() === now.getMonth() &&
     date.getDate() === now.getDate()
   );
+}
+
+function minutesSince(value, now = Date.now()) {
+  const timestamp = new Date(value || 0).getTime();
+  if (!Number.isFinite(timestamp)) return 0;
+
+  return Math.max(0, Math.floor((now - timestamp) / 60000));
 }
 
 function hashString(input) {
@@ -814,13 +822,13 @@ export default function PatientRegistrationQueue() {
   );
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-      <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+    <div className="h-full min-h-0 overflow-y-auto px-4 pb-8 pt-3 sm:px-5">
+      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="mb-1 text-3xl font-bold text-slate-900 dark:text-white">
+          <h1 className="mb-0.5 text-xl font-bold text-slate-900 dark:text-white">
             Patient Registrations
           </h1>
-          <p className="m-0 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+          <p className="m-0 max-w-2xl text-xs text-slate-500 dark:text-slate-400">
             Oversee the intake pipeline, review triage priorities, and manage
             flow. Patients are auto-accepted by logical priority — review the
             graphs and remove or re-add patients based on their current status.
@@ -828,13 +836,13 @@ export default function PatientRegistrationQueue() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
+          <span className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
             {summary?.activeCount ?? activeEntries.length} active
           </span>
           <button
             type="button"
             onClick={refresh}
-            className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="rounded-xl border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             Refresh
           </button>
@@ -842,14 +850,14 @@ export default function PatientRegistrationQueue() {
       </div>
 
       {error && (
-        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
           {error}
         </div>
       )}
 
       {feedback && (
         <div
-          className={`mb-4 rounded-xl border px-4 py-3 text-sm ${
+          className={`rounded-xl border px-4 py-2 text-xs ${
             feedback.type === "error"
               ? "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
               : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
@@ -859,36 +867,36 @@ export default function PatientRegistrationQueue() {
         </div>
       )}
 
-      <div className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="card rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="m-0 mb-1 text-sm font-bold text-slate-800 dark:text-slate-200">
+      <div className="mb-2 grid grid-cols-1 gap-2 lg:grid-cols-2">
+        <div className="card rounded-2xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="m-0 mb-0.5 text-xs font-bold text-slate-800 dark:text-slate-200">
             Intake Velocity
             <span className="ml-1 font-normal text-slate-400">
               (Registrations/Hr, Logic-Based Queue)
             </span>
           </h2>
-          <p className="m-0 mb-3 text-xs text-slate-400">Last 6 hours</p>
+          <p className="m-0 mb-1 text-[10px] text-slate-400">Last 6 hours</p>
           <VelocityChart series={intakeSeries} />
         </div>
 
-        <div className="card rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="m-0 mb-1 text-sm font-bold text-slate-800 dark:text-slate-200">
+        <div className="card rounded-2xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="m-0 mb-0.5 text-xs font-bold text-slate-800 dark:text-slate-200">
             Live Wait Times by Priority
             <span className="ml-1 font-normal text-slate-400">
               (Chronological Sort)
             </span>
           </h2>
-          <p className="m-0 mb-3 text-xs text-slate-400">
+          <p className="m-0 mb-1 text-[10px] text-slate-400">
             Average minutes in active queue
           </p>
           <WaitTimesChart bars={waitTimeBars} />
         </div>
       </div>
 
-      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="m-0 text-lg font-bold text-slate-900 dark:text-white">
+      <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="m-0 text-sm font-bold text-slate-900 dark:text-white">
           Registration Roster
-          <span className="ml-1 text-sm font-normal text-slate-400">
+          <span className="ml-1 text-xs font-normal text-slate-400">
             (Logic-Based Priority, Triage Integrated)
           </span>
         </h2>
@@ -919,13 +927,13 @@ export default function PatientRegistrationQueue() {
       </div>
 
       {loading && entries.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 px-6 py-16 text-center dark:border-slate-700 dark:bg-slate-900/40">
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 px-6 py-10 text-center dark:border-slate-700 dark:bg-slate-900/40">
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Loading registration roster…
           </p>
         </div>
       ) : filteredEntries.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
           {visibleEntries.map((entry) => (
             <RegistrationCard
               key={entry.eventId}
@@ -946,14 +954,16 @@ export default function PatientRegistrationQueue() {
           )}
         </div>
       ) : (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 px-6 py-16 text-center dark:border-slate-700 dark:bg-slate-900/40">
-          <p className="text-lg font-semibold text-slate-800 dark:text-slate-200">
-            No registrations in this view
-          </p>
-          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-            New registrations will appear here as portal, EMR, and triage feeds
-            stream in and are assessed by logical priority.
-          </p>
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 px-6 py-10 text-center dark:border-slate-700 dark:bg-slate-900/40">
+          <div>
+            <p className="text-base font-semibold text-slate-800 dark:text-slate-200">
+              No registrations in this view
+            </p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              New registrations will appear here as portal, EMR, and triage feeds
+              stream in and are assessed by logical priority.
+            </p>
+          </div>
         </div>
       )}
 
@@ -966,18 +976,22 @@ export default function PatientRegistrationQueue() {
         />
       )}
 
-      {showFullRoster && (
+      {showFullRoster && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"
+          className="console-tinted-popup-layer registration-roster-popup-layer fixed inset-0 z-[12000] flex items-center justify-center bg-slate-950/60 p-4"
           onClick={() => setShowFullRoster(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="full-registration-roster-title"
         >
           <div
-            className="max-h-[88vh] w-full max-w-6xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900"
+            className="console-tinted-popup registration-roster-popup max-h-[88vh] w-full max-w-6xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900"
+            data-tone="registration-roster-popup"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
               <div>
-                <h3 className="m-0 text-lg font-bold text-slate-900 dark:text-white">
+                <h3 id="full-registration-roster-title" className="m-0 text-lg font-bold text-slate-900 dark:text-white">
                   Full Registration Roster
                 </h3>
                 <p className="m-0 mt-1 text-xs text-slate-400">
@@ -1009,7 +1023,8 @@ export default function PatientRegistrationQueue() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

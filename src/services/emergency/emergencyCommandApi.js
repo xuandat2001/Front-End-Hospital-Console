@@ -1,77 +1,8 @@
-import { gatewayUrl, hospitalIdentity } from "./emergencyRealtimeApi";
-import { MOCK_MODE } from "../../mocks/mockSession";
 import { mockDirectData, mockExportResponse } from "../mock/mockApi";
 
-const identityHeaders = {
-  "Content-Type": "application/json",
-  "x-elly-id": hospitalIdentity.ellyId,
-  "x-elly-partner-id": hospitalIdentity.partnerId,
-  "x-elly-role": hospitalIdentity.role,
-};
-
-async function commandRequest(path, options = {}) {
-  if (MOCK_MODE) {
-    return mockDirectData(path, options);
-  }
-
-  let response;
-  const { headers, signal, ...fetchOptions } = options;
-
-  try {
-    response = await fetch(`${gatewayUrl}${path}`, {
-      ...fetchOptions,
-      signal,
-      headers: {
-        ...identityHeaders,
-        ...(headers || {}),
-      },
-    });
-  } catch {
-    throw new Error(
-      `Cannot reach API Gateway at ${gatewayUrl}. Make sure the gateway is running.`,
-    );
-  }
-
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(
-      body.message || `Emergency command request failed with status ${response.status}`,
-    );
-  }
-
-  return body.data;
-}
-
-async function exportRequest(path) {
-  if (MOCK_MODE) {
-    return mockExportResponse(path.includes("pdf") ? "emergency-report.pdf" : "emergency-report.csv");
-  }
-
-  let response;
-
-  try {
-    response = await fetch(`${gatewayUrl}${path}`, {
-      headers: identityHeaders,
-    });
-  } catch {
-    throw new Error(
-      `Cannot reach API Gateway at ${gatewayUrl}. Make sure the gateway is running.`,
-    );
-  }
-
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
-    throw new Error(body.message || `Export failed with status ${response.status}`);
-  }
-
-  return {
-    blob: await response.blob(),
-    filename:
-      response.headers
-        .get("content-disposition")
-        ?.match(/filename="([^"]+)"/)?.[1] || "emergency-report",
-    contentType: response.headers.get("content-type") || "application/octet-stream",
-  };
+async function commandRequest(path) {
+  const payload = await mockDirectData(path);
+  return payload?.data ?? payload;
 }
 
 function query(params) {
@@ -83,76 +14,74 @@ function query(params) {
   return text ? `?${text}` : "";
 }
 
-export function getPlanningVolumeForecast(hours = 24, options) {
-  return commandRequest(`/api/emergency/planning/volume-forecast${query({ hours })}`, options);
+export function getPlanningVolumeForecast(hours = 24) {
+  return commandRequest(`/api/emergency/planning/volume-forecast${query({ hours })}`);
 }
 
-export function getPlanningCapacityForecast(hours = 24, options) {
-  return commandRequest(`/api/emergency/planning/capacity-forecast${query({ hours })}`, options);
+export function getPlanningCapacityForecast(hours = 24) {
+  return commandRequest(`/api/emergency/planning/capacity-forecast${query({ hours })}`);
 }
 
-export function getPlanningStaffingGap(hours = 12, options) {
-  return commandRequest(`/api/emergency/planning/staffing-gap${query({ hours })}`, options);
+export function getPlanningStaffingGap(hours = 12) {
+  return commandRequest(`/api/emergency/planning/staffing-gap${query({ hours })}`);
 }
 
-export function getPlanningAmbulanceDemand(hours = 12, options) {
-  return commandRequest(`/api/emergency/planning/ambulance-demand${query({ hours })}`, options);
+export function getPlanningAmbulanceDemand(hours = 12) {
+  return commandRequest(`/api/emergency/planning/ambulance-demand${query({ hours })}`);
 }
 
-export function getPlanningRecommendations(options) {
-  return commandRequest("/api/emergency/planning/recommendations", options);
+export function getPlanningRecommendations() {
+  return commandRequest("/api/emergency/planning/recommendations");
 }
 
-export function getEmergencyAmbulances(options) {
-  return commandRequest("/api/emergency/resources/ambulances", options);
+export function getEmergencyAmbulances() {
+  return commandRequest("/api/emergency/resources/ambulances");
 }
 
-export function getEmergencyBeds(options) {
-  return commandRequest("/api/emergency/resources/beds", options);
+export function getEmergencyBeds() {
+  return commandRequest("/api/emergency/resources/beds");
 }
 
-export function getEmergencyStaff(options) {
-  return commandRequest("/api/emergency/resources/staff", options);
+export function getEmergencyStaff() {
+  return commandRequest("/api/emergency/resources/staff");
 }
 
-export function getEmergencyEquipment(options) {
-  return commandRequest("/api/emergency/resources/equipment", options);
+export function getEmergencyEquipment() {
+  return commandRequest("/api/emergency/resources/equipment");
 }
 
-export function getEmergencyResourceBottlenecks(options) {
-  return commandRequest("/api/emergency/resources/bottlenecks", options);
+export function getEmergencyResourceBottlenecks() {
+  return commandRequest("/api/emergency/resources/bottlenecks");
 }
 
-export function getDailyEmergencySummary(date, options) {
-  return commandRequest(`/api/emergency/reports/daily-summary${query({ date })}`, options);
+export function getDailyEmergencySummary(date) {
+  return commandRequest(`/api/emergency/reports/daily-summary${query({ date })}`);
 }
 
-export function getEmergencyCaseAudit(params, options) {
-  return commandRequest(`/api/emergency/reports/case-audit${query(params)}`, options);
+export function getEmergencyCaseAudit(params) {
+  return commandRequest(`/api/emergency/reports/case-audit${query(params)}`);
 }
 
-export function getSlaComplianceReport(from, to, options) {
-  return commandRequest(`/api/emergency/reports/sla${query({ from, to })}`, options);
+export function getSlaComplianceReport(from, to) {
+  return commandRequest(`/api/emergency/reports/sla${query({ from, to })}`);
 }
 
-export function getDelayRootCauseReport(from, to, options) {
-  return commandRequest(`/api/emergency/reports/delay-root-causes${query({ from, to })}`, options);
+export function getDelayRootCauseReport(from, to) {
+  return commandRequest(`/api/emergency/reports/delay-root-causes${query({ from, to })}`);
 }
 
-export function exportDailySummary(date) {
-  return exportRequest(`/api/emergency/reports/export/daily-summary${query({ date, type: "pdf" })}`);
+export function exportDailySummary() {
+  return mockExportResponse("emergency-daily-summary.txt");
 }
 
-export function exportSlaReport(from, to) {
-  return exportRequest(`/api/emergency/reports/export/sla${query({ from, to, type: "csv" })}`);
+export function exportSlaReport() {
+  return mockExportResponse("emergency-sla-report.txt");
 }
 
-export function exportCaseAudit(caseId) {
-  return exportRequest(`/api/emergency/reports/export/case-audit${query({ caseId, type: "csv" })}`);
+export function exportCaseAudit() {
+  return mockExportResponse("emergency-case-audit.txt");
 }
 
-export function exportDelayRootCauses(from, to) {
-  return exportRequest(
-    `/api/emergency/reports/export/delay-root-causes${query({ from, to, type: "csv" })}`,
-  );
+export function exportDelayRootCauses() {
+  return mockExportResponse("emergency-delay-root-causes.txt");
 }

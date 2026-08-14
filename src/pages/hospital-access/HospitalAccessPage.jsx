@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ellyLogo from "../../assets/elly-logo.png";
 import Icon from "../../components/dashboard/Icon";
 import useSessionStore from "../../store/useSessionStore";
@@ -139,6 +139,7 @@ function HospitalAccessPage({ onAccessGranted }) {
   const [selectedMembershipId, setSelectedMembershipId] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   const resolveEllyId = useSessionStore((state) => state.resolveEllyId);
   const loginWithEllyId = useSessionStore((state) => state.loginWithEllyId);
@@ -151,6 +152,19 @@ function HospitalAccessPage({ onAccessGranted }) {
   const profile = resolved?.profileSnapshot || {};
   const canSubmitLogin =
     resolved && (!resolved.requiresWorkspaceSelection || selectedMembershipId);
+
+  useEffect(() => {
+    if (!isHelpOpen) return undefined;
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        setIsHelpOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [isHelpOpen]);
 
   const resetResolution = () => {
     setResolved(null);
@@ -347,12 +361,60 @@ function HospitalAccessPage({ onAccessGranted }) {
             )}
           </button>
 
-          <button className="hospital-access-help" type="button">
+          <button
+            className="hospital-access-help"
+            type="button"
+            aria-controls="elly-id-help-panel"
+            aria-expanded={isHelpOpen}
+            onClick={() => setIsHelpOpen((isOpen) => !isOpen)}
+          >
             <span className="hospital-access-help-icon" aria-hidden="true">
               ?
             </span>
-            <span>Need help finding your ELLY ID?</span>
+            <span>Need help to find ELLY ID?</span>
           </button>
+
+          {isHelpOpen && (
+            <section
+              className="hospital-access-help-panel"
+              id="elly-id-help-panel"
+              aria-labelledby="elly-id-help-title"
+            >
+              <div className="hospital-access-help-panel__heading">
+                <h3 id="elly-id-help-title">
+                  Need help finding your ELLY ID?
+                </h3>
+                <button
+                  className="hospital-access-help-panel__close"
+                  type="button"
+                  aria-label="Close ELLY ID help"
+                  onClick={() => setIsHelpOpen(false)}
+                >
+                  <Icon name="close" size={16} />
+                </button>
+              </div>
+
+              <p>
+                Your ELLY ID is provided by the ELLY / Electra Wireless team
+                when your hospital, clinic, doctor account, or organization
+                workspace is registered.
+              </p>
+              <p>
+                If you cannot find your ELLY ID, please contact Electra
+                Wireless to request access or confirm your registered account.
+              </p>
+
+              <a
+                className="hospital-access-help-panel__link"
+                href="https://www.electrawireless.co/"
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                Contact Electra Wireless
+                <Icon name="arrowRight" size={16} />
+              </a>
+            </section>
+          )}
 
           <div className="hospital-access-divider" />
 

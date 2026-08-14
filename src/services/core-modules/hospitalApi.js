@@ -67,6 +67,12 @@ export const hospitalService = {
     }
   },
 
+  getDepartmentsForHospital: async (hospitalId, page = 1, limit = 100) => {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+    if (hospitalId) params.set("hospitalMongoId", hospitalId);
+    return apiRequest(`/departments?${params.toString()}`);
+  },
+
   // Get every department through the API Gateway, following backend pagination
   getAllDepartmentsList: async (limit = 100) => {
     try {

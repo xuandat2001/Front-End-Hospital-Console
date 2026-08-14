@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { staffService } from "../../../services/core-modules/staffApi";
 import { hospitalService } from "../../../services/core-modules/hospitalApi";
 import AssignDepartmentModal from "../../../components/staff/AssignDepartmentModal";
@@ -262,7 +263,7 @@ export default function StaffManagement() {
                 Status
               </th>
 
-              <th className="p-4 text-left">
+              <th className="w-24 p-4 text-left">
                 Actions
               </th>
             </tr>
@@ -307,8 +308,8 @@ export default function StaffManagement() {
                     {member.status}
                   </td>
 
-                  <td className="p-2">
-                    <div className="flex flex-nowrap gap-1">
+                  <td className="p-2 align-top">
+                    <div className="flex w-20 flex-col gap-1">
 
                       <button
                           onClick={() =>
@@ -316,7 +317,7 @@ export default function StaffManagement() {
                               member
                             )
                           }
-                          className="whitespace-nowrap rounded bg-blue-600 px-1.5 py-0.5 text-[11px] font-semibold text-white"
+                          className="w-full rounded bg-blue-600 px-1.5 py-1 text-[11px] font-semibold text-white"
                         >
                           Dept
                       </button>
@@ -326,7 +327,7 @@ export default function StaffManagement() {
                             member
                           )
                         }
-                        className="whitespace-nowrap rounded bg-purple-600 px-1.5 py-0.5 text-[11px] font-semibold text-white"
+                        className="w-full rounded bg-purple-600 px-1.5 py-1 text-[11px] font-semibold text-white"
                       >
                         Sched
                       </button>
@@ -336,7 +337,7 @@ export default function StaffManagement() {
                             member
                           )
                         }
-                        className="whitespace-nowrap rounded bg-amber-500 px-1.5 py-0.5 text-[11px] font-semibold text-white"
+                        className="w-full rounded bg-amber-500 px-1.5 py-1 text-[11px] font-semibold text-white"
                       >
                         Edit
                       </button>
@@ -347,7 +348,7 @@ export default function StaffManagement() {
                             member.ellyId 
                           )
                         }
-                        className="whitespace-nowrap rounded bg-red-600 px-1.5 py-0.5 text-[11px] font-semibold text-white"
+                        className="w-full rounded bg-red-600 px-1.5 py-1 text-[11px] font-semibold text-white"
                       >
                         Del
                       </button>
@@ -382,10 +383,15 @@ export default function StaffManagement() {
           onSaved={loadStaff}
         />
       )}
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-full max-w-3xl rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900">
-            <h2 className="mb-6 text-xl font-bold">
+      {showForm && createPortal(
+        <div
+          className="console-tinted-popup-layer staff-resource-popup-layer fixed inset-0 z-[12000] flex items-center justify-center bg-black/60 px-4 py-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="staff-resource-form-title"
+        >
+          <div className="console-tinted-popup staff-resource-popup max-h-full w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-950" data-tone="staff-resource-popup">
+            <h2 id="staff-resource-form-title" className="mb-6 text-xl font-bold">
               {editingMember
                 ? "Edit Staff"
                 : "Create Staff"}
@@ -543,7 +549,8 @@ export default function StaffManagement() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

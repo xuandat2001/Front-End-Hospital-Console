@@ -175,7 +175,7 @@ export default function SurgeryPerformanceDashboard() {
   }
 
   return (
-    <div className="p-6">
+    <div className="h-full overflow-y-auto p-6">
       <div className="mb-6 flex items-start justify-between">
         <div>
           <h1 className="mb-2 text-2xl font-bold dark:text-white">Surgery Performance</h1>

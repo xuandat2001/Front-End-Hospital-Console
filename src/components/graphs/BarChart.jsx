@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import useDocumentStore from "../../store/useDocumentStore";
 
 let idCounter = 0;
@@ -7,14 +7,12 @@ function BarChart({
   data = [],
   labels = [],
   compact,
+  heightClass = "h-40",
   widgetId,
   widgetTitle,
 }) {
-  const idRef = useRef(null);
-  if (!idRef.current) {
-    idRef.current = widgetId || `bar-chart-${++idCounter}`;
-  }
-  const id = idRef.current;
+  const generatedId = useMemo(() => `bar-chart-${++idCounter}`, []);
+  const id = widgetId || generatedId;
   const title = widgetTitle || "Bar Chart";
 
   useEffect(() => {
@@ -41,7 +39,7 @@ function BarChart({
 
   return (
     <div data-widget-id={id} data-widget-title={title}>
-      <div className={`relative ml-8 flex h-40 items-end border-b border-l border-slate-200 dark:border-slate-700 ${compact ? "gap-1" : "gap-3"} pt-3`}>
+      <div className={`relative ml-8 flex ${heightClass} items-end border-b border-l border-slate-200 dark:border-slate-700 ${compact ? "gap-1" : "gap-3"} pt-3`}>
         {[0, 25, 50, 75, 100].map((pct) => (
           <span
             key={pct}
@@ -70,7 +68,7 @@ function BarChart({
         {labels.map((label, index) => (
           <span
             key={index}
-            className="w-full text-center text-[10px] font-medium text-slate-500 dark:text-slate-400"
+            className="w-full min-w-0 break-words text-center text-[10px] font-medium leading-tight text-slate-500 dark:text-slate-400"
           >
             {label.split(":")[0]}
           </span>

@@ -8,18 +8,19 @@ function MessageWidget() {
   const conversations = useMessagingStore((state) => state.conversations);
   const totalUnread = useMessagingStore((state) => state.totalUnread);
   const openMessaging = useMessagingStore((state) => state.openMessaging);
-  const seedDemoMessagingData = useMessagingStore(
-    (state) => state.seedDemoMessagingData,
+  const loadConversations = useMessagingStore((state) => state.loadConversations);
+  const connectMessagingSocket = useMessagingStore(
+    (state) => state.connectMessagingSocket,
   );
   const latestConversation = conversations[0];
-  const latestMessage = latestConversation?.preview ||
-    "Cardiology Team: Cath lab is prepped.";
+  const latestMessage = latestConversation?.preview || "No messages yet";
   const [latestSender, ...messageParts] = latestMessage.split(": ");
   const hasSender = messageParts.length > 0;
 
   useEffect(() => {
-    seedDemoMessagingData();
-  }, [seedDemoMessagingData]);
+    loadConversations();
+    connectMessagingSocket();
+  }, [connectMessagingSocket, loadConversations]);
 
   return (
     <>
@@ -49,7 +50,7 @@ function MessageWidget() {
           </span>
           <span className="message-widget__preview-copy">
             <span className="message-widget__channel-row">
-              <strong>{latestConversation?.name || "# Emergency"}</strong>
+              <strong>{latestConversation?.name || "Messages"}</strong>
               <time>{latestConversation?.time || "Now"}</time>
             </span>
             <small>

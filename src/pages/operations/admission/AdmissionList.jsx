@@ -1,17 +1,23 @@
 import { useEffect, useState, useMemo } from 'react';
 import { admissionService } from '../../../services/core-modules/hospitalApi';
+import { roomService } from '../../../services/core-modules/roomApi';
 import BarChart from '../../../components/graphs/BarChart';
 import MiniPieChart from '../../../components/graphs/MiniPieChart';
 
 
 
-export default function AdmissionList() {
+export default function AdmissionList({ onNavigateToFunction }) {
   const [admissions, setAdmissions] = useState([]);
+  const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [detailAdmission, setDetailAdmission] = useState(null);
+  const [assignTarget, setAssignTarget] = useState(null);
+  const [assignRoomId, setAssignRoomId] = useState("");
+  const [assignBedId, setAssignBedId] = useState("");
+  const [assigning, setAssigning] = useState(false);
 
   const statuses = ['PENDING', 'ADMITTED', 'UNDER_TREATMENT', 'TRANSFERRED', 'DISCHARGED'];
 
@@ -29,6 +35,10 @@ export default function AdmissionList() {
 
   useEffect(() => {
     loadAdmissions();
+    roomService
+      .getAllRooms()
+      .then((res) => setRooms(res.data || []))
+      .catch((error) => console.error('Failed to load rooms:', error));
   }, []);
 
   const handleDischarge = async (id) => {
@@ -92,20 +102,96 @@ export default function AdmissionList() {
     return result;
   }, [admissions, filter, searchQuery]);
 
+  const assignRoomOptions = useMemo(() => {
+    if (!assignTarget) return [];
+    const admission = assignTarget;
+    const hospitalRooms = rooms.filter(
+      (r) => !r.hospitalId || r.hospitalId === admission.hospitalId,
+    );
+    const baseRooms = hospitalRooms.length ? hospitalRooms : rooms;
+    const deptId = admission.department?.id || admission.ellyDepartmentId;
+    const deptRooms = baseRooms.filter(
+      (r) => r.departmentId === deptId && r.occupiedBeds < r.capacity && r.status !== 'MAINTENANCE',
+    );
+    const otherRooms = baseRooms.filter(
+      (r) => r.departmentId !== deptId && r.occupiedBeds < r.capacity && r.status !== 'MAINTENANCE',
+    );
+    return [...deptRooms, ...otherRooms];
+  }, [rooms, assignTarget]);
+
+  const openAssign = (admission) => {
+    setAssignTarget(admission);
+    setAssignRoomId("");
+    setAssignBedId("");
+  };
+
+  const handleRoomSelect = (roomId) => {
+    setAssignRoomId(roomId);
+    const room = rooms.find((r) => r._id === roomId || r.ellyId === roomId);
+    if (room) {
+      const nextNum = (room.occupiedBeds || 0) + 1;
+      const prefix = (room.roomNumber || room.ellyId || "BED")
+        .trim()
+        .replace(/\s+/g, "-");
+      setAssignBedId(`${prefix}-BED-${String(nextNum).padStart(2, "0")}`);
+    }
+  };
+
+  const handleAssignRoom = async () => {
+    if (!assignTarget) return;
+    if (!assignRoomId) {
+      alert("Select a room first.");
+      return;
+    }
+    const room = rooms.find((r) => r._id === assignRoomId || r.ellyId === assignRoomId);
+    const roomRef = room ? room.ellyId || room.roomNumber : assignRoomId;
+    setAssigning(true);
+    try {
+      await admissionService.assignAdmission(assignTarget._id, {
+        roomId: roomRef,
+        bedId: assignBedId.trim() || undefined,
+      });
+      setAssignTarget(null);
+      loadAdmissions();
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setAssigning(false);
+    }
+  };
+
   return (
     <div className="p-6">
-      <div className="mb-6 flex items-center justify-between text-black">
-        <div>
+      <div className="mb-6 flex items-start justify-between gap-4 text-black">
+        <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold">Admissions</h1>
-          <p className="text-sm text-slate-500">Manage patient admissions and discharges</p>
+          <p className="max-w-3xl text-sm text-slate-500">
+            Doctor-requested admissions appear here — assign a room and bed, then discharge when ready
+          </p>
         </div>
-        <button
-          onClick={() => setShowSearch(!showSearch)}
-          className="btn btn-primary"
-          type="button"
-        >
-          {showSearch ? "Hide Search" : "Search"}
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            onClick={() =>
+              onNavigateToFunction?.({
+                domain: "management",
+                subsection: "room",
+                functionId: "beds",
+                centerTab: "dashboard",
+              })
+            }
+            className="inline-flex max-w-40 items-center justify-center rounded-lg border border-slate-300 px-2.5 py-1.5 text-center text-xs font-medium leading-tight text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+            type="button"
+          >
+            ← Back to Room Occupancy
+          </button>
+          <button
+            onClick={() => setShowSearch(!showSearch)}
+            className="btn btn-primary"
+            type="button"
+          >
+            {showSearch ? "Hide Search" : "Search"}
+          </button>
+        </div>
       </div>
 
       <div className="mb-6 grid grid-cols-5 gap-4">
@@ -169,6 +255,7 @@ export default function AdmissionList() {
           </button>
         ))}
       </div>
+      </>)}
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <table className="w-full">
@@ -180,7 +267,7 @@ export default function AdmissionList() {
               <th className="p-4 text-left">Room / Bed</th>
               <th className="p-4 text-left">Status</th>
               <th className="p-4 text-left">Admitted</th>
-              <th className="p-4 text-left">Actions</th>
+              <th className="w-36 p-4 text-left">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -205,7 +292,17 @@ export default function AdmissionList() {
                     </td>
                     <td className="p-4 text-xs">{deptLabel}</td>
                     <td className="p-4 text-xs">{doctorLabel}</td>
-                    <td className="p-4">{a.roomId} / {a.bedId}</td>
+                    <td className="p-4">
+                      {a.roomId || a.bedId ? (
+                        <span className="text-xs font-medium">
+                          {a.roomId} / {a.bedId || "-"}
+                        </span>
+                      ) : (
+                        <span className="rounded bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                          Room pending
+                        </span>
+                      )}
+                    </td>
                     <td className="p-4">
                       <span className={`rounded px-2 py-0.5 text-xs font-semibold ${
                         a.currentStatus === 'DISCHARGED' ? 'bg-green-100 text-green-700' :
@@ -221,23 +318,39 @@ export default function AdmissionList() {
                     <td className="p-4 text-sm">
                       {a.admittedAt ? new Date(a.admittedAt).toLocaleDateString() : '-'}
                     </td>
-                    <td className="p-4" onClick={(e) => e.stopPropagation()}>
-                      {a.currentStatus !== 'DISCHARGED' && (
-                        <button
-                          onClick={() => handleDischarge(a._id)}
-                          className="rounded bg-green-600 px-3 py-1 text-white text-sm"
-                        >
-                          Discharge
-                        </button>
-                      )}
+                    <td className="w-36 p-4" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex w-28 flex-col gap-1.5">
+                        {a.currentStatus !== 'DISCHARGED' && (
+                          <>
+                            <button
+                              onClick={() => openAssign(a)}
+                              className="w-full rounded bg-violet-600 px-2 py-1 text-xs font-semibold text-white hover:bg-violet-700"
+                            >
+                              Assign Room
+                            </button>
+                            <button
+                              onClick={() => handleDischarge(a._id)}
+                              className="w-full rounded bg-green-600 px-2 py-1 text-xs font-semibold text-white hover:bg-green-700"
+                            >
+                              Discharge
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
               })}
+            {!loading && filtered.length === 0 && (
+              <tr>
+                <td colSpan={7} className="p-8 text-center text-slate-400">
+                  No admissions yet. Doctor-requested admissions will appear here.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
-      </>)}
 
       {detailAdmission && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setDetailAdmission(null)}>
@@ -336,6 +449,137 @@ export default function AdmissionList() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {assignTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 px-4 py-6 backdrop-blur-sm"
+          onClick={() => setAssignTarget(null)}
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-950"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                Assign Room & Bed
+              </h2>
+              <button
+                onClick={() => setAssignTarget(null)}
+                className="text-2xl text-slate-400 hover:text-slate-600"
+                type="button"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="mb-4 grid grid-cols-2 gap-3 rounded-lg bg-slate-50 p-3 text-sm dark:bg-slate-800">
+              <div>
+                <p className="text-xs font-semibold text-slate-500">Patient</p>
+                <p className="text-slate-900 dark:text-white">
+                  {assignTarget.patient?.fullName || assignTarget.patientId}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-500">Department</p>
+                <p className="text-slate-700 dark:text-slate-300">
+                  {assignTarget.department?.name || assignTarget.department?.id || "-"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-500">Doctor</p>
+                <p className="text-slate-700 dark:text-slate-300">
+                  {assignTarget.doctor?.name || assignTarget.doctor?.id || "-"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-500">Status</p>
+                <span className={`rounded px-2 py-0.5 text-xs font-semibold ${
+                  assignTarget.currentStatus === 'ADMITTED' ? 'bg-indigo-100 text-indigo-700' :
+                  'bg-yellow-100 text-yellow-700'
+                }`}>
+                  {assignTarget.currentStatus}
+                </span>
+              </div>
+            </div>
+
+            {assignTarget.admissionReason && (
+              <p className="mb-4 rounded-lg border border-slate-200 bg-white p-3 text-xs italic text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                “{assignTarget.admissionReason}”
+              </p>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label
+                  className="mb-1 block text-xs font-semibold text-slate-500"
+                  htmlFor="assign-room"
+                >
+                  Room
+                </label>
+                <select
+                  id="assign-room"
+                  value={assignRoomId}
+                  onChange={(e) => handleRoomSelect(e.target.value)}
+                  className="w-full rounded border border-slate-300 bg-white p-3 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                >
+                  <option value="">-- Select room --</option>
+                  {assignRoomOptions.map((r) => (
+                    <option key={r._id} value={r.ellyId || r._id}>
+                      {r.roomNumber} ({r.roomType || "General"}) — {r.occupiedBeds}/{r.capacity}
+                      {r.departmentId === (assignTarget.department?.id || assignTarget.ellyDepartmentId)
+                        ? " · same dept"
+                        : ""}
+                    </option>
+                  ))}
+                </select>
+                {assignRoomOptions.length === 0 && (
+                  <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                    No available rooms found. Create a room under Rooms & Beds first.
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label
+                  className="mb-1 block text-xs font-semibold text-slate-500"
+                  htmlFor="assign-bed"
+                >
+                  Bed
+                </label>
+                <input
+                  id="assign-bed"
+                  type="text"
+                  value={assignBedId}
+                  onChange={(e) => setAssignBedId(e.target.value)}
+                  placeholder="Auto-suggested bed ID"
+                  className="w-full rounded border border-slate-300 bg-white p-3 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                />
+                <p className="mt-1 text-[10px] text-slate-400">
+                  Suggested automatically when you pick a room — edit if needed.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setAssignTarget(null)}
+                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAssignRoom}
+                disabled={assigning || !assignRoomId}
+                className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+                type="button"
+              >
+                {assigning ? "Assigning…" : "Assign Room & Bed"}
+              </button>
             </div>
           </div>
         </div>

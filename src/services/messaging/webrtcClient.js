@@ -1,7 +1,37 @@
 const DEFAULT_ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }];
 
-export function createVoicePeerConnection({ onIceCandidate, onRemoteStream } = {}) {
-  const peerConnection = new RTCPeerConnection({
+let peerConnection = null;
+let localStream = null;
+
+function assertWebRtcSupport() {
+  if (typeof RTCPeerConnection === "undefined") {
+    throw new Error("WebRTC is not supported in this browser");
+  }
+}
+
+export async function startLocalMedia() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    throw new Error("Camera and microphone capture are not supported in this browser");
+  }
+
+  if (localStream) return localStream;
+
+  localStream = await navigator.mediaDevices.getUserMedia({
+    audio: true,
+    video: true,
+  });
+
+  return localStream;
+}
+
+export function createPeerConnection({ onIceCandidate, onRemoteStream } = {}) {
+  assertWebRtcSupport();
+
+  if (peerConnection) {
+    peerConnection.close();
+  }
+
+  peerConnection = new RTCPeerConnection({
     iceServers: DEFAULT_ICE_SERVERS,
   });
 
@@ -17,20 +47,72 @@ export function createVoicePeerConnection({ onIceCandidate, onRemoteStream } = {
     }
   };
 
+  localStream?.getTracks().forEach((track) => {
+    peerConnection.addTrack(track, localStream);
+  });
+
   return peerConnection;
 }
 
-export async function getMicrophoneStream() {
-  if (!navigator.mediaDevices?.getUserMedia) {
-    throw new Error("Microphone capture is not supported in this browser");
+export async function createOffer() {
+  if (!peerConnection) {
+    throw new Error("Peer connection has not been created");
   }
 
-  return navigator.mediaDevices.getUserMedia({
-    audio: true,
-    video: false,
+  const offer = await peerConnection.createOffer();
+  await peerConnection.setLocalDescription(offer);
+  return offer;
+}
+
+export async function handleOffer(offer) {
+  if (!peerConnection) {
+    throw new Error("Peer connection has not been created");
+  }
+
+  await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+  const answer = await peerConnection.createAnswer();
+  await peerConnection.setLocalDescription(answer);
+  return answer;
+}
+
+export async function handleAnswer(answer) {
+  if (!peerConnection) {
+    throw new Error("Peer connection has not been created");
+  }
+
+  await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+}
+
+export async function handleIceCandidate(candidate) {
+  if (!peerConnection || !candidate) return;
+
+  await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+}
+
+export function setAudioEnabled(enabled) {
+  localStream?.getAudioTracks().forEach((track) => {
+    track.enabled = enabled;
   });
 }
 
-export function stopMediaStream(stream) {
-  stream?.getTracks?.().forEach((track) => track.stop());
+export function setVideoEnabled(enabled) {
+  localStream?.getVideoTracks().forEach((track) => {
+    track.enabled = enabled;
+  });
+}
+
+export function stopCall() {
+  if (peerConnection) {
+    peerConnection.onicecandidate = null;
+    peerConnection.ontrack = null;
+    peerConnection.close();
+    peerConnection = null;
+  }
+
+  localStream?.getTracks().forEach((track) => track.stop());
+  localStream = null;
+}
+
+export function getLocalStream() {
+  return localStream;
 }

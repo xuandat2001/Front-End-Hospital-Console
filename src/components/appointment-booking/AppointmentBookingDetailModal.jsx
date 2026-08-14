@@ -1,7 +1,12 @@
+import { createPortal } from "react-dom";
+
 export default function AppointmentBookingDetailModal({
   appointment,
   onClose,
   formatDateTime,
+  departments = [],
+  doctors = [],
+  footerActions = null,
 }) {
   if (!appointment) return null;
 
@@ -36,10 +41,58 @@ export default function AppointmentBookingDetailModal({
   };
 
   const getDepartmentName = () => {
+    const departmentReference = String(
+      appointment.department?._id ||
+      appointment.department?.id ||
+      appointment.department?.ellyDepartmentId ||
+      appointment.departmentId ||
+      appointment.departmentEllyId ||
+      "",
+    );
+
+    const assignedDoctor = doctors.find((doctor) => {
+      const doctorReference = String(
+        appointment.doctor?._id ||
+        appointment.doctor?.id ||
+        appointment.doctorId ||
+        "",
+      );
+
+      return [
+        doctor._id,
+        doctor.id,
+        doctor.ellyId,
+      ]
+        .filter(Boolean)
+        .map(String)
+        .includes(doctorReference);
+    });
+
+    const departmentKeys = [
+      departmentReference,
+      assignedDoctor?.departmentId,
+      assignedDoctor?.departmentEllyId,
+    ]
+      .filter(Boolean)
+      .map(String);
+
+    const resolvedDepartment = departments.find((department) =>
+      [
+        department._id,
+        department.id,
+        department.ellyDepartmentId,
+      ]
+        .filter(Boolean)
+        .map(String)
+        .some((key) => departmentKeys.includes(key)),
+    );
+
     return (
       appointment.department?.name ||
-      appointment.department?.id ||
-      appointment.departmentId ||
+      appointment.department?.departmentName ||
+      appointment.departmentName ||
+      resolvedDepartment?.name ||
+      resolvedDepartment?.departmentName ||
       "N/A"
     );
   };
@@ -131,7 +184,11 @@ export default function AppointmentBookingDetailModal({
       .toUpperCase();
 
     if (normalizedStatus === "BOOKED") {
-      return "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300";
+      return "bg-cyan-100 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300";
+    }
+
+    if (normalizedStatus === "IN_PROGRESS") {
+      return "bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300";
     }
 
     if (normalizedStatus === "CANCELED") {
@@ -143,7 +200,7 @@ export default function AppointmentBookingDetailModal({
     }
 
     if (normalizedStatus === "COMPLETED") {
-      return "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300";
+      return "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300";
     }
 
     return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
@@ -155,12 +212,20 @@ export default function AppointmentBookingDetailModal({
   const cancellationReason =
     appointment.cancellationReason || appointment.cancelReason || "";
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900">
+  return createPortal(
+    <div
+      className="console-tinted-popup-layer appointment-booking-detail-layer fixed inset-0 z-[13000] flex items-center justify-center bg-black/65 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="appointment-booking-detail-title"
+    >
+      <div
+        className="console-tinted-popup appointment-booking-detail-popup max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-950"
+        data-tone="detail-popup"
+      >
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-xl font-bold text-slate-950 dark:text-white">
+            <h2 id="appointment-booking-detail-title" className="text-xl font-bold text-slate-950 dark:text-white">
               Appointment Booking Details
             </h2>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
@@ -172,7 +237,7 @@ export default function AppointmentBookingDetailModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="relative z-10 inline-flex min-h-10 min-w-16 items-center justify-center rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             Close
           </button>
@@ -248,6 +313,27 @@ export default function AppointmentBookingDetailModal({
             </p>
           </div>
 
+          {["IN_PROGRESS", "COMPLETED"].includes(status) &&
+            (appointment.startedAt || appointment.startedByEllyId) && (
+              <div className="md:col-span-2">
+                <p className="text-slate-500 dark:text-slate-400">Visit Start Details</p>
+                <div className="mt-1 rounded-lg border border-violet-200 bg-violet-50 p-3 text-violet-800 dark:border-violet-900/60 dark:bg-violet-950/30 dark:text-violet-300">
+                  {appointment.startedAt && (
+                    <p>
+                      <span className="font-semibold">Started At:</span>{" "}
+                      {formatDateTime(appointment.startedAt)}
+                    </p>
+                  )}
+                  {appointment.startedByEllyId && (
+                    <p className="mt-1">
+                      <span className="font-semibold">Started By:</span>{" "}
+                      {appointment.startedByEllyId}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
           {status === "CANCELED" && (
             <div className="md:col-span-2">
               <p className="text-slate-500 dark:text-slate-400">
@@ -311,8 +397,14 @@ export default function AppointmentBookingDetailModal({
             </div>
           )}
         </div>
+        {footerActions && (
+          <div className="mt-5 border-t border-slate-200 pt-4 dark:border-slate-800">
+            {footerActions}
+          </div>
+        )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

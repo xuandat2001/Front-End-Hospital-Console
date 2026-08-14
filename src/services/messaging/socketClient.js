@@ -1,37 +1,32 @@
-import { io } from "socket.io-client";
-import useSessionStore from "../../store/useSessionStore";
-import { MOCK_MODE } from "../../mocks/mockSession";
-
-export const MESSAGING_SOCKET_URL =
-  import.meta.env.VITE_MESSAGING_SOCKET_URL || "http://localhost:8089";
+export const MESSAGING_SOCKET_URL = "mock://elly-prototype/messages";
 
 let socket = null;
 
 function createMockSocket(handlers = {}) {
+  const listeners = new Map(Object.entries(handlers).map(([event, handler]) => [event, [handler]]));
+
   return {
-    connected: true,
+    connected: false,
     on(eventName, handler) {
-      if (eventName === "connect" || eventName === "connection:ready") {
-        queueMicrotask(() => handler());
-      }
+      listeners.set(eventName, [...(listeners.get(eventName) || []), handler]);
       return this;
     },
-    off() {
+    emit(eventName, payload) {
+      (listeners.get(eventName) || []).forEach((handler) => handler(payload));
       return this;
     },
-    emit(eventName, payload = {}) {
-      if (eventName === "call:initiate") {
-        handlers["call:initiate"]?.({
-          call: {
-            callId: `mock-call-${Date.now()}`,
-            calleeEllyId: payload.calleeEllyId,
-            conversationId: payload.conversationId,
-          },
-        });
-      }
-      return true;
+    connect() {
+      this.connected = true;
+      globalThis.setTimeout(() => {
+        (listeners.get("connect") || []).forEach((handler) => handler());
+      }, 0);
+      return this;
     },
-    disconnect() {},
+    disconnect() {
+      this.connected = false;
+      (listeners.get("disconnect") || []).forEach((handler) => handler());
+      return this;
+    },
   };
 }
 
@@ -40,36 +35,19 @@ export function getMessagingSocket() {
 }
 
 export function connectMessagingSocket(handlers = {}) {
-  const session = useSessionStore.getState();
-
-  if (MOCK_MODE) {
+  if (!socket) {
     socket = createMockSocket(handlers);
-    return socket;
   }
 
-  if (socket?.connected) return socket;
+  if (!socket.connected) socket.connect();
+  return socket;
+}
 
-  socket = io(MESSAGING_SOCKET_URL, {
-    transports: ["websocket", "polling"],
-    auth: {
-      token: session.accessToken,
-      ellyId: session.currentUser?.ellyId,
-      role: session.role || session.currentUser?.role,
-      departmentId:
-        session.currentUser?.departmentId || session.activeWorkspace?.departmentId,
-      hospitalId:
-        session.activeWorkspace?.id || session.workspace?.id,
-      ellyHospitalId:
-        session.activeWorkspace?.workspaceEllyId ||
-        session.activeWorkspace?.ellyHospitalId ||
-        session.workspace?.ellyHospitalId,
-    },
-  });
+export function reconnectMessagingSocket() {
+  if (!socket) return null;
 
-  Object.entries(handlers).forEach(([eventName, handler]) => {
-    socket.on(eventName, handler);
-  });
-
+  socket.disconnect();
+  socket.connect();
   return socket;
 }
 

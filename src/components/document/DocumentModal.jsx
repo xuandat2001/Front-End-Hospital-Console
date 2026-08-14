@@ -163,11 +163,11 @@ export default function DocumentModal() {
   return (
     <div
       ref={backdropRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      className="document-modal-scrim fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       onClick={handleClose}
     >
       <div
-        className="bg-black rounded-lg max-w-2xl w-full max-h-[80vh] overflow-auto p-6 shadow-xl mx-4"
+        className="document-modal-panel bg-black rounded-lg max-w-2xl w-full max-h-[80vh] overflow-auto p-6 shadow-xl mx-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-700">

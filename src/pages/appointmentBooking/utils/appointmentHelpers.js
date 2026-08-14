@@ -45,11 +45,11 @@ export function formatShortTime(value) {
 }
 
 export function getPatientName(appointment) {
-  return appointment.patient?.name || appointment.patient?.fullName || appointment.patientName || "N/A";
+  return appointment.patient?.name || appointment.patient?.fullName || [appointment.patient?.firstName, appointment.patient?.lastName].filter(Boolean).join(" ") || appointment.patientName || appointment.patientFullName || "N/A";
 }
 
 export function getPatientEllyId(appointment) {
-  return appointment.patient?.ellyId || appointment.patient?.patientEllyId || appointment.patient?.ellyPatientId || appointment.patientEllyId || "N/A";
+  return appointment.patient?.ellyId || appointment.patient?.patientEllyId || appointment.patient?.ellyPatientId || appointment.patient?.patientId || (typeof appointment.patient === "string" ? appointment.patient : null) || appointment.patientEllyId || appointment.patientEllyID || appointment.ellyPatientId || appointment.patientId || "N/A";
 }
 
 export function getDoctorName(appointment) {
@@ -57,7 +57,7 @@ export function getDoctorName(appointment) {
 }
 
 export function getDepartmentName(appointment) {
-  return appointment.department?.name || appointment.departmentName || "N/A";
+  return appointment.department?.name || appointment.department?.departmentName || appointment.departmentName || "N/A";
 }
 
 export function getHospitalName(appointment) {

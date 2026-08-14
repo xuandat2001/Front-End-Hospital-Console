@@ -1,10 +1,14 @@
 /* @vitest-environment jsdom */
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { useState } from "react";
 import LeftRail from "./LeftRail";
+
+const { copyTextMock, logoutMock } = vi.hoisted(() => ({
+  copyTextMock: vi.fn(),
+  logoutMock: vi.fn(),
+}));
 
 vi.mock("../../store/useSessionStore", () => ({
   default: (selector) =>
@@ -18,247 +22,285 @@ vi.mock("../../store/useSessionStore", () => ({
         fullName: "Avery Nguyen",
         role: "HOSPITAL_ADMIN",
       },
+      permissions: [
+        "overview:read",
+        "staff:read",
+        "patient:read",
+        "room:read",
+        "emergency:read",
+        "appointment:read",
+        "admission:read",
+        "surgery:read",
+        "intelligence:read",
+      ],
       can: () => true,
+      logout: logoutMock,
     }),
 }));
 
-function RailHarness({
-  initialCollapsed = true,
-  isOpen = false,
-  onDomainChange = vi.fn(),
-  onIdentityLogoClick = vi.fn(),
-}) {
-  const [isCollapsed, setIsCollapsed] = useState(initialCollapsed);
-
-  return (
+function renderRail(overrides = {}) {
+  return render(
     <LeftRail
       activeDomain="overview"
       activeSubsection={null}
-      isCollapsed={isCollapsed}
-      isOpen={isOpen}
-      onCollapsedChange={setIsCollapsed}
-      onDomainChange={onDomainChange}
-      onIdentityLogoClick={onIdentityLogoClick}
+      isOpen={false}
+      onDomainChange={vi.fn()}
       onOpenChange={vi.fn()}
       onPatientSearch={vi.fn()}
       onSettingsOpen={vi.fn()}
       onSubsectionSelect={vi.fn()}
-    />
+      {...overrides}
+    />,
   );
 }
 
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
-  vi.unstubAllGlobals();
-  vi.useRealTimers();
 });
 
 describe("LeftRail", () => {
-  it("keeps every primary icon action accessible while collapsed", async () => {
+  it("reveals account actions when the dropdown chevron is clicked", async () => {
     const user = userEvent.setup();
-    render(<RailHarness />);
+    renderRail();
+
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(document.querySelector(".profile-dropdown__bend")).not.toBeInTheDocument();
+
+    const container = document.querySelector(
+      ".dashboard-profile-card .profile-dropdown",
+    );
+    vi.spyOn(container, "getBoundingClientRect").mockReturnValue({
+      bottom: 92,
+      height: 60,
+      left: 24,
+      right: 244,
+      top: 32,
+      width: 220,
+      x: 24,
+      y: 32,
+      toJSON: () => {},
+    });
+
+    const chevronTrigger = screen.getByRole("button", {
+      name: "Open account menu",
+    });
+    const avatar = document.querySelector("img.profile-dropdown__avatar");
+    expect(avatar).toBeInTheDocument();
+    expect(avatar?.parentElement).toHaveClass("profile-dropdown__profile");
+
+    await user.click(chevronTrigger);
+
+    const menu = screen.getByRole("menu", { name: "Account actions" });
+    expect(menu).toHaveClass("profile-dropdown__menu");
+    expect(menu).not.toHaveClass("global-content-dropdown");
+    expect(menu).toHaveStyle({ top: "98px", width: "220px" });
+    expect(menu).not.toHaveClass("opens-right");
+    expect(within(menu).getByRole("menuitem", { name: "Copy ID" })).toBeEnabled();
+    expect(within(menu).getByRole("menuitem", { name: "Sign out" })).toBeEnabled();
+    expect(within(menu).getAllByRole("menuitem")).toHaveLength(2);
+    expect(menu).not.toHaveTextContent("Avery Nguyen");
+    expect(menu).not.toHaveTextContent("Hospital Admin");
+    expect(within(menu).queryByText("Laboratory")).not.toBeInTheDocument();
+    expect(within(menu).queryByText("Radiology")).not.toBeInTheDocument();
+    expect(chevronTrigger).toHaveAttribute("aria-expanded", "true");
+    expect(
+      chevronTrigger.querySelector(".profile-dropdown__chevron"),
+    ).toHaveClass("is-open");
+    expect(screen.getByRole("button", { name: "Open profile" })).toHaveTextContent(
+      "Avery Nguyen",
+    );
+    expect(screen.getByRole("button", { name: "Open profile" })).toHaveTextContent(
+      "ELLY-STAFF-019EA2DD-FBD-TEST",
+    );
+    expect(screen.getByRole("button", { name: "Open profile" })).not.toHaveTextContent(
+      "Dummy External Hospital",
+    );
+    expect(
+      screen.getByRole("button", { name: "Open profile" }).querySelector("img"),
+    ).toBe(
+      screen.getByRole("button", { name: "Open profile" }).firstElementChild,
+    );
+  });
+
+  it("navigates to the profile page when the identity card is clicked", async () => {
+    const user = userEvent.setup();
+    const onProfileClick = vi.fn();
+    renderRail({ onProfileClick });
+
+    await user.click(screen.getByRole("button", { name: "Open profile" }));
+
+    expect(onProfileClick).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("logs out from the identity account menu", async () => {
+    const user = userEvent.setup();
+    logoutMock.mockResolvedValueOnce(undefined);
+    renderRail();
+
+    await user.click(screen.getByRole("button", { name: "Open account menu" }));
+    await user.click(screen.getByRole("menuitem", { name: "Sign out" }));
+
+    expect(logoutMock).toHaveBeenCalledOnce();
+  });
+
+  it("copies the ELLY ID from the identity account menu", async () => {
+    const user = userEvent.setup();
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: copyTextMock.mockResolvedValueOnce(undefined) },
+    });
+    renderRail();
+
+    await user.click(screen.getByRole("button", { name: "Open account menu" }));
+    await user.click(screen.getByRole("menuitem", { name: "Copy ID" }));
+
+    expect(copyTextMock).toHaveBeenCalledWith("ELLY-STAFF-019EA2DD-FBD-TEST");
+  });
+
+  it("closes the account menu with Escape and restores focus", async () => {
+    const user = userEvent.setup();
+    renderRail();
+
+    const trigger = screen.getByRole("button", { name: "Open account menu" });
+    await user.click(trigger);
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
+  it("keeps the fixed profile control outside the collapsing navigation", async () => {
+    const user = userEvent.setup();
+    renderRail();
 
     const rail = screen.getByRole("complementary", {
       name: "Primary navigation",
     });
-    const expandTrigger = within(rail).getByRole("button", {
-      name: "Expand navigation",
-    });
-    const overviewButton = within(rail).getByRole("button", {
-      name: "Overview",
-    });
-    expect(rail).toHaveClass("is-collapsed");
-    expect(expandTrigger).toHaveClass("dashboard-rail-toggle--standalone");
-    expect(overviewButton).toHaveClass("dashboard-nav-overview-button");
-    expect(overviewButton).toHaveAttribute("data-no-ripple", "true");
-    const identityCopy = screen
-      .getByText("ELLY-ORG-019EA2DD-FBD-TEST")
-      .closest(".dashboard-logo-card__identity");
-    expect(identityCopy).toHaveAttribute("aria-hidden", "true");
-    expect(
-      screen.getByRole("button", {
-        name: "Open hospital profile (coming soon)",
-      }),
-    ).toBeEnabled();
-    expect(
-      within(rail).queryByRole("button", { name: /workspace/i }),
-    ).not.toBeInTheDocument();
-
-    for (const label of [
-      "Core Modules",
-      "Operations",
-      "Clinical Ops",
-      "Analytics",
-      "Insights",
-      "Settings",
-    ]) {
-      expect(within(rail).getByRole("button", { name: label })).toBeEnabled();
-    }
-
-    await user.click(expandTrigger);
-
-    expect(rail).not.toHaveClass("is-collapsed");
-    const collapseButton = within(rail).getByRole("button", {
-      name: "Collapse navigation",
-    });
-    expect(collapseButton).toHaveAttribute("aria-expanded", "true");
-    expect(collapseButton.parentElement).toHaveClass(
-      "dashboard-nav-overview-row",
-      "is-active",
-    );
-    expect(
-      within(collapseButton.parentElement).getAllByRole("button"),
-    ).toHaveLength(2);
-
-    await user.click(collapseButton);
-
-    expect(rail).toHaveClass("is-collapsed");
-    expect(
-      within(rail).getByRole("button", { name: "Expand navigation" }),
-    ).toBeInTheDocument();
-  });
-
-  it("shows the ELLY ID and signed-in user beside a clickable logo", async () => {
-    const user = userEvent.setup();
-    const onIdentityLogoClick = vi.fn();
-    render(
-      <RailHarness
-        initialCollapsed={false}
-        onIdentityLogoClick={onIdentityLogoClick}
-      />,
-    );
-
-    expect(screen.queryByText("Dummy External Hospital")).not.toBeInTheDocument();
-    expect(screen.getByText("ELLY-ORG-019EA2DD-FBD-TEST")).toBeVisible();
-    expect(screen.getByText("Hospital Admin · Avery Nguyen")).toBeVisible();
-
-    await user.click(
-      screen.getByRole("button", {
-        name: "Open hospital profile (coming soon)",
-      }),
-    );
-    expect(onIdentityLogoClick).toHaveBeenCalledOnce();
-  });
-
-  it("keeps Overview navigation separate from the collapse control", async () => {
-    const user = userEvent.setup();
-    const onDomainChange = vi.fn();
-    render(
-      <RailHarness
-        initialCollapsed={false}
-        onDomainChange={onDomainChange}
-      />,
-    );
-
-    const rail = screen.getByRole("complementary", {
-      name: "Primary navigation",
+    const accessStack = document.querySelector(".dashboard-access-stack");
+    const profileTrigger = screen.getByRole("button", {
+      name: "Open account menu",
     });
 
-    await user.click(within(rail).getByRole("button", { name: "Overview" }));
-    expect(onDomainChange).toHaveBeenCalledWith("overview");
-    expect(rail).not.toHaveClass("is-collapsed");
+    expect(accessStack).toContainElement(profileTrigger);
+    expect(rail).not.toContainElement(profileTrigger);
+    expect(screen.queryByRole("search")).not.toBeInTheDocument();
+    expect(screen.queryByText("Console")).not.toBeInTheDocument();
+    expect(document.querySelector(".dashboard-logo-card")).not.toBeInTheDocument();
 
     await user.click(
       within(rail).getByRole("button", { name: "Collapse navigation" }),
     );
-    expect(rail).toHaveClass("is-collapsed");
 
-    await user.click(within(rail).getByRole("button", { name: "Overview" }));
-    expect(onDomainChange).toHaveBeenCalledTimes(2);
+    expect(rail).toHaveClass("is-collapsed", "is-content-collapsed");
+    expect(rail.parentElement).toHaveClass("dashboard-left-column", "is-collapsed");
+    expect(screen.getByRole("button", { name: "Open account menu" })).toBe(
+      profileTrigger,
+    );
     expect(rail).toHaveClass("is-collapsed");
   });
 
-  it("renders expanded labels and controls immediately", () => {
-    render(<RailHarness />);
+  it("opens subsection controls as a flyout while collapsed", async () => {
+    const user = userEvent.setup();
+    const onSubsectionSelect = vi.fn();
+    renderRail({ onSubsectionSelect });
 
     const rail = screen.getByRole("complementary", {
       name: "Primary navigation",
     });
-
-    fireEvent.click(
-      within(rail).getByRole("button", { name: "Expand navigation" }),
+    await user.click(
+      within(rail).getByRole("button", { name: "Collapse navigation" }),
+    );
+    await user.click(
+      within(rail).getByRole("button", { name: "Core Modules" }),
     );
 
-    expect(rail).not.toHaveClass("is-collapsed");
-    expect(rail).not.toHaveClass("is-content-collapsed");
-    const collapseButton = within(rail).getByRole("button", {
-      name: "Collapse navigation",
+    const group = within(rail).getByRole("group", {
+      name: "Core Modules sections",
     });
-    expect(
-      within(collapseButton.parentElement).getByRole("button", {
-        name: "Overview",
-      }),
-    ).toBeInTheDocument();
-    expect(
-      within(collapseButton.parentElement).getAllByRole("button"),
-    ).toHaveLength(2);
-    expect(
-      within(rail).getByRole("textbox", { name: "Find patient by EllyID" }),
-    ).toBeInTheDocument();
-  });
-
-  it("expands and focuses the full patient search from its compact icon", async () => {
-    const user = userEvent.setup();
-    render(<RailHarness />);
+    expect(group).toHaveClass("is-floating", "global-content-dropdown");
 
     await user.click(
-      screen.getByRole("button", { name: "Find patient by EllyID" }),
+      within(group).getByRole("button", { name: "Staff & Department" }),
     );
 
+    expect(onSubsectionSelect).toHaveBeenCalledWith("management", "staff");
     expect(
-      screen.getByRole("textbox", { name: "Find patient by EllyID" }),
-    ).toHaveFocus();
+      within(rail).queryByRole("group", { name: "Core Modules sections" }),
+    ).not.toBeInTheDocument();
   });
 
-  it("expands before revealing a parent section's subsections", async () => {
+  it("keeps the labeled clinical navigation controls visible", () => {
+    renderRail();
+
+    const navigation = screen.getByRole("navigation", {
+      name: "Dashboard sections",
+    });
+    expect(within(navigation).getByRole("button", { name: "Overview" })).toBeEnabled();
+    expect(within(navigation).getByRole("button", { name: "Core Modules" })).toBeEnabled();
+    expect(
+      within(navigation).getByRole("button", { name: "Core Modules" }),
+    ).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("keeps the completed core modules wired beneath the collapsible rail group", async () => {
     const user = userEvent.setup();
-    render(<RailHarness />);
+    renderRail();
 
     await user.click(screen.getByRole("button", { name: "Core Modules" }));
 
-    expect(
-      screen.getByRole("button", { name: "Core Modules" }),
-    ).toHaveAttribute("aria-expanded", "true");
-    expect(
-      screen.getByRole("button", { name: "Staff & Department" }),
-    ).toBeVisible();
+    const group = screen.getByRole("group", { name: "Core Modules sections" });
+    expect(within(group).getByRole("button", { name: "Staff & Department" })).toBeEnabled();
+    expect(within(group).getByRole("button", { name: "Patient" })).toBeEnabled();
+    expect(within(group).getByRole("button", { name: "Rooms and Beds" })).toBeEnabled();
+    expect(within(group).getByRole("button", { name: "ICU" })).toBeEnabled();
+    expect(within(group).getAllByRole("button")).toHaveLength(4);
+    expect(screen.getByRole("button", { name: "Analytics" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Insights" })).toBeEnabled();
   });
 
-  it("keeps the mobile drawer fully expanded", () => {
-    const { container } = render(<RailHarness isOpen />);
+  it("reveals configured subsection groups inline and independently", async () => {
+    const user = userEvent.setup();
+    renderRail();
+
+    await user.click(screen.getByRole("button", { name: "Core Modules" }));
+    expect(
+      screen.getByRole("group", { name: "Core Modules sections" }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Operations" }));
+
+    expect(
+      screen.getByRole("group", { name: "Core Modules sections" }),
+    ).toBeInTheDocument();
+    const group = screen.getByRole("group", { name: "Operations sections" });
+    expect(
+      within(group).getByRole("button", { name: "Emergency Workflow" }),
+    ).toBeEnabled();
+    expect(
+      within(group).getByRole("button", { name: "Appointment Booking" }),
+    ).toBeEnabled();
+    expect(within(group).getAllByRole("button")).toHaveLength(2);
+  });
+
+  it("uses the same account action in the mobile navigation drawer", async () => {
+    const user = userEvent.setup();
+    const { container } = renderRail({ isOpen: true });
     const mobilePanel = container.querySelector(".dashboard-mobile-panel");
-    const ids = Array.from(container.querySelectorAll("[id]"), (element) =>
-      element.getAttribute("id"),
-    );
 
     expect(mobilePanel).toBeInTheDocument();
+    await user.click(
+      within(mobilePanel).getByRole("button", { name: "Open account menu" }),
+    );
+
+    expect(screen.getByRole("menuitem", { name: "Sign out" })).toBeEnabled();
     expect(
       within(mobilePanel).getByRole("button", { name: "Close navigation" }),
-    ).toBeInTheDocument();
-    expect(new Set(ids).size).toBe(ids.length);
+    ).toBeEnabled();
+    expect(within(mobilePanel).getByRole("search")).toBeInTheDocument();
     expect(
-      within(mobilePanel).getByRole("button", { name: "Core Modules" }),
-    ).toHaveAttribute(
-      "aria-controls",
-      "dashboard-mobile-nav-subsections-management",
-    );
-    expect(
-      within(mobilePanel).getByRole("textbox", {
-        name: "Find patient by EllyID",
-      }),
-    ).toBeInTheDocument();
-    expect(
-      within(mobilePanel).getByRole("button", { name: "Settings" }),
-    ).toBeInTheDocument();
-    expect(
-      within(mobilePanel).queryByText("Dummy External Hospital"),
+      within(mobilePanel).queryByRole("button", { name: "Collapse navigation" }),
     ).not.toBeInTheDocument();
-    expect(
-      within(mobilePanel).getByText("ELLY-ORG-019EA2DD-FBD-TEST"),
-    ).toBeVisible();
-    expect(
-      within(mobilePanel).getByText("Hospital Admin · Avery Nguyen"),
-    ).toBeVisible();
   });
 });

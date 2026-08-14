@@ -1,11 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { patientService } from "../../../../services/core-modules/patientApi";
+import { diagnosticsService } from "../../../../services/diagnostics/diagnosticsApi";
+import { icuService } from "../../../../services/core-modules/icuApi";
 import { admissionService, surgeryService } from "../../../../services/core-modules/hospitalApi";
 import { getRegistrationsByEllyId } from "../../../../services/registration/registrationQueueApi";
 import { isPatientRegisteredAtHospital } from "../../../../utils/patientHospitalAccess";
 import RegistrationSummary from "./RegistrationSummary";
 import PatientBodyModelSlot from "./PatientBodyModelSlot";
 import PatientRiskMonitorPanel from "./PatientRiskMonitorPanel";
+import PatientSystemInsightsPanel from "./PatientSystemInsightsPanel";
+import ResultReviewModal from "../../../diagnostics/ResultReviewModal";
+import { normalizePatientSystemData } from "./patientSystemDataNormalizer";
 import { formatDateTime } from "../../../../utils/dateFormat";
 
 function timeOf(value) {
@@ -41,9 +46,89 @@ function getClinicalRecordTimestamp(record) {
     payload?.occurrenceDateTime ||
     payload?.performedPeriod?.start ||
     payload?.issued ||
+    record?.recordDate ||
     record?.createdAt;
 
   return timeOf(rawDate);
+}
+
+function isDiagnosticMedicalRecord(record) {
+  const structured = record?.structuredData || {};
+  const payload = structured.payload || {};
+  const title = String(record?.title || "");
+  const description = String(record?.description || "");
+
+  return (
+    structured.fhirResourceType === "DiagnosticReport" ||
+    payload.resourceType === "DiagnosticReport" ||
+    Boolean(structured.diagnosticId) ||
+    /diagnostic report|lab report|laboratory report|radiology report/i.test(
+      `${title} ${description}`,
+    )
+  );
+}
+
+function getMedicalRecordDepartment(record) {
+  const structured = record?.structuredData || {};
+  const text = [
+    structured.department,
+    record?.title,
+    record?.description,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return /radiology|x-ray|xray|scan|mri|ct|ultrasound/i.test(text)
+    ? "RADIOLOGY"
+    : "LABORATORY";
+}
+
+function getMedicalRecordResultTitle(record) {
+  const structured = record?.structuredData || {};
+  const payload = structured.payload || {};
+  return (
+    payload.code?.text ||
+    structured.code?.text ||
+    String(record?.title || "").replace(/^Diagnostic Report:\s*/i, "") ||
+    "Diagnostic result"
+  );
+}
+
+function normalizeMedicalRecordDiagnostic(record) {
+  const structured = record?.structuredData || {};
+  const attachments = [
+    ...(Array.isArray(record?.attachments) ? record.attachments : []),
+    ...(Array.isArray(structured.attachments) ? structured.attachments : []),
+  ];
+
+  return {
+    _id: `medical-record-${record._id}`,
+    source: "MEDICAL_RECORD",
+    medicalRecordId: record._id,
+    diagnosticId: structured.diagnosticId || structured.externalKey || record._id,
+    department: getMedicalRecordDepartment(record),
+    testType: getMedicalRecordResultTitle(record),
+    description: record.description,
+    notes: record.notes,
+    updatedAt: record.recordDate || record.createdAt || record.updatedAt,
+    attachments,
+  };
+}
+
+function buildDiagnosticsResultList(diagnosticsResults, medicalRecords) {
+  const results = Array.isArray(diagnosticsResults)
+    ? diagnosticsResults.map((result) => ({ ...result, source: "DIAGNOSTICS_SERVICE" }))
+    : [];
+  const existingIds = new Set(results.map((result) => result.diagnosticId).filter(Boolean));
+
+  for (const record of medicalRecords || []) {
+    if (!isDiagnosticMedicalRecord(record)) continue;
+    const normalized = normalizeMedicalRecordDiagnostic(record);
+    if (existingIds.has(normalized.diagnosticId)) continue;
+    results.push(normalized);
+  }
+
+  return results.sort((a, b) => timeOf(b.updatedAt) - timeOf(a.updatedAt));
 }
 
 const CLINICAL_TYPE_META = {
@@ -51,6 +136,13 @@ const CLINICAL_TYPE_META = {
   Immunization: { label: "Immunization", color: "#10B981" },
   Procedure: { label: "Procedure", color: "#8B5CF6" },
   DiagnosticReport: { label: "Lab Report", color: "#F59E0B" },
+  Observation: { label: "Observation", color: "#0EA5E9" },
+  Condition: { label: "Condition", color: "#F97316" },
+  AllergyIntolerance: { label: "Allergy", color: "#E11D48" },
+  MedicationStatement: { label: "Medication", color: "#14B8A6" },
+  MedicationRequest: { label: "Medication Request", color: "#14B8A6" },
+  Appointment: { label: "Appointment", color: "#6366F1" },
+  ServiceRequest: { label: "Service Request", color: "#6366F1" },
 };
 
 // Local status metadata mirroring the intelligence census layer, so the record
@@ -95,12 +187,14 @@ function InfoItem({ label, value }) {
 
 const TABS = [
   { id: "overview", label: "Overview" },
+  { id: "system-insights", label: "System Insights" },
   { id: "medical-profile", label: "Medical Profile" },
-  { id: "risk-monitor", label: "Risk Monitor" },
   { id: "clinical", label: "Clinical History" },
+  { id: "diagnostics-results", label: "Lab & Radiology Results" },
   { id: "registration", label: "Registration" },
   { id: "admission", label: "Admission & Discharge" },
   { id: "surgery", label: "Surgery" },
+  { id: "risk-monitor", label: "Risk Monitor" },
 ];
 
 function hasMedicalProfileData(profile = {}) {
@@ -119,9 +213,12 @@ const EMPTY = {
   patient: null,
   medicalProfile: null,
   medicalRecords: [],
+  diagnosticsResults: [],
   admissions: [],
   surgeries: [],
   registrations: [],
+  icuPatient: null,
+  icuVitalsHistory: [],
 };
 
 /**
@@ -130,7 +227,12 @@ const EMPTY = {
  * per-patient endpoints (scoped to the session hospital), independent of the
  * census snapshot. Read-only.
  */
-export default function PatientRecordView({ ellyId, workspace, initialTab = "overview" }) {
+export default function PatientRecordView({
+  ellyId,
+  workspace,
+  initialTab = "overview",
+  allowUnregistered = false,
+}) {
   const [state, setState] = useState(EMPTY);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -138,10 +240,8 @@ export default function PatientRecordView({ ellyId, workspace, initialTab = "ove
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState(initialTab || "overview");
   const [activeBodySystem, setActiveBodySystem] = useState("overview");
-
-  useEffect(() => {
-    if (initialTab) setActiveTab(initialTab);
-  }, [ellyId, initialTab]);
+  const [selectedDiagnosticId, setSelectedDiagnosticId] = useState(null);
+  const recordContentRef = useRef(null);
 
   const hospitalId = workspace?.ellyHospitalId || workspace?.id || undefined;
   const hospitalEllyId =
@@ -150,14 +250,15 @@ export default function PatientRecordView({ ellyId, workspace, initialTab = "ove
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setNotFound(false);
-    setRestricted(false);
-    setError("");
-    setActiveTab(initialTab || "overview");
-    setActiveBodySystem("overview");
 
     async function load() {
+      setLoading(true);
+      setNotFound(false);
+      setRestricted(false);
+      setError("");
+      setActiveTab(initialTab || "overview");
+      setActiveBodySystem("overview");
+
       try {
         const profileResponse = await patientService.getPatientByEllyId(ellyId);
         const patient = profileResponse?.data?.patient || profileResponse?.data || null;
@@ -172,7 +273,7 @@ export default function PatientRecordView({ ellyId, workspace, initialTab = "ove
           return;
         }
 
-        if (!isPatientRegisteredAtHospital(patient, workspace)) {
+        if (!allowUnregistered && !isPatientRegisteredAtHospital(patient, workspace)) {
           if (!cancelled) {
             setState({ ...EMPTY, patient });
             setRestricted(true);
@@ -181,12 +282,23 @@ export default function PatientRecordView({ ellyId, workspace, initialTab = "ove
           return;
         }
 
-        const [admissionsRes, surgeriesRes, registrationsRes, medicalRecordsRes] =
+        const [
+          admissionsRes,
+          surgeriesRes,
+          registrationsRes,
+          medicalRecordsRes,
+          diagnosticsRes,
+          icuPatientsRes,
+        ] =
           await Promise.all([
             admissionService.getAdmissionsByPatient(ellyId, hospitalId).catch(() => []),
             surgeryService.getSurgeriesByPatient(ellyId, hospitalId).catch(() => ({ data: [] })),
             getRegistrationsByEllyId(ellyId).catch(() => ({ data: [] })),
             patientService.getMedicalRecordsByEllyId(ellyId).catch(() => ({ data: [] })),
+            diagnosticsService
+              .list({ ellyId, status: "FINALIZED", limit: 50 })
+              .catch(() => ({ data: { diagnostics: [] } })),
+            icuService.getPatients({ search: ellyId }).catch(() => ({ data: [] })),
           ]);
 
         if (cancelled) return;
@@ -203,14 +315,43 @@ export default function PatientRecordView({ ellyId, workspace, initialTab = "ove
         const medicalRecords = Array.isArray(medicalRecordsRes?.data)
           ? medicalRecordsRes.data
           : [];
+        const diagnosticsResults = Array.isArray(diagnosticsRes?.data?.diagnostics)
+          ? diagnosticsRes.data.diagnostics
+          : [];
+        const icuPatients = Array.isArray(icuPatientsRes)
+          ? icuPatientsRes
+          : Array.isArray(icuPatientsRes?.data)
+            ? icuPatientsRes.data
+            : [];
+        const icuPatient =
+          icuPatients.find(
+            (item) => item?.ellyId === ellyId || item?.patientId === ellyId,
+          ) || null;
+        const icuPatientId = icuPatient?.id || icuPatient?._id;
+        const icuVitalsResponse = icuPatientId
+          ? await icuService
+              .getVitalsHistory(icuPatientId, { limit: 200 })
+              .catch(() => ({ data: [] }))
+          : { data: [] };
+
+        if (cancelled) return;
+
+        const icuVitalsHistory = Array.isArray(icuVitalsResponse)
+          ? icuVitalsResponse
+          : Array.isArray(icuVitalsResponse?.data)
+            ? icuVitalsResponse.data
+            : [];
 
         setState({
           patient,
           medicalProfile,
           medicalRecords,
+          diagnosticsResults,
           admissions,
           surgeries,
           registrations,
+          icuPatient,
+          icuVitalsHistory,
         });
         setLoading(false);
       } catch (loadError) {
@@ -224,7 +365,7 @@ export default function PatientRecordView({ ellyId, workspace, initialTab = "ove
     return () => {
       cancelled = true;
     };
-  }, [ellyId, hospitalId, workspace, initialTab]);
+  }, [ellyId, hospitalId, workspace, initialTab, allowUnregistered]);
 
   const admissionsHistory = useMemo(
     () => sortByDateDesc(state.admissions, "admittedAt"),
@@ -241,6 +382,10 @@ export default function PatientRecordView({ ellyId, workspace, initialTab = "ove
       ),
     [state.medicalRecords],
   );
+  const diagnosticsDisplayResults = useMemo(
+    () => buildDiagnosticsResultList(state.diagnosticsResults, state.medicalRecords),
+    [state.diagnosticsResults, state.medicalRecords],
+  );
 
   const tabOptions = useMemo(
     () =>
@@ -248,6 +393,8 @@ export default function PatientRecordView({ ellyId, workspace, initialTab = "ove
         const count =
           tab.id === "clinical"
             ? clinicalHistory.length
+            : tab.id === "diagnostics-results"
+              ? diagnosticsDisplayResults.length
             : tab.id === "registration"
               ? state.registrations.length
               : tab.id === "admission"
@@ -263,6 +410,7 @@ export default function PatientRecordView({ ellyId, workspace, initialTab = "ove
     [
       admissionsHistory.length,
       clinicalHistory.length,
+      diagnosticsDisplayResults.length,
       state.registrations.length,
       surgeriesHistory.length,
     ],
@@ -287,6 +435,42 @@ export default function PatientRecordView({ ellyId, workspace, initialTab = "ove
   );
   const statusMeta = STATUS_META[statusKey] || STATUS_META.INACTIVE;
   const isInPatient = Boolean(admissionsHistory.find((a) => a.currentStatus !== "DISCHARGED"));
+  const systemClinicalData = useMemo(
+    () =>
+      normalizePatientSystemData({
+        patient: state.patient,
+        medicalProfile: state.medicalProfile,
+        medicalRecords: state.medicalRecords,
+        admissions: state.admissions,
+        surgeries: state.surgeries,
+        registrations: state.registrations,
+        icuPatient: state.icuPatient,
+        icuVitalsHistory: state.icuVitalsHistory,
+        isInpatient: isInPatient,
+      }),
+    [
+      isInPatient,
+      state.admissions,
+      state.icuPatient,
+      state.icuVitalsHistory,
+      state.medicalProfile,
+      state.medicalRecords,
+      state.patient,
+      state.registrations,
+      state.surgeries,
+    ],
+  );
+
+  const handleBodySystemChange = (systemId) => {
+    setActiveBodySystem(systemId);
+    setActiveTab("system-insights");
+  };
+
+  useLayoutEffect(() => {
+    if (recordContentRef.current) {
+      recordContentRef.current.scrollTop = 0;
+    }
+  }, [activeBodySystem, activeTab, ellyId]);
 
   if (loading) {
     return (
@@ -346,27 +530,33 @@ export default function PatientRecordView({ ellyId, workspace, initialTab = "ove
 
   return (
     <RecordShell>
-      <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden xl:flex-row xl:items-stretch">
-        <section className="min-h-0 shrink-0 flex-1 overflow-hidden xl:basis-[58%]">
+      <div
+        data-testid="patient-record-workspace"
+        className="mx-auto grid w-full max-w-[1600px] min-h-0 grid-cols-1 gap-3 xl:h-full xl:grid-cols-[minmax(0,62fr)_minmax(360px,38fr)] xl:grid-rows-[auto_minmax(0,1fr)] xl:items-stretch"
+      >
+        <PatientRecordHeader
+          patient={patient}
+          ellyId={ellyId}
+          statusMeta={statusMeta}
+          isInPatient={isInPatient}
+        />
+
+        <section
+          data-testid="patient-model-panel"
+          className="h-[clamp(500px,68svh,640px)] min-h-0 overflow-hidden xl:col-start-1 xl:row-span-2 xl:row-start-1 xl:h-full"
+        >
           <PatientBodyModelSlot
             activeSystem={activeBodySystem}
-            onSystemChange={setActiveBodySystem}
-            patientName={patient.fullName}
+            onSystemChange={handleBodySystemChange}
+            patientGender={patient.gender}
           />
         </section>
 
         <aside
-          className={`flex min-h-0 flex-1 flex-col overflow-hidden xl:basis-[42%] xl:max-w-xl ${GLASS_PANEL}`}
+          data-testid="patient-record-panel"
+          className={`flex h-[clamp(520px,70svh,720px)] min-h-0 w-full flex-col overflow-hidden xl:col-start-2 xl:row-start-2 xl:h-full xl:max-w-xl xl:justify-self-end ${GLASS_PANEL}`}
         >
-          <div className="shrink-0 border-b border-white/50 p-5 dark:border-slate-700/80">
-            <PatientRecordHeader
-              patient={patient}
-              ellyId={ellyId}
-              statusMeta={statusMeta}
-              isInPatient={isInPatient}
-            />
-
-            <div className="mt-4">
+            <div className="shrink-0 border-b border-white/50 p-3 dark:border-slate-700/80 sm:p-4">
               <label
                 htmlFor="patient-record-section"
                 className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-500"
@@ -402,53 +592,78 @@ export default function PatientRecordView({ ellyId, workspace, initialTab = "ove
                 </span>
               </div>
             </div>
-          </div>
 
-          <div className="flex-1 overflow-y-auto p-4 [scrollbar-width:thin] [scrollbar-color:rgba(148,163,184,0.45)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300/70 dark:[&::-webkit-scrollbar-thumb]:bg-slate-600/70 [&::-webkit-scrollbar-track]:bg-transparent">
-            {activeTab === "overview" && (
-              <OverviewSection patient={patient} statusLabel={statusMeta.label} />
-            )}
+            <div
+              ref={recordContentRef}
+              data-testid="patient-record-content"
+              className="min-h-0 flex-1 overflow-y-auto p-4 [scrollbar-width:thin] [scrollbar-color:rgba(148,163,184,0.45)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300/70 dark:[&::-webkit-scrollbar-thumb]:bg-slate-600/70 [&::-webkit-scrollbar-track]:bg-transparent"
+            >
+              {activeTab === "overview" && (
+                <OverviewSection patient={patient} statusLabel={statusMeta.label} />
+              )}
 
-            {activeTab === "medical-profile" && (
-              <MedicalProfileSection medicalProfile={state.medicalProfile} />
-            )}
+              {activeTab === "system-insights" && (
+                <PatientSystemInsightsPanel
+                  activeSystem={activeBodySystem}
+                  data={systemClinicalData}
+                  patientGender={patient.gender}
+                />
+              )}
 
-            {activeTab === "risk-monitor" && (
-              <PatientRiskMonitorPanel
-                patientEllyId={ellyId}
-                hospitalEllyId={hospitalEllyId}
-              />
-            )}
+              {activeTab === "medical-profile" && (
+                <MedicalProfileSection medicalProfile={state.medicalProfile} />
+              )}
 
-            {activeTab === "clinical" && (
-              <ClinicalHistorySection records={clinicalHistory} />
-            )}
+              {activeTab === "risk-monitor" && (
+                <PatientRiskMonitorPanel
+                  patientEllyId={ellyId}
+                  hospitalEllyId={hospitalEllyId}
+                />
+              )}
 
-            {activeTab === "registration" && (
-              <RegistrationSummary registrations={state.registrations} loading={false} error="" />
-            )}
+              {activeTab === "clinical" && (
+                <ClinicalHistorySection records={clinicalHistory} />
+              )}
 
-            {activeTab === "admission" && (
-              <AdmissionSection
-                currentAdmission={currentAdmission}
-                admissionsHistory={admissionsHistory}
-                isInPatient={isInPatient}
-              />
-            )}
+              {activeTab === "diagnostics-results" && (
+                <DiagnosticsResultsSection
+                  results={diagnosticsDisplayResults}
+                  onOpenResult={setSelectedDiagnosticId}
+                />
+              )}
 
-            {activeTab === "surgery" && (
-              <SurgerySection currentSurgery={currentSurgery} surgeriesHistory={surgeriesHistory} />
-            )}
-          </div>
+              {activeTab === "registration" && (
+                <RegistrationSummary registrations={state.registrations} loading={false} error="" />
+              )}
+
+              {activeTab === "admission" && (
+                <AdmissionSection
+                  currentAdmission={currentAdmission}
+                  admissionsHistory={admissionsHistory}
+                  isInPatient={isInPatient}
+                />
+              )}
+
+              {activeTab === "surgery" && (
+                <SurgerySection currentSurgery={currentSurgery} surgeriesHistory={surgeriesHistory} />
+              )}
+            </div>
         </aside>
       </div>
+      {selectedDiagnosticId && (
+        <ResultReviewModal
+          diagnosticId={selectedDiagnosticId}
+          department=""
+          onClose={() => setSelectedDiagnosticId(null)}
+        />
+      )}
     </RecordShell>
   );
 }
 
 function RecordShell({ children }) {
   return (
-    <div className="h-full min-h-0 overflow-hidden bg-gradient-to-br from-sky-50 via-slate-50 to-blue-100/80 px-4 pb-3 pt-2 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+    <div className="h-full min-h-0 w-full overflow-x-hidden overflow-y-auto bg-gradient-to-br from-sky-50 via-slate-50 to-blue-100/80 px-4 pb-3 pt-2 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 xl:overflow-hidden xl:pb-0">
       {children}
     </div>
   );
@@ -456,27 +671,32 @@ function RecordShell({ children }) {
 
 function PatientRecordHeader({ patient, ellyId, statusMeta, isInPatient }) {
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-xl font-bold text-slate-950 dark:text-white sm:text-2xl">
-            {patient.fullName || ellyId}
-          </h1>
-          <p className="mt-1 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-            <span className="font-mono font-semibold tracking-tight text-violet-600 dark:text-violet-400">
-              {patient.ellyId || ellyId}
-            </span>
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
+    <section
+      data-testid="patient-record-identity"
+      aria-label="Patient identity summary"
+      className={`flex min-w-0 w-full flex-wrap items-center justify-between gap-2 px-3 py-2.5 xl:col-start-2 xl:row-start-1 xl:max-w-xl xl:justify-self-end ${GLASS_PANEL}`}
+    >
+      <div className="min-w-0">
+        <h1 className="truncate text-base font-semibold leading-tight text-slate-950 dark:text-white">
+          {patient.fullName || ellyId}
+        </h1>
+        <p className="mt-0.5 truncate text-[10px] text-slate-500 dark:text-slate-400">
+          <span className="font-mono font-semibold tracking-tight text-violet-600 dark:text-violet-400">
+            {patient.ellyId || ellyId}
+          </span>
+        </p>
+      </div>
+
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+        <div className="flex shrink-0 items-center gap-1.5">
           <span
-            className="inline-block rounded-full px-3 py-1 text-xs font-semibold"
+            className="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-semibold"
             style={{ backgroundColor: `${statusMeta.color}20`, color: statusMeta.color }}
           >
             {statusMeta.label}
           </span>
           <span
-            className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${
+            className={`inline-flex items-center rounded-md px-2 py-1 text-[10px] font-semibold ${
               isInPatient
                 ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
                 : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
@@ -485,32 +705,9 @@ function PatientRecordHeader({ patient, ellyId, statusMeta, isInPatient }) {
             {isInPatient ? "Inpatient" : "Outpatient"}
           </span>
         </div>
-      </div>
 
-      <StatusScoreBar statusMeta={statusMeta} isInPatient={isInPatient} />
-    </div>
-  );
-}
-
-function StatusScoreBar({ statusMeta, isInPatient }) {
-  const score = isInPatient ? 68 : 32;
-  const label = isInPatient ? "Elevated" : "Stable";
-
-  return (
-    <div className="rounded-xl border border-white/50 bg-white/35 px-3 py-2.5 dark:border-slate-700/60 dark:bg-slate-900/30">
-      <div className="mb-1.5 flex items-center justify-between text-xs">
-        <span className="font-medium text-slate-600 dark:text-slate-300">Care priority</span>
-        <span className="font-semibold" style={{ color: statusMeta.color }}>
-          {label}
-        </span>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-700/80">
-        <div
-          className="h-full rounded-full transition-all"
-          style={{ width: `${score}%`, backgroundColor: statusMeta.color }}
-        />
-      </div>
-    </div>
+    </section>
   );
 }
 
@@ -679,6 +876,109 @@ function ClinicalHistorySection({ records }) {
           );
         })}
       </div>
+    </SectionCard>
+  );
+}
+
+function DiagnosticsResultsSection({ results, onOpenResult }) {
+  return (
+    <SectionCard title="Lab & Radiology Results" subtitle={`${results.length} finalized result(s)`}>
+      {!results.length ? (
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          No finalized lab or radiology results are available for this patient.
+        </p>
+      ) : (
+      <div className="space-y-3">
+        {results.map((result) => {
+          const isRadiology = result.department === "RADIOLOGY";
+          const isDiagnosticsServiceResult = result.source === "DIAGNOSTICS_SERVICE";
+          const badgeClasses = isRadiology
+            ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300"
+            : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300";
+          const attachments = Array.isArray(result.attachments) ? result.attachments : [];
+
+          return (
+            <article
+              key={result._id}
+              className="rounded-lg border border-slate-200 p-4 dark:border-slate-700"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-slate-900 dark:text-slate-100">
+                    {result.testType || "Diagnostic result"}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {result.diagnosticId || result._id}
+                    {result.bodyRegion ? ` · ${result.bodyRegion}` : ""}
+                    {result.sampleType ? ` · ${result.sampleType}` : ""}
+                  </p>
+                </div>
+                <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${badgeClasses}`}>
+                  {isRadiology ? "Radiology" : "Lab"}
+                </span>
+              </div>
+
+              {result.description && (
+                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                  {result.description}
+                </p>
+              )}
+
+              {result.notes && (
+                <p className="mt-2 whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs leading-relaxed text-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
+                  {result.notes}
+                </p>
+              )}
+
+              {attachments.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {attachments.map((attachment, index) => {
+                    const href = attachment.fileUrl || attachment.storagePath;
+                    const label =
+                      attachment.fileName ||
+                      attachment.originalName ||
+                      attachment.filename ||
+                      `Attachment ${index + 1}`;
+                    if (!href) return null;
+
+                    return (
+                      <a
+                        key={`${result._id}-attachment-${index}`}
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 dark:hover:bg-slate-900"
+                      >
+                        {label}
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[11px] text-slate-400">
+                  Finalized {formatDateTime(result.updatedAt) || "N/A"}
+                </p>
+                {isDiagnosticsServiceResult ? (
+                  <button
+                    type="button"
+                    onClick={() => onOpenResult?.(result._id)}
+                    className="rounded-lg border border-sky-300/70 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:border-sky-400 hover:bg-sky-100 dark:border-sky-700/60 dark:bg-sky-950/30 dark:text-sky-300 dark:hover:bg-sky-900/40"
+                  >
+                    View result
+                  </button>
+                ) : (
+                  <span className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                    Medical record
+                  </span>
+                )}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+      )}
     </SectionCard>
   );
 }

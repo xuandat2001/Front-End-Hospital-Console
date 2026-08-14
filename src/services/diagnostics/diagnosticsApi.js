@@ -30,6 +30,19 @@ export const diagnosticsService = {
     });
   },
 
+  updateStatus: async (id, status) => {
+    return await apiRequest(`/diagnostics/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    });
+  },
+
+  deleteOrder: async (id) => {
+    return await apiRequest(`/diagnostics/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
   triggerAiAnalysis: async (id) => {
     return await apiRequest(`/diagnostics/${id}/ai-analysis`, {
       method: 'POST',
@@ -40,6 +53,13 @@ export const diagnosticsService = {
     return await apiRequest(`/diagnostics/${id}/draft`, {
       method: 'PUT',
       body: JSON.stringify({ draftReport }),
+    });
+  },
+
+  saveClinicalOpinion: async (id, clinicalNotes) => {
+    return await apiRequest(`/diagnostics/${id}/draft`, {
+      method: 'PUT',
+      body: JSON.stringify({ clinicalNotes }),
     });
   },
 

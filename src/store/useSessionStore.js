@@ -5,7 +5,6 @@ import {
   hasPermission,
   hasAnyPermission,
 } from "../constant/rbac";
-import { MOCK_MODE, getMockPersistedSession } from "../mocks/mockSession";
 
 const SESSION_STORAGE_KEY = "ellyFrontendSession";
 const AUTH_STORAGE_KEY = "ellyAuthSession";
@@ -88,9 +87,18 @@ function normalizeWorkspace(workspace) {
 }
 
 function resolvePermissions(role, explicitPermissions, workspacePermissions) {
-  if (explicitPermissions?.length) return explicitPermissions;
-  if (workspacePermissions?.length) return workspacePermissions;
-  return getPermissionsByRole(role);
+  const rolePermissions = getPermissionsByRole(role);
+  const assignedPermissions = explicitPermissions?.length
+    ? explicitPermissions
+    : workspacePermissions?.length
+      ? workspacePermissions
+      : rolePermissions;
+
+  if (String(role || "").toUpperCase() === ROLES.HOSPITAL_ADMIN) {
+    return [...new Set([...rolePermissions, ...assignedPermissions])];
+  }
+
+  return assignedPermissions;
 }
 
 function deriveConsoleType(role, workspace) {
@@ -196,15 +204,20 @@ function normalizeSessionData(data, previousState = {}) {
   };
 }
 
-const storedSession = readSession() || (MOCK_MODE ? getMockPersistedSession() : null);
+const storedSession = readSession();
 const initialWorkspace = normalizeWorkspace(
   storedSession?.activeWorkspace || storedSession?.workspace,
 );
-const initialRole = storedSession?.role || storedSession?.currentUser?.role || null;
-const initialPermissions =
-  storedSession?.permissions?.length
-    ? storedSession.permissions
-    : getPermissionsByRole(initialRole);
+const initialRole =
+  storedSession?.role ||
+  storedSession?.currentUser?.role ||
+  initialWorkspace?.role ||
+  null;
+const initialPermissions = resolvePermissions(
+  initialRole,
+  storedSession?.permissions,
+  initialWorkspace?.permissions,
+);
 
 const useSessionStore = create((set, get) => ({
   accessToken: storedSession?.accessToken || null,

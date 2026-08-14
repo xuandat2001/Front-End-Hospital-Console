@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { roomService } from '../../../services/core-modules/roomApi';
 import { hospitalService } from '../../../services/core-modules/hospitalApi';
 
@@ -229,10 +230,15 @@ export default function RoomManagement({ selectedRoomId }) {
         </table>
       </div>
 
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-full max-w-3xl rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900">
-            <h2 className="mb-6 text-xl font-bold">
+      {showForm && createPortal(
+        <div
+          className="console-tinted-popup-layer fixed inset-0 z-[12000] flex items-center justify-center bg-black/60 px-4 py-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="room-form-title"
+        >
+          <div className="console-tinted-popup max-h-full w-full max-w-3xl overflow-y-auto rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+            <h2 id="room-form-title" className="mb-6 text-xl font-bold">
               {editingRoom ? 'Edit Room' : 'Create Room'}
             </h2>
             <div className="grid grid-cols-2 gap-4">
@@ -337,7 +343,8 @@ export default function RoomManagement({ selectedRoomId }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

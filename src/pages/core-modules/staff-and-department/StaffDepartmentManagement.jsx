@@ -7,7 +7,7 @@ export default function StaffDepartmentManagement() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="sticky top-0 z-10 flex gap-0 border-b border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 px-6 pt-4">
+      <div className="flex gap-0 border-b border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 px-6 pt-4">
         <button
           type="button"
           onClick={() => setActiveTab("staff")}

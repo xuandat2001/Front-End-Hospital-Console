@@ -1,4 +1,6 @@
-import { Brain, Maximize2, Minus, Plus } from "lucide-react";
+import { useRef, useState } from "react";
+import { Maximize2, Minus, Plus } from "lucide-react";
+import PatientBodyModelViewer from "./PatientBodyModelViewer";
 
 function IconShell({ size = 18, children, ...props }) {
   return (
@@ -122,7 +124,7 @@ const BODY_SYSTEMS = [
   { id: "overview", label: "Overview", Icon: PersonIcon },
   { id: "cardiovascular", label: "Cardiovascular", Icon: HeartIcon },
   { id: "respiratory", label: "Respiratory", Icon: LungsIcon },
-  { id: "nervous", label: "Nervous", Icon: Brain },
+  { id: "nervous", label: "Nervous", Icon: BrainIcon },
   { id: "digestive", label: "Digestive", Icon: StomachIcon },
   { id: "musculoskeletal", label: "Musculoskeletal", Icon: BoneIcon },
   { id: "immune", label: "Immune", Icon: AntibodyIcon },
@@ -142,16 +144,22 @@ const VIEWER_CONTROLS = [
 export default function PatientBodyModelSlot({
   activeSystem = "overview",
   onSystemChange,
-  patientName,
+  patientGender,
 }) {
-  const activeMeta = BODY_SYSTEMS.find((s) => s.id === activeSystem) || BODY_SYSTEMS[0];
-  const ActiveSystemIcon = activeMeta.Icon;
+  const viewerRef = useRef(null);
+  const [isModelLoading, setIsModelLoading] = useState(true);
+
+  const runViewerControl = (controlId) => {
+    if (controlId === "zoom-in") viewerRef.current?.zoomIn();
+    if (controlId === "zoom-out") viewerRef.current?.zoomOut();
+    if (controlId === "fullscreen") viewerRef.current?.fullscreen();
+  };
 
   return (
-    <div className="flex h-full min-h-0 w-full gap-3 xl:min-h-0">
+    <div className="relative flex h-full min-h-0 w-full gap-3 xl:min-h-0">
       <nav
         aria-label="Body systems"
-        className="flex w-14 shrink-0 flex-col items-center gap-1.5 rounded-2xl border border-white/60 bg-white/50 p-2 shadow-lg shadow-sky-900/5 ring-1 ring-white/70 backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/50"
+        className="absolute left-2 top-2 z-20 flex w-14 shrink-0 flex-col items-center gap-1.5 rounded-2xl border border-white/60 bg-white/70 p-2 shadow-lg shadow-sky-900/5 ring-1 ring-white/70 backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/70 sm:static sm:z-auto sm:bg-white/50 dark:sm:bg-slate-900/50"
       >
         {BODY_SYSTEMS.map((system) => {
           const isActive = system.id === activeSystem;
@@ -164,7 +172,7 @@ export default function PatientBodyModelSlot({
               aria-label={system.label}
               aria-pressed={isActive}
               onClick={() => onSystemChange?.(system.id)}
-              className={`flex h-10 w-10 items-center justify-center rounded-full transition-all ${
+              className={`flex h-10 w-10 items-center justify-center rounded-full transition-all motion-reduce:transition-none ${
                 isActive
                   ? "bg-slate-800 text-white shadow-md shadow-slate-800/25 dark:bg-sky-600"
                   : "text-slate-400 hover:bg-white/80 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-800/80 dark:hover:text-slate-200"
@@ -176,139 +184,51 @@ export default function PatientBodyModelSlot({
         })}
       </nav>
 
-      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-white/60 bg-white/55 shadow-xl shadow-sky-900/8 ring-1 ring-white/80 backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/55">
+      <div
+        data-testid="patient-body-model-surface"
+        className="relative isolate flex min-h-0 flex-1 overflow-hidden rounded-3xl border border-white/60 bg-white/55 shadow-xl shadow-violet-950/15 ring-1 ring-white/80 backdrop-blur-xl dark:border-violet-300/15 dark:bg-violet-950/55"
+      >
         <div
           id="patient-body-model-canvas"
-          className="patient-body-model-canvas relative flex flex-1 items-center justify-center p-6"
+          data-testid="patient-body-model-canvas-layer"
+          className="patient-body-model-canvas absolute inset-0 z-0 flex items-center justify-center overflow-hidden"
         >
-          <div className="flex max-w-sm flex-col items-center text-center">
-            <div className="mb-4 flex h-36 w-28 items-center justify-center rounded-full border-2 border-dashed border-sky-300/60 bg-white/30 dark:border-sky-700/50 dark:bg-slate-800/30">
-              <svg
-                viewBox="0 0 120 200"
-                className="h-40 w-24 text-sky-300/80 dark:text-sky-600/60"
-                aria-hidden="true"
-              >
-                <ellipse cx="60" cy="28" rx="22" ry="26" fill="currentColor" opacity="0.35" />
-                <path
-                  d="M60 54 L60 120 M35 70 L85 70 M60 120 L40 175 M60 120 L80 175"
-                  stroke="currentColor"
-                  strokeWidth="8"
-                  strokeLinecap="round"
-                  fill="none"
-                  opacity="0.35"
-                />
-                {activeSystem === "respiratory" && (
-                  <>
-                    <ellipse cx="48" cy="88" rx="11" ry="16" fill="#f87171" opacity="0.85" />
-                    <ellipse cx="72" cy="88" rx="11" ry="16" fill="#f87171" opacity="0.85" />
-                    <rect x="57" y="68" width="6" height="18" rx="2" fill="#f87171" opacity="0.75" />
-                  </>
-                )}
-                {activeSystem === "cardiovascular" && (
-                  <path
-                    d="M60 102c-8-6-14-11-14-17 0-4 3-7 7-7 2 0 4 1 5 3 1-2 3-3 5-3 4 0 7 3 7 7 0 6-6 11-14 17z"
-                    fill="#ef4444"
-                    opacity="0.9"
-                  />
-                )}
-                {activeSystem === "nervous" && (
-                  <ellipse cx="60" cy="26" rx="16" ry="18" fill="#a78bfa" opacity="0.8" />
-                )}
-                {activeSystem === "digestive" && (
-                  <path
-                    d="M52 88c-2 6-4 12-2 18 2 8 8 12 14 12 6 0 10-4 12-10 2-6 1-12-2-16-4-5-10-6-14-4-3 1-5 2-8 0z"
-                    fill="#f59e0b"
-                    opacity="0.8"
-                  />
-                )}
-                {activeSystem === "musculoskeletal" && (
-                  <>
-                    <circle cx="42" cy="70" r="5" fill="#94a3b8" opacity="0.9" />
-                    <circle cx="78" cy="70" r="5" fill="#94a3b8" opacity="0.9" />
-                    <circle cx="48" cy="155" r="5" fill="#94a3b8" opacity="0.9" />
-                    <circle cx="72" cy="155" r="5" fill="#94a3b8" opacity="0.9" />
-                  </>
-                )}
-                {activeSystem === "immune" && (
-                  <>
-                    <path
-                      d="M60 88 L48 68 M60 88 L72 68 M60 88 V118"
-                      stroke="#34d399"
-                      strokeWidth="4"
-                      strokeLinecap="round"
-                      fill="none"
-                      opacity="0.9"
-                    />
-                    <circle cx="48" cy="66" r="5" fill="#34d399" />
-                    <circle cx="72" cy="66" r="5" fill="#34d399" />
-                  </>
-                )}
-                {activeSystem === "endocrine" && (
-                  <>
-                    <ellipse cx="50" cy="68" rx="9" ry="14" fill="#f472b6" opacity="0.85" />
-                    <ellipse cx="70" cy="68" rx="9" ry="14" fill="#f472b6" opacity="0.85" />
-                    <rect x="54" y="66" width="12" height="6" rx="2" fill="#f472b6" opacity="0.9" />
-                    <path
-                      d="M60 48c2 2.2 3 3.5 3 4.6a3 3 0 1 1-6 0c0-1.1 1-2.4 3-4.6z"
-                      fill="#f9a8d4"
-                      opacity="0.95"
-                    />
-                  </>
-                )}
-              </svg>
+          <PatientBodyModelViewer
+            ref={viewerRef}
+            activeSystem={activeSystem}
+            onLoadingChange={setIsModelLoading}
+            patientGender={patientGender}
+          />
+          {isModelLoading && (
+            <div className="pointer-events-none relative z-10 flex flex-col items-center gap-3 text-center">
+              <span className="h-9 w-9 animate-spin rounded-full border-2 border-sky-200 border-t-sky-600" />
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-300">
+                Loading anatomical model…
+              </p>
             </div>
-            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-slate-800 text-white dark:bg-sky-600">
-              <ActiveSystemIcon size={18} />
-            </div>
-            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-              3D body model integration point
-            </p>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Mount your viewer in{" "}
-              <code className="rounded bg-white/60 px-1 py-0.5 text-[10px] dark:bg-slate-800/80">
-                #patient-body-model-canvas
-              </code>
-            </p>
-            <p className="mt-3 text-xs text-sky-600 dark:text-sky-400">
-              Focus: {activeMeta.label}
-              {patientName ? ` · ${patientName}` : ""}
-            </p>
+          )}
+          <div className="pointer-events-none absolute left-[4.5rem] top-5 z-10 rounded-full border border-white/70 bg-white/60 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-600 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-300 sm:left-5">
+            Drag to rotate · Scroll to zoom
+          </div>
+          <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-2">
+            {VIEWER_CONTROLS.map((control) => {
+              const ControlIcon = control.Icon;
+              return (
+                <button
+                  key={control.id}
+                  type="button"
+                  onClick={() => runViewerControl(control.id)}
+                  aria-label={control.label}
+                  title={control.label}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/80 bg-white/70 text-slate-600 shadow-md backdrop-blur-sm transition hover:bg-white hover:text-sky-600 dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-300 dark:hover:text-sky-400"
+                >
+                  <ControlIcon size={16} strokeWidth={2} aria-hidden="true" />
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        <div className="absolute bottom-4 left-4 max-w-xs rounded-2xl border border-white/70 bg-white/55 p-4 shadow-lg backdrop-blur-md dark:border-white/10 dark:bg-slate-900/55">
-          <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-800 text-white dark:bg-sky-600">
-              <ActiveSystemIcon size={15} />
-            </span>
-            <p className="text-xs font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-400">
-              Clinical focus
-            </p>
-          </div>
-          <p className="mt-2 text-sm font-medium text-slate-800 dark:text-slate-100">
-            {activeMeta.label} system selected
-          </p>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Highlight regions on the 3D model when your viewer is connected.
-          </p>
-        </div>
-
-        <div className="absolute bottom-4 right-4 flex flex-col gap-2">
-          {VIEWER_CONTROLS.map((control) => {
-            const ControlIcon = control.Icon;
-            return (
-              <button
-                key={control.id}
-                type="button"
-                disabled
-                title={`${control.label} — connect 3D viewer to enable`}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/80 bg-white/70 text-slate-600 shadow-md backdrop-blur-sm disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-300"
-              >
-                <ControlIcon size={16} strokeWidth={2} aria-hidden="true" />
-              </button>
-            );
-          })}
-        </div>
       </div>
     </div>
   );

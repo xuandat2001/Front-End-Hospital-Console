@@ -13,8 +13,10 @@ function StatusPill({ status }) {
   const normalizedStatus = normalizeStatus(status);
   const className =
     normalizedStatus === "BOOKED"
-      ? "bg-emerald-100 text-emerald-700"
-      : normalizedStatus === "CANCELED"
+      ? "bg-cyan-100 text-cyan-700"
+      : normalizedStatus === "IN_PROGRESS"
+        ? "bg-violet-100 text-violet-700"
+        : normalizedStatus === "CANCELED"
         ? "bg-red-100 text-red-700"
         : normalizedStatus === "NO_SHOW"
           ? "bg-orange-100 text-orange-700"
@@ -57,6 +59,7 @@ export default function AppointmentTable({
     setCurrentPage,
     totalPages,
     paginationPages,
+    total,
   } = pagination;
 
   return (
@@ -83,7 +86,7 @@ export default function AppointmentTable({
                 "Status",
                 "Actions",
               ].map((h) => (
-                <th key={h} className="px-2 py-3 text-left">
+                <th key={h} className={`px-2 py-3 ${h === "Actions" ? "text-center" : "text-left"}`}>
                   {h}
                 </th>
               ))}
@@ -162,7 +165,7 @@ export default function AppointmentTable({
                       <StatusPill status={appointment.status} />
                     </td>
                     <td className="px-2 py-3 align-middle">
-                      <div className="flex items-center justify-end gap-1 whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-1 whitespace-nowrap">
                         <button
                           type="button"
                           onClick={(event) => {
@@ -176,44 +179,46 @@ export default function AppointmentTable({
                           View
                         </button>
                         {status === "BOOKED" && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                actions.update(appointment);
-                              }}
-                              className="inline-flex h-7 items-center justify-center rounded-lg border border-slate-200 px-2 text-[10px] font-bold text-slate-500 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
-                              aria-label="Update appointment"
-                              title="Edit"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                actions.complete(appointment._id);
-                              }}
-                              className="inline-flex h-7 items-center justify-center rounded-lg border border-emerald-200 px-2 text-[10px] font-bold text-emerald-600 hover:bg-emerald-50 dark:border-emerald-900/60 dark:hover:bg-emerald-950/30"
-                              aria-label="Complete appointment"
-                              title="Complete"
-                            >
-                              Done
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                actions.cancel(appointment._id);
-                              }}
-                              className="inline-flex h-7 items-center justify-center rounded-lg border border-red-200 px-2 text-[10px] font-bold text-red-500 hover:bg-red-50 dark:border-red-900/60 dark:hover:bg-red-950/30"
-                              aria-label="Cancel appointment"
-                              title="Cancel"
-                            >
-                              Cancel
-                            </button>
-                          </>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              actions.update(appointment);
+                            }}
+                            className="inline-flex h-7 items-center justify-center rounded-lg border border-slate-200 px-2 text-[10px] font-bold text-slate-500 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+                            aria-label="Update appointment"
+                            title="Edit"
+                          >
+                            Edit
+                          </button>
+                        )}
+                        {["BOOKED", "IN_PROGRESS"].includes(status) && (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              actions.complete(appointment._id);
+                            }}
+                            className="inline-flex h-7 items-center justify-center rounded-lg border border-emerald-200 px-2 text-[10px] font-bold text-emerald-600 hover:bg-emerald-50 dark:border-emerald-900/60 dark:hover:bg-emerald-950/30"
+                            aria-label="Complete appointment"
+                            title="Complete"
+                          >
+                            Done
+                          </button>
+                        )}
+                        {status === "BOOKED" && (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              actions.cancel(appointment._id);
+                            }}
+                            className="inline-flex h-7 items-center justify-center rounded-lg border border-red-200 px-2 text-[10px] font-bold text-red-500 hover:bg-red-50 dark:border-red-900/60 dark:hover:bg-red-950/30"
+                            aria-label="Cancel appointment"
+                            title="Cancel"
+                          >
+                            Cancel
+                          </button>
                         )}
                       </div>
                     </td>
@@ -226,15 +231,15 @@ export default function AppointmentTable({
       <div className="flex flex-col gap-4 border-t border-slate-100 px-5 py-4 text-sm text-slate-500 dark:border-slate-800 md:flex-row md:items-center md:justify-between">
         <p>
           Showing{" "}
-          {filteredAppointments.length === 0
+          {total === 0
             ? 0
             : (safeCurrentPage - 1) * itemsPerPage + 1}{" "}
           to{" "}
           {Math.min(
             safeCurrentPage * itemsPerPage,
-            filteredAppointments.length,
+            total,
           )}{" "}
-          of {filteredAppointments.length} results
+          of {total} results
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <button

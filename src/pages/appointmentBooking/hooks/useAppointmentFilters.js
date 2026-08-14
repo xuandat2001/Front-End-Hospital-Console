@@ -11,7 +11,7 @@ import {
   normalizeStatus,
 } from "../utils/appointmentHelpers";
 
-export default function useAppointmentFilters(appointments) {
+export default function useAppointmentFilters(appointments, serverPagination = null) {
   const [filters, setFilters] = useState({
     keyword: "",
     departmentId: "",
@@ -58,9 +58,9 @@ export default function useAppointmentFilters(appointments) {
     return Array.from(map, ([id, name]) => ({ id, name }));
   }, [appointments]);
 
-  const filteredAppointments = useMemo(() => {
+  const locallyFilteredAppointments = useMemo(() => {
     const keyword = filters.keyword.trim().toLowerCase();
-    return appointments.filter((appointment) => {
+    const matches = appointments.filter((appointment) => {
       const appointmentStatus = normalizeStatus(appointment.status);
       const departmentId = String(
         getEntityId(appointment.department, appointment.departmentId),
@@ -95,14 +95,26 @@ export default function useAppointmentFilters(appointments) {
         matchesDate
       );
     });
+
+    return matches.sort((left, right) => {
+      const leftCreatedAt = new Date(
+        left.createdAt || left.appointmentDateTime || 0,
+      ).getTime();
+      const rightCreatedAt = new Date(
+        right.createdAt || right.appointmentDateTime || 0,
+      ).getTime();
+      return rightCreatedAt - leftCreatedAt;
+    });
   }, [appointments, filters]);
+
+  const filteredAppointments = serverPagination ? appointments : locallyFilteredAppointments;
 
   const totalPages = Math.max(
     1,
-    Math.ceil(filteredAppointments.length / itemsPerPage),
+    serverPagination?.totalPages || Math.ceil(filteredAppointments.length / itemsPerPage),
   );
   const safeCurrentPage = Math.min(currentPage, totalPages);
-  const paginatedAppointments = filteredAppointments.slice(
+  const paginatedAppointments = serverPagination ? filteredAppointments : filteredAppointments.slice(
     (safeCurrentPage - 1) * itemsPerPage,
     safeCurrentPage * itemsPerPage,
   );
@@ -132,6 +144,7 @@ export default function useAppointmentFilters(appointments) {
       totalPages,
       safeCurrentPage,
       paginationPages,
+      total: serverPagination?.total ?? filteredAppointments.length,
     },
   };
 }

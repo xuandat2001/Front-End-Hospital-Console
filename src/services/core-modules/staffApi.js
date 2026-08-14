@@ -7,6 +7,13 @@ export const staffService = {
     return await apiRequest(`/staff${params}`);
   },
 
+  getDoctors: async ({ hospitalId, departmentId } = {}) => {
+    const params = new URLSearchParams({ role: "DOCTOR" });
+    if (hospitalId) params.set("hospitalId", hospitalId);
+    if (departmentId) params.set("departmentId", departmentId);
+    return apiRequest(`/staff?${params.toString()}`);
+  },
+
   // GET ONE
   getStaffById: async (id) => {
     return await apiRequest(`/staff/${id}`);

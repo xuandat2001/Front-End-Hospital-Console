@@ -1,7 +1,6 @@
 import { useRef, useState } from "react";
 import { AtSign, Mic, Paperclip, Send, Smile, Square } from "lucide-react";
 import useMessagingStore from "../../stores/useMessagingStore";
-import { MOCK_MODE } from "../../mocks/mockSession";
 
 function MessageComposer({ conversationId }) {
   const [content, setContent] = useState("");
@@ -34,15 +33,6 @@ function MessageComposer({ conversationId }) {
   };
 
   const startRecording = async () => {
-    if (MOCK_MODE) {
-      const file = new File(["Mock prototype voice note"], `voice-note-${Date.now()}.webm`, {
-        type: "audio/webm",
-      });
-      setIsRecording(false);
-      await uploadVoiceNote(conversationId, file);
-      return;
-    }
-
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
       return;
     }

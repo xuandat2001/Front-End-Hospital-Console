@@ -1,6 +1,9 @@
 import { useState, useMemo } from "react";
+import { createPortal } from "react-dom";
+import { addLocalDays, formatLocalDate, getMonday, parseLocalDate } from "./staffScheduleDate";
 
 const DAY_MAP = { MONDAY:0,TUESDAY:1,WEDNESDAY:2,THURSDAY:3,FRIDAY:4,SATURDAY:5,SUNDAY:6 };
+const DAY_NAMES = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const DAY_ABBR = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
@@ -10,7 +13,7 @@ const DEPT_COLORS = [
 ];
 
 
-export default function StaffCalendar({ staff = [], departments = [], onStaffClick }) {
+export default function StaffCalendar({ staff = [], departments = [], onStaffClick, onShiftDelete }) {
   const [selectedDept, setSelectedDept] = useState(null);
 
   const filteredStaff = useMemo(() => {
@@ -55,12 +58,7 @@ export default function StaffCalendar({ staff = [], departments = [], onStaffCli
   const daysInMonth = Array.from({ length: totalDays }, (_, i) => i + 1);
 
   function getWeekStartOfDate(d) {
-    const date = new Date(d);
-    const day = date.getDay();
-    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-    date.setDate(diff);
-    date.setHours(0, 0, 0, 0);
-    return date.toISOString().split("T")[0];
+    return formatLocalDate(getMonday(d));
   }
 
   const shiftsByDate = useMemo(() => {
@@ -68,15 +66,15 @@ export default function StaffCalendar({ staff = [], departments = [], onStaffCli
     for (const person of filteredStaff) {
       for (const shift of person.schedule || []) {
         if (!shift.day || !shift.startTime || !shift.endTime) continue;
-        const dow = DAY_MAP[shift.day];
+        const weekOffset = DAY_MAP[shift.day];
+        if (weekOffset === undefined) continue;
         for (const date of daysInMonth) {
           const d = new Date(year, month, date);
-          if (d.getDay() !== dow) continue;
+          if (DAY_NAMES[d.getDay()] !== shift.day) continue;
 
           if (shift.weekStart) {
-            const expectedDate = new Date(shift.weekStart + "T00:00:00");
-            expectedDate.setDate(expectedDate.getDate() + dow);
-            if (expectedDate.toISOString().split("T")[0] !== d.toISOString().split("T")[0]) continue;
+            const expectedDate = addLocalDays(parseLocalDate(shift.weekStart), weekOffset);
+            if (formatLocalDate(expectedDate) !== formatLocalDate(d)) continue;
           } else {
             const currentWeek = getWeekStartOfDate(today);
             const dateWeek = getWeekStartOfDate(d);
@@ -140,10 +138,78 @@ export default function StaffCalendar({ staff = [], departments = [], onStaffCli
     return popupShifts.filter(({ person }) => String(person.departmentId || "") === selectedDept);
   }, [popupShifts, selectedDept]);
 
+  const getDateForMonthDay = (date) => new Date(year, month, date);
+
   const weekDayName = (date) => {
     const d = new Date(year, month, date);
     return DAY_ABBR[d.getDay()];
   };
+
+  const popup = popupDate ? (
+    <div
+      className="fixed inset-0 flex items-start justify-center overflow-y-auto bg-slate-950/75 px-4 pb-6 pt-40 backdrop-blur-sm"
+      data-tone="solid"
+      style={{ zIndex: 10000 }}
+      onClick={closePopup}
+    >
+      <div
+        className="max-h-[calc(100vh-11rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-slate-700 bg-slate-950 p-6 text-white shadow-2xl"
+        data-tone="solid"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-bold text-white">
+            {weekDayName(popupDate)}, {MONTHS[month]} {popupDate}, {year}
+          </h3>
+          <button onClick={closePopup} className="rounded-lg px-3 py-1 text-sm font-semibold text-white hover:bg-white/10">&times;</button>
+        </div>
+
+        {filteredPopupShifts.length === 0 && (
+          <p className="py-8 text-center text-sm text-slate-200">No staff scheduled this day</p>
+        )}
+
+        <div className="space-y-2">
+          {filteredPopupShifts.map(({ person, shift }) => {
+            const personId = person.ellyId || person._id;
+            const color = getStaffDeptColor(person);
+            return (
+              <div
+                key={`${personId}-${shift.day}-${shift.weekStart || popupDate}`}
+                onClick={() => onStaffClick?.(person)}
+                className="flex cursor-pointer items-center justify-between gap-2 rounded-xl border border-slate-700 bg-slate-900 p-3 shadow-sm hover:bg-slate-800"
+                data-tone="solid"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+                  <div>
+                    <span className="text-sm font-semibold text-white">{person.fullName}</span>
+                    <p className="text-[10px] font-medium text-slate-100">{getStaffDeptName(person)}</p>
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="text-xs font-medium text-white">
+                    {shift.startTime}-{shift.endTime}
+                  </span>
+                  {onShiftDelete && (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onShiftDelete(person, shift, getDateForMonthDay(popupDate));
+                      }}
+                      className="rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-semibold text-red-600 hover:bg-red-100 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300 dark:hover:bg-red-900/50"
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div>
@@ -230,47 +296,7 @@ export default function StaffCalendar({ staff = [], departments = [], onStaffCli
         })}
       </div>
 
-      {popupDate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={closePopup}>
-          <div className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-900 dark:border dark:border-slate-700" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-bold dark:text-white">
-                {weekDayName(popupDate)}, {MONTHS[month]} {popupDate}, {year}
-              </h3>
-              <button onClick={closePopup} className="rounded-lg px-3 py-1 text-sm font-semibold text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">&times;</button>
-            </div>
-
-            {filteredPopupShifts.length === 0 && (
-              <p className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">No staff scheduled this day</p>
-            )}
-
-            <div className="space-y-2">
-              {filteredPopupShifts.map(({ person, shift }) => {
-                const personId = person.ellyId || person._id;
-                const color = getStaffDeptColor(person);
-                return (
-                  <div
-                    key={personId}
-                    onClick={() => onStaffClick?.(person)}
-                    className="flex cursor-pointer items-center justify-between gap-2 rounded-xl border border-slate-200 p-3 hover:opacity-70 dark:border-slate-700"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
-                      <div>
-                        <span className="text-sm font-semibold dark:text-white">{person.fullName}</span>
-                        <p className="text-[10px] text-slate-400">{getStaffDeptName(person)}</p>
-                      </div>
-                    </div>
-                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                      {shift.startTime}-{shift.endTime}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
+      {popup && createPortal(popup, document.body)}
     </div>
   );
 }

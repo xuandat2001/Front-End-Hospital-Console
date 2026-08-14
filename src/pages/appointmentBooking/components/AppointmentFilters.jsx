@@ -1,7 +1,6 @@
 export default function AppointmentFilters({
   filters,
   onFilterChange,
-  onClearFilters,
   departmentFilterOptions,
   doctorFilterOptions,
 }) {
@@ -52,6 +51,7 @@ export default function AppointmentFilters({
           >
             <option value="">All</option>
             <option value="BOOKED">BOOKED</option>
+            <option value="IN_PROGRESS">IN_PROGRESS</option>
             <option value="COMPLETED">COMPLETED</option>
             <option value="CANCELED">CANCELED</option>
             <option value="NO_SHOW">NO_SHOW</option>
@@ -96,4 +96,3 @@ function Select({ label, value, onChange, options }) {
     </div>
   );
 }
-

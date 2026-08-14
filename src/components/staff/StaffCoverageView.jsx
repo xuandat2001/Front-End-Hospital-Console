@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { staffService } from "../../services/core-modules/staffApi";
 import { hospitalService } from "../../services/core-modules/hospitalApi";
 import StaffSearchBar from "./StaffSearchBar";
+import { addLocalDays, formatLocalDate, getMonday, parseLocalDate } from "./staffScheduleDate";
 
 const DAYS = [
   "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY",
@@ -15,23 +16,8 @@ const DAY_LABEL = {
 
 const DAY_MAP = { MONDAY:0,TUESDAY:1,WEDNESDAY:2,THURSDAY:3,FRIDAY:4,SATURDAY:5,SUNDAY:6 };
 
-function getMonday(d) {
-  const date = new Date(d);
-  const day = date.getDay();
-  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-  date.setDate(diff);
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-
-function formatDate(date) {
-  return date.toISOString().split("T")[0];
-}
-
 function addWeek(date, weeks) {
-  const d = new Date(date);
-  d.setDate(d.getDate() + weeks * 7);
-  return d;
+  return addLocalDays(date, weeks * 7);
 }
 
 const INITIAL_SHOW = 6;
@@ -59,7 +45,7 @@ export default function StaffCoverageView({ onStaffClick, editable, compact, hid
   const [editEnd, setEditEnd] = useState("");
   const [filterDept, setFilterDept] = useState("");
   const [filterRole, setFilterRole] = useState("");
-  const [weekStart, setWeekStart] = useState(() => formatDate(getMonday(new Date())));
+  const [weekStart, setWeekStart] = useState(() => formatLocalDate(getMonday(new Date())));
   const [message, setMessage] = useState(null);
 
   const loadData = async () => {
@@ -335,18 +321,17 @@ export default function StaffCoverageView({ onStaffClick, editable, compact, hid
       )}
 
       <div className="mb-4 flex items-center gap-3 rounded-xl border bg-white p-3 shadow-sm dark:bg-slate-800 dark:border-slate-700">
-        <button onClick={() => setWeekStart(formatDate(addWeek(new Date(weekStart), -1)))} className="rounded-lg border px-3 py-1.5 text-sm font-semibold hover:bg-slate-50 dark:text-white dark:border-slate-600 dark:hover:bg-slate-700">&larr;</button>
-        <button onClick={() => setWeekStart(formatDate(getMonday(new Date())))} className="rounded-lg border px-3 py-1.5 text-xs font-semibold hover:bg-slate-50 dark:text-white dark:border-slate-600 dark:hover:bg-slate-700">Today</button>
+        <button onClick={() => setWeekStart(formatLocalDate(addWeek(weekStart, -1)))} className="rounded-lg border px-3 py-1.5 text-sm font-semibold hover:bg-slate-50 dark:text-white dark:border-slate-600 dark:hover:bg-slate-700">&larr;</button>
+        <button onClick={() => setWeekStart(formatLocalDate(getMonday(new Date())))} className="rounded-lg border px-3 py-1.5 text-xs font-semibold hover:bg-slate-50 dark:text-white dark:border-slate-600 dark:hover:bg-slate-700">Today</button>
         <span className="flex-1 text-center text-sm font-semibold dark:text-white">
           {(() => {
-            const start = new Date(weekStart);
-            const end = new Date(start);
-            end.setDate(end.getDate() + 6);
+            const start = parseLocalDate(weekStart);
+            const end = addLocalDays(start, 6);
             const opts = { month: "short", day: "numeric", year: "numeric" };
             return `${start.toLocaleDateString("en-US", opts)} — ${end.toLocaleDateString("en-US", opts)}`;
           })()}
         </span>
-        <button onClick={() => setWeekStart(formatDate(addWeek(new Date(weekStart), 1)))} className="rounded-lg border px-3 py-1.5 text-sm font-semibold hover:bg-slate-50 dark:text-white dark:border-slate-600 dark:hover:bg-slate-700">&rarr;</button>
+        <button onClick={() => setWeekStart(formatLocalDate(addWeek(weekStart, 1)))} className="rounded-lg border px-3 py-1.5 text-sm font-semibold hover:bg-slate-50 dark:text-white dark:border-slate-600 dark:hover:bg-slate-700">&rarr;</button>
       </div>
 
       {message && (

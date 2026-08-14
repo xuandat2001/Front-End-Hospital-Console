@@ -1,9 +1,11 @@
 import { apiRequest } from '../config/config';
 
 export const patientService = {
+  searchPatients: async (search, limit = 20) => apiRequest(`/patients/search?q=${encodeURIComponent(search)}&limit=${limit}`),
   getAllPatients: async (filters = {}) => {
     const params = new URLSearchParams();
     if (filters.ellyId) params.append("ellyId", filters.ellyId);
+    if (filters.search) params.append("search", filters.search);
     const qs = params.toString();
     return await apiRequest(qs ? `/patients?${qs}` : '/patients');
   },

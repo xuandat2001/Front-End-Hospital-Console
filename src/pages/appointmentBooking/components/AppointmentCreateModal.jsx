@@ -1,3 +1,5 @@
+import { createPortal } from "react-dom";
+
 export default function AppointmentCreateModal({
   formData,
   departments,
@@ -6,6 +8,7 @@ export default function AppointmentCreateModal({
   doctorsLoading,
   availableSlots = [],
   slotsLoading = false,
+  creating = false,
   onChange,
   onClose,
   onCreate,
@@ -13,15 +16,22 @@ export default function AppointmentCreateModal({
   const textFieldClass =
     "appointment-create-field rounded border border-slate-600 bg-slate-800 p-3 text-white placeholder:text-slate-400 focus:border-slate-500 focus:bg-slate-800 focus:text-white focus:outline-none";
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900">
-        <h2 className="mb-6 text-xl font-bold">Create Appointment Booking</h2>
+  return createPortal(
+    <div
+      className="console-tinted-popup-layer fixed inset-0 z-[12000] flex items-center justify-center bg-black/60 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="create-appointment-title"
+    >
+      <div className="console-tinted-popup max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+        <h2 id="create-appointment-title" className="mb-6 text-xl font-bold">Create Appointment Booking</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <input
             name="patientEllyId"
             value={formData.patientEllyId}
             onChange={onChange}
+            autoComplete="off"
+            spellCheck="false"
             placeholder="Patient ELLY ID"
             className={textFieldClass}
           />
@@ -149,6 +159,7 @@ export default function AppointmentCreateModal({
             name="reason"
             value={formData.reason}
             onChange={onChange}
+            autoComplete="off"
             placeholder="Reason"
             className={`${textFieldClass} md:col-span-2`}
           />
@@ -175,13 +186,15 @@ export default function AppointmentCreateModal({
           <button
             type="button"
             onClick={onCreate}
+            disabled={creating}
             className="rounded bg-teal-600 px-4 py-2 text-white hover:bg-teal-700"
           >
             Create
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

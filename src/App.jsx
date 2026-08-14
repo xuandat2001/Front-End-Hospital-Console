@@ -15,7 +15,6 @@ import {
 import LeftRail from "./components/dashboard/LeftRail";
 import RightRail from "./components/dashboard/RightRail";
 import DashboardContent from "./components/dashboard/DashboardContent";
-import InteractionLayer from "./components/dashboard/InteractionLayer";
 import DocumentModal from "./components/document/DocumentModal";
 import DocumentModeOverlay from "./components/document/DocumentModeOverlay";
 import LenisScrollLayer from "./components/dashboard/LenisScrollLayer";
@@ -30,6 +29,7 @@ import AccessDenied from "./components/auth/AccessDenied";
 import useSessionStore from "./store/useSessionStore";
 import usePatientSearchStore from "./store/usePatientSearchStore";
 import { PERMISSIONS } from "./constant/rbac";
+import { applyThemeClass, getInitialThemePreference } from "./utils/theme";
 import "./App.css";
 
 const HOSPITAL_ACCESS_ROUTE = "/hospital-access";
@@ -151,14 +151,7 @@ function HospitalDashboardApp() {
   const [emergencyNavigation, setEmergencyNavigation] = useState(null);
   const [returnNavigation, setReturnNavigation] = useState(null);
   const [selectedRoomId, setSelectedRoomId] = useState(null);
-  const [isDark, setIsDark] = useState(() => {
-    if (typeof window !== "undefined") {
-      const savedTheme = localStorage.getItem("theme");
-      if (savedTheme) return savedTheme === "dark";
-      return window.matchMedia("(prefers-color-scheme: dark)").matches;
-    }
-    return false;
-  });
+  const [isDark, setIsDark] = useState(getInitialThemePreference);
   const [isNavigationOpen, setIsNavigationOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [diagnosticsDepartments, setDiagnosticsDepartments] = useState([]);
@@ -170,6 +163,7 @@ function HospitalDashboardApp() {
   const incomingPayload = useRegistrationStore((state) => state.incomingPayload);
   const clearNotification = useRegistrationStore((state) => state.clearNotification);
   const setActiveEllyId = usePatientSearchStore((state) => state.setActiveEllyId);
+  const activeEllyId = usePatientSearchStore((state) => state.activeEllyId);
   const clearActiveEllyId = usePatientSearchStore((state) => state.clearActiveEllyId);
   const pendingOpenRecord = usePatientSearchStore((state) => state.pendingOpenRecord);
   const consumePendingOpenRecord = usePatientSearchStore(
@@ -177,11 +171,9 @@ function HospitalDashboardApp() {
   );
   const canReadPatients = useSessionStore((state) => state.can(PERMISSIONS.PATIENT_READ));
   const currentUser = useSessionStore((state) => state.currentUser);
-  const workspace = useSessionStore((state) => state.activeWorkspace || state.workspace);
-  const role = useSessionStore((state) => state.role);
   const consoleType = useSessionStore((state) => state.consoleType);
-  const isAuthenticated = useSessionStore((state) => state.isAuthenticated);
-  const logout = useSessionStore((state) => state.logout);
+  const diagnosticsPatientEllyId =
+    activeFunction === "patient-dashboard" ? activeEllyId : null;
 
   const dismissRegistrationToast = () => {
     if (incomingPayload?.eventId) {
@@ -197,14 +189,8 @@ function HospitalDashboardApp() {
   }, [activeDomain, activeFunction, activeCenterTab]);
 
   useEffect(() => {
-    const htmlElement = document.documentElement;
-    if (isDark) {
-      htmlElement.classList.add("dark");
-      localStorage.setItem("theme", "dark");
-    } else {
-      htmlElement.classList.remove("dark");
-      localStorage.setItem("theme", "light");
-    }
+    applyThemeClass(isDark);
+    localStorage.setItem("theme", isDark ? "dark" : "light");
   }, [isDark]);
 
   useEffect(() => {
@@ -323,19 +309,23 @@ function HospitalDashboardApp() {
   }, [pendingOpenRecord, canReadPatients, consumePendingOpenRecord]);
 
   const handleModuleChange = (moduleValue) => {
+    setActiveModule(moduleValue);
+
     if (moduleValue === "radiology") {
-      setDiagnosticsDepartments((prev) =>
-        prev.includes("RADIOLOGY") ? prev : [...prev, "RADIOLOGY"]
-      );
+      setDiagnosticsDepartments(["RADIOLOGY"]);
       return;
     }
     if (moduleValue === "laboratory") {
-      setDiagnosticsDepartments((prev) =>
-        prev.includes("LABORATORY") ? prev : [...prev, "LABORATORY"]
-      );
+      setDiagnosticsDepartments(["LABORATORY"]);
       return;
     }
-    setActiveModule(moduleValue);
+
+    setDiagnosticsDepartments([]);
+  };
+
+  const handleDiagnosticsClose = () => {
+    setDiagnosticsDepartments([]);
+    setActiveModule("clinical-operations");
   };
 
   const handleRoomSelect = (roomId) => {
@@ -344,6 +334,19 @@ function HospitalDashboardApp() {
     setActiveDomain("management");
     setActiveFunction("room-management");
     setActiveCenterTab("resources");
+  };
+
+  const handleNavigateToFunction = (target) => {
+    if (consoleType === "RESTRICTED") return;
+    if (!target?.functionId) return;
+
+    setActiveDomain(target.domain || activeDomain);
+    setActiveSubsection(target.subsection ?? activeSubsection);
+    setActiveFunction(target.functionId);
+    setActiveCenterTab(target.centerTab || "dashboard");
+    setEmergencyNavigation(null);
+    setIsNavigationOpen(false);
+    clearActiveEllyId();
   };
 
   const handleEmergencyRequestOpen = (alertId) => {
@@ -375,20 +378,8 @@ function HospitalDashboardApp() {
 
   return (
     <div className="dashboard-shell">
-      <InteractionLayer />
       <LenisScrollLayer />
       <div className="dashboard-aurora" aria-hidden="true" />
-      {isAuthenticated && (
-        <div className="session-badge" aria-label="Current session">
-          <div>
-            <strong>{role || currentUser?.role}</strong>
-            <span>{workspace?.workspaceName || workspace?.hospitalName}</span>
-          </div>
-          <button type="button" onClick={logout}>
-            Logout
-          </button>
-        </div>
-      )}
 
       {/* Registration Toast Notification */}
       {showNotification && incomingPayload && (
@@ -425,14 +416,12 @@ function HospitalDashboardApp() {
       <div className="dashboard-grid">
       <LeftRail
         activeDomain={activeDomain}
-        activeModule={activeModule}
         activeSubsection={activeSubsection}
         onDomainChange={handleDomainChange}
-        onModuleChange={handleModuleChange}
+        onProfileClick={handleWelcomeOpen}
         onSettingsOpen={() => setIsSettingsOpen(true)}
         onSubsectionSelect={handleSubsectionSelect}
         onPatientSearch={handlePatientSearch}
-        onWelcomeOpen={handleWelcomeOpen}
         isOpen={isNavigationOpen}
         onOpenChange={setIsNavigationOpen}
       />
@@ -440,9 +429,16 @@ function HospitalDashboardApp() {
       <main className="dashboard-main" id="main-content">
         <DocumentModeOverlay>
         <DashboardContent
+          activeModule={activeModule}
+          activeDomain={activeDomain}
           activeFunction={activeFunction}
           activeCenterTab={activeCenterTab}
+          activeSubsection={activeSubsection}
+          onDomainChange={handleDomainChange}
+          onModuleChange={handleModuleChange}
           onCenterTabChange={handleCenterTabChange}
+          onSubsectionSelect={handleSubsectionSelect}
+          onPatientSearch={canReadPatients ? handlePatientSearch : undefined}
           emergencyRealtime={emergencyRealtime}
           registrationRealtime={registrationRealtime}
           emergencyNavigation={emergencyNavigation}
@@ -453,6 +449,7 @@ function HospitalDashboardApp() {
           onRegistrationRequestOpen={handleRegistrationRequestOpen}
           onRoomSelect={handleRoomSelect}
           selectedRoomId={selectedRoomId}
+          onNavigateToFunction={handleNavigateToFunction}
         />
         </DocumentModeOverlay>
       </main>
@@ -475,10 +472,9 @@ function HospitalDashboardApp() {
         <DiagnosticsPopup
           key={dept}
           department={dept}
+          patientEllyId={diagnosticsPatientEllyId}
           offsetIndex={i}
-          onClose={() =>
-            setDiagnosticsDepartments((prev) => prev.filter((d) => d !== dept))
-          }
+          onClose={handleDiagnosticsClose}
         />
       ))}
 
@@ -524,6 +520,7 @@ function App() {
   const handleAccessGranted = (hospitalWorkspace) => {
     setWorkspace(hospitalWorkspace);
     applyRoleLanding(useSessionStore.getState().role);
+    useSessionStore.getState().setShowWelcome(true);
 
     window.history.pushState({}, "", DASHBOARD_ROUTE);
     setRoutePath(DASHBOARD_ROUTE);

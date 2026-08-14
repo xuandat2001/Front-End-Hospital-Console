@@ -1,15 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { io } from "socket.io-client";
-import { MOCK_MODE } from "../mocks/mockSession";
 import {
-  gatewayUrl,
   getRegistrationNotifications,
   getRegistrationUnreadCount,
   hospitalIdentity,
 } from "../services/registration/registrationRealtimeApi";
-import useRegistrationStore from "./useRegistrationStore";
-import { patientService } from "../services/core-modules/patientApi";
-import { upsertBy } from "./useEmergencyRealtime";
 
 export function getRegistrationEventId(event) {
   const data = event?.data || event?.payload?.data || event || {};
@@ -51,58 +45,12 @@ export function normalizeRegistrationEvent(event) {
   };
 }
 
-function syncRegistrationToStore(notification, receiveRegistration) {
-  if (!notification?.eventId) return;
-
-  receiveRegistration({
-    notificationId: notification.notificationId,
-    ellyId: notification.ellyId,
-    hospitalId: notification.hospitalId,
-    hospitalMRN: notification.hospitalMRN,
-    eventId: notification.eventId,
-    registeredAt: notification.occurredAt,
-  });
-
-  if (!notification.ellyId) return;
-
-  patientService
-    .getPatientByEllyId(notification.ellyId)
-    .then((profileResponse) => {
-      const patientProfile = profileResponse.data?.patient || profileResponse.data;
-      receiveRegistration({
-        notificationId: notification.notificationId,
-        ellyId: patientProfile.ellyId,
-        fullName: patientProfile.fullName,
-        dateOfBirth: patientProfile.dateOfBirth,
-        gender: patientProfile.gender,
-        hospitalId: notification.hospitalId,
-        hospitalMRN: notification.hospitalMRN,
-        eventId: notification.eventId,
-        registeredAt: notification.occurredAt,
-      });
-    })
-    .catch((enrichError) => {
-      console.error(
-        "[WebSockets] Failed to enrich registration data:",
-        enrichError,
-      );
-    });
-}
-
-function isRegistrationNotification(item) {
-  return item?.eventType === "RegistrationSuccessEvent";
-}
-
 export default function useRegistrationRealtime() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [connectionState, setConnectionState] = useState(MOCK_MODE ? "mock" : "connecting");
+  const [connectionState] = useState("connected");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  const receiveRegistration = useRegistrationStore(
-    (state) => state.receiveRegistration,
-  );
 
   const refresh = useCallback(async () => {
     try {
@@ -125,93 +73,9 @@ export default function useRegistrationRealtime() {
     }
   }, []);
 
-  const ingestRegistration = useCallback(
-    (rawEvent, { notifyStore = true } = {}) => {
-      const notification = normalizeRegistrationEvent(rawEvent);
-      if (!notification.eventId) {
-        console.warn("[WebSockets] Ignoring registration without eventId:", rawEvent);
-        return notification;
-      }
-
-      if (notifyStore) {
-        syncRegistrationToStore(notification, receiveRegistration);
-      }
-
-      setNotifications((current) => {
-        const exists = current.some(
-          (item) => item.eventId === notification.eventId,
-        );
-
-        if (exists) {
-          return upsertBy(current, notification, "eventId");
-        }
-
-        if (!notification.read) {
-          setUnreadCount((count) => count + 1);
-        }
-
-        return upsertBy(current, notification, "eventId").slice(0, 100);
-      });
-
-      return notification;
-    },
-    [receiveRegistration],
-  );
-
   useEffect(() => {
     queueMicrotask(refresh);
-
-    if (MOCK_MODE) {
-      return;
-    }
-
-    const socket = io(gatewayUrl, {
-      path: "/realtime/socket.io",
-      auth: hospitalIdentity,
-      transports: ["websocket", "polling"],
-      reconnection: true,
-    });
-
-    socket.on("connection:ready", () => {
-      setConnectionState("connected");
-      setError("");
-      refresh();
-    });
-
-    socket.on("disconnect", () => setConnectionState("disconnected"));
-    socket.on("connect_error", (connectError) => {
-      console.error("[Socket] Registration connection error:", connectError.message);
-      setConnectionState("disconnected");
-      setError(connectError.message);
-    });
-
-    socket.on("notification:new", (notification) => {
-      if (!isRegistrationNotification(notification)) return;
-      console.log("[WebSockets] Incoming registration notification:", notification);
-      ingestRegistration(notification);
-    });
-
-    socket.on("RegistrationSuccessEvent", (eventPayload) => {
-      console.log("[WebSockets] Incoming RegistrationSuccessEvent:", eventPayload);
-      ingestRegistration(eventPayload);
-    });
-
-    socket.on("notification:updated", (notification) => {
-      if (notification.allRead) {
-        setUnreadCount(0);
-        setNotifications((current) =>
-          current.map((item) => ({ ...item, read: true })),
-        );
-        return;
-      }
-
-      if (!isRegistrationNotification(notification)) return;
-
-      ingestRegistration(notification, { notifyStore: true });
-    });
-
-    return () => socket.disconnect();
-  }, [ingestRegistration, refresh]);
+  }, [refresh]);
 
   const dismissNotification = useCallback((eventId) => {
     setNotifications((current) =>

@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import usePlanningData from "../hooks/usePlanningData";
+import useAppointmentAnalyticsQuery from "../hooks/useAppointmentAnalyticsQuery";
+import { adaptPlanningResponse } from "../adapters/appointmentAnalyticsAdapters";
 import { getInitials } from "../utils/appointmentHelpers";
 
 const cardClass = "appointment-card";
@@ -473,7 +475,19 @@ export default function PlanningTab({
   const [department, setDepartment] = useState("ALL");
   const [detailModal, setDetailModal] = useState(null);
   const [activePlanningTable, setActivePlanningTable] = useState("schedule");
-  const planning = usePlanningData(appointments, horizon, department);
+  const fallbackPlanning = usePlanningData(appointments, horizon, department);
+  const planningParams = useMemo(() => {
+    const now = new Date();
+    return { from: now.toISOString(), to: new Date(now.getTime() + horizon * 86400000).toISOString() };
+  }, [horizon]);
+  const { data, loading: queryLoading } = useAppointmentAnalyticsQuery("planning", planningParams);
+  const fullPlanning = data ? adaptPlanningResponse(data, horizon) : fallbackPlanning;
+  const planning = department === "ALL" ? fullPlanning : {
+    ...fullPlanning,
+    departmentDemand: fullPlanning.departmentDemand.filter((row) => row.name === department),
+    doctorCapacity: fullPlanning.doctorCapacity.filter((row) => row.department === department),
+    upcomingSchedule: fullPlanning.upcomingSchedule.filter((row) => row.department === department),
+  };
 
   const controls = (
     <div className="flex flex-nowrap justify-end gap-2">
@@ -499,7 +513,7 @@ export default function PlanningTab({
       </select>
     </div>
   );
-  if (loading)
+  if (loading || queryLoading)
     return (
       <div className={`${cardClass} p-10 text-center text-sm text-slate-500`}>
         Building the capacity plan

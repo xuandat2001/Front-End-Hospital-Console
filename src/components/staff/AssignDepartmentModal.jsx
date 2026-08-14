@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { staffService } from "../../services/core-modules/staffApi";
 
 export default function AssignDepartmentModal({
@@ -34,12 +35,17 @@ export default function AssignDepartmentModal({
 
   if (!member) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+  return createPortal(
+    <div
+      className="console-tinted-popup-layer staff-resource-popup-layer fixed inset-0 z-[12000] flex items-center justify-center bg-black/60 px-4 py-6"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="assign-department-title"
+    >
 
-      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900">
+      <div className="console-tinted-popup staff-resource-popup w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-950" data-tone="staff-resource-popup">
 
-        <h2 className="mb-4 text-xl font-bold">
+        <h2 id="assign-department-title" className="mb-4 text-xl font-bold">
           Assign Department
         </h2>
 
@@ -102,6 +108,7 @@ export default function AssignDepartmentModal({
 
       </div>
 
-    </div>
+    </div>,
+    document.body,
   );
 }

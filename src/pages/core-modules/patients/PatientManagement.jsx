@@ -1,4 +1,5 @@
 import { useEffect, useState, Fragment } from "react";
+import { createPortal } from "react-dom";
 import { patientService } from "../../../services/core-modules/patientApi";
 import useRegistrationStore from "../../../hooks/useRegistrationStore";
 
@@ -335,10 +336,15 @@ export default function PatientManagement() {
         </table>
       </div>
 
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-full max-w-3xl rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900">
-            <h2 className="mb-6 text-xl font-bold text-slate-900 dark:text-white">
+      {showForm && createPortal(
+        <div
+          className="console-tinted-popup-layer fixed inset-0 z-[12000] flex items-center justify-center bg-black/60 px-4 py-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-patient-title"
+        >
+          <div className="console-tinted-popup max-h-full w-full max-w-3xl overflow-y-auto rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+            <h2 id="edit-patient-title" className="mb-6 text-xl font-bold text-slate-900 dark:text-white">
               Edit Patient
             </h2>
 
@@ -483,7 +489,8 @@ export default function PatientManagement() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

@@ -108,7 +108,11 @@ function IcuFilterDropdown({ label, icon: Icon, options, value, onChange }) {
       </button>
 
       {open ? (
-        <div className="icu-filter-menu" role="listbox" aria-label={label}>
+        <div
+          className="icu-filter-menu global-content-dropdown"
+          role="listbox"
+          aria-label={label}
+        >
           <div className="icu-filter-options">
             {options.map((option) => {
               const isSelected = option.value === value;
@@ -116,15 +120,9 @@ function IcuFilterDropdown({ label, icon: Icon, options, value, onChange }) {
                 <button
                   aria-selected={isSelected}
                   className={isSelected ? "is-selected" : ""}
+                  data-no-ripple="true"
                   key={option.value || "all"}
-                  onClick={(event) => {
-                    if (event.detail === 0) selectOption(option.value);
-                  }}
-                  onPointerDown={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    selectOption(option.value);
-                  }}
+                  onClick={() => selectOption(option.value)}
                   role="option"
                   type="button"
                 >

@@ -1,0 +1,273 @@
+/*
+ * Global content dropdown
+ *
+ * Shared transient menu styling for the authenticated Console. Workspace and
+ * Profile Card menus intentionally retain their own identity-specific styles.
+ */
+body:has(.dashboard-shell) {
+  --global-content-dropdown-accent: #a21caf;
+  --global-content-dropdown-accent-bright: #c026d3;
+  --global-content-dropdown-accent-soft: rgba(192, 38, 211, 0.16);
+  --global-content-dropdown-surface: color-mix(
+    in srgb,
+    var(--liquid-fallback-content) 86%,
+    rgba(88, 28, 135, 0.14)
+  );
+  --global-content-dropdown-native-surface: #f7f3fb;
+  --global-content-dropdown-native-selected: #ead7ee;
+}
+
+.dark body:has(.dashboard-shell) {
+  --global-content-dropdown-accent: #d946ef;
+  --global-content-dropdown-accent-bright: #f0abfc;
+  --global-content-dropdown-accent-soft: rgba(217, 70, 239, 0.18);
+  --global-content-dropdown-surface: color-mix(
+    in srgb,
+    var(--liquid-fallback-content) 80%,
+    rgba(74, 18, 78, 0.42)
+  );
+  --global-content-dropdown-native-surface: #17111d;
+  --global-content-dropdown-native-selected: #452449;
+}
+
+/* Compact liquid-glass surface inspired by the supplied vertical menu. */
+.global-content-dropdown {
+  box-sizing: border-box;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid
+    color-mix(
+      in srgb,
+      var(--console-liquid-border) 78%,
+      var(--global-content-dropdown-accent) 22%
+    ) !important;
+  border-radius: 14px !important;
+  padding: 6px !important;
+  color: var(--text);
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--liquid-specular) 9%, transparent),
+      transparent 42%
+    ),
+    var(--global-content-dropdown-surface) !important;
+  box-shadow:
+    0 20px 46px rgba(8, 5, 18, 0.28),
+    0 0 24px
+      color-mix(
+        in srgb,
+        var(--global-content-dropdown-accent) 14%,
+        transparent
+      ),
+    inset 0 1px 0 color-mix(in srgb, var(--liquid-specular) 20%, transparent),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.16) !important;
+  backdrop-filter: var(--console-liquid-filter);
+  -webkit-backdrop-filter: var(--console-liquid-filter);
+}
+
+.global-content-dropdown :where(
+    [role="option"],
+    [role="menuitem"],
+    .global-content-dropdown__item
+  ) {
+  position: relative;
+  display: flex;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 36px;
+  align-items: center;
+  gap: 9px;
+  overflow: hidden;
+  border: 1px solid transparent !important;
+  border-radius: 9px !important;
+  padding: 7px 10px !important;
+  color: color-mix(in srgb, var(--text) 88%, var(--text-muted));
+  background: transparent !important;
+  box-shadow: none !important;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.25;
+  text-align: left;
+  text-decoration: none;
+  transform: none !important;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.global-content-dropdown :where(
+    [role="option"],
+    [role="menuitem"],
+    .global-content-dropdown__item
+  ):hover:not(:disabled):not([aria-disabled="true"]),
+.global-content-dropdown :where(
+    [role="option"],
+    [role="menuitem"],
+    .global-content-dropdown__item
+  ):focus-visible {
+  border-color: color-mix(
+    in srgb,
+    var(--global-content-dropdown-accent) 22%,
+    transparent
+  ) !important;
+  outline: 0;
+  color: var(--text);
+  background: color-mix(
+    in srgb,
+    var(--global-content-dropdown-accent-soft) 56%,
+    var(--liquid-inset)
+  ) !important;
+}
+
+.global-content-dropdown :where(
+    [role="option"][aria-selected="true"],
+    [role="menuitem"][aria-current="page"],
+    .global-content-dropdown__item.is-selected,
+    .global-content-dropdown__item.is-active
+  ) {
+  border-color: color-mix(
+    in srgb,
+    var(--global-content-dropdown-accent) 34%,
+    transparent
+  ) !important;
+  color: var(--text);
+  background: linear-gradient(
+    90deg,
+    color-mix(
+      in srgb,
+      var(--global-content-dropdown-accent-soft) 92%,
+      var(--liquid-inset)
+    ),
+    color-mix(in srgb, var(--liquid-inset) 82%, transparent)
+  ) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--liquid-specular) 12%, transparent),
+    0 0 18px
+      color-mix(
+        in srgb,
+        var(--global-content-dropdown-accent) 10%,
+        transparent
+      ) !important;
+}
+
+.global-content-dropdown :where(
+    [role="option"][aria-selected="true"],
+    [role="menuitem"][aria-current="page"],
+    .global-content-dropdown__item.is-selected,
+    .global-content-dropdown__item.is-active
+  )::before {
+  position: absolute;
+  top: 50%;
+  left: 2px;
+  width: 3px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--global-content-dropdown-accent-bright);
+  box-shadow: 0 0 10px var(--global-content-dropdown-accent);
+  content: "";
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.global-content-dropdown :where(svg, [class*="icon"]) {
+  flex: 0 0 auto;
+  color: color-mix(in srgb, var(--text) 82%, var(--text-muted));
+}
+
+.global-content-dropdown :where(
+    [role="option"],
+    [role="menuitem"],
+    .global-content-dropdown__item
+  ):is(:disabled, [aria-disabled="true"]) {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+/*
+ * Native selects cannot expose their operating-system popup DOM. Their closed
+ * control and supported option colors still use the same global material.
+ */
+html.liquid-glass body:has(.dashboard-shell) select {
+  border-color: color-mix(
+    in srgb,
+    var(--console-liquid-inset-border) 78%,
+    var(--global-content-dropdown-accent) 22%
+  ) !important;
+  border-radius: 10px !important;
+  color: var(--text) !important;
+  background-color: color-mix(
+    in srgb,
+    var(--global-content-dropdown-surface) 54%,
+    transparent
+  ) !important;
+  box-shadow: var(--console-liquid-inset-shadow) !important;
+  color-scheme: light;
+}
+
+html.dark.liquid-glass body:has(.dashboard-shell) select {
+  color-scheme: dark;
+}
+
+html.liquid-glass body:has(.dashboard-shell) select:hover:not(:disabled) {
+  border-color: color-mix(
+    in srgb,
+    var(--global-content-dropdown-accent) 46%,
+    var(--console-liquid-inset-border)
+  ) !important;
+}
+
+html.liquid-glass body:has(.dashboard-shell) select:focus,
+html.liquid-glass body:has(.dashboard-shell) select:focus-visible {
+  border-color: var(--global-content-dropdown-accent) !important;
+  outline: 0;
+  box-shadow:
+    0 0 0 3px
+      color-mix(
+        in srgb,
+        var(--global-content-dropdown-accent) 18%,
+        transparent
+      ),
+    var(--console-liquid-inset-shadow) !important;
+}
+
+html.liquid-glass body:has(.dashboard-shell) select option,
+html.liquid-glass body:has(.dashboard-shell) select optgroup {
+  color: var(--text);
+  background-color: var(--global-content-dropdown-native-surface);
+}
+
+html.liquid-glass body:has(.dashboard-shell) select option:checked {
+  color: var(--text);
+  background-color: var(--global-content-dropdown-native-selected);
+}
+
+@supports not ((backdrop-filter: blur(2px))) {
+  .global-content-dropdown {
+    background: var(--liquid-fallback-content) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .global-content-dropdown,
+  .global-content-dropdown * {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .global-content-dropdown,
+  .global-content-dropdown :where(
+      [role="option"],
+      [role="menuitem"],
+      .global-content-dropdown__item
+    ),
+  html.liquid-glass body:has(.dashboard-shell) select {
+    border-color: CanvasText !important;
+    color: CanvasText !important;
+    background: Canvas !important;
+    box-shadow: none !important;
+    forced-color-adjust: auto;
+  }
+}

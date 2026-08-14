@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { roomPerformanceService } from "../../services/performance/roomPerformanceApi";
 import { roomService } from "../../services/core-modules/roomApi";
 import MiniPieChart from "../../components/graphs/MiniPieChart";
@@ -10,6 +10,18 @@ const STATUS_COLORS = {
   HIGH_USAGE: "#3B82F6",
   HIGH_DEMAND: "#EF4444",
 };
+
+const toNumber = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
+
+const shortenRoomLabel = (value) =>
+  String(value || "")
+    .replace(/^Surgery Ward\s+/i, "SW ")
+    .replace(/^General$/i, "Gen")
+    .replace(/\s+/g, " ")
+    .trim();
 
 export default function RoomPerformanceDashboard() {
   const [performances, setPerformances] = useState([]);
@@ -39,7 +51,13 @@ export default function RoomPerformanceDashboard() {
         const raw = roomRes.value;
         if (raw?.success && Array.isArray(raw.data)) {
           const map = {};
-          raw.data.forEach((r) => { map[r.ellyId || r._id] = r; });
+          raw.data.forEach((r) => {
+            [r.ellyId, r._id, r.id, r.roomNumber]
+              .filter(Boolean)
+              .forEach((key) => {
+                map[String(key)] = r;
+              });
+          });
           setRoomMap(map);
         } else {
           errs.push(`rooms API: unexpected response ${JSON.stringify(raw).slice(0, 200)}`);
@@ -52,8 +70,27 @@ export default function RoomPerformanceDashboard() {
     }).finally(() => setLoading(false));
   }, []);
 
-  const computeStatus = (p) => {
-    const occ = p.occupancyRate ?? 0;
+  const getRoomForPerformance = useCallback(
+    (performance) => roomMap[String(performance.roomId || "")],
+    [roomMap],
+  );
+
+  const getOccupancyRate = useCallback((performance) => {
+    const room = getRoomForPerformance(performance);
+    const recordedRate = toNumber(performance.occupancyRate);
+    const occupiedBeds = toNumber(room?.occupiedBeds);
+    const capacity = toNumber(room?.capacity);
+
+    if (occupiedBeds !== null && capacity > 0) {
+      const liveRate = Math.round((occupiedBeds / capacity) * 100);
+      return Math.max(recordedRate ?? 0, liveRate);
+    }
+
+    return recordedRate ?? 0;
+  }, [getRoomForPerformance]);
+
+  const computeStatus = useCallback((p) => {
+    const occ = getOccupancyRate(p);
     const turnover = p.turnoverRate ?? 0;
     const clean = p.cleanlinessScore ?? 100;
     const maint = p.maintenanceScore ?? 100;
@@ -61,13 +98,13 @@ export default function RoomPerformanceDashboard() {
     if (occ >= 85 || (occ >= 70 && (clean < 50 || maint < 50))) return "HIGH_DEMAND";
     if (occ >= 70 || turnover >= 70) return "HIGH_USAGE";
     return "NORMAL";
-  };
+  }, [getOccupancyRate]);
 
   const filteredPerformances = useMemo(() => {
     if (!searchTerm.trim()) return performances;
     const q = searchTerm.toLowerCase();
     return performances.filter((p) => {
-      const r = roomMap[p.roomId];
+      const r = getRoomForPerformance(p);
       return (
         r?.roomNumber?.toLowerCase().includes(q) ||
         r?.ellyId?.toLowerCase().includes(q) ||
@@ -75,7 +112,7 @@ export default function RoomPerformanceDashboard() {
         p.roomId?.toLowerCase().includes(q)
       );
     });
-  }, [performances, searchTerm, roomMap]);
+  }, [performances, searchTerm, getRoomForPerformance]);
 
   const statusSlices = useMemo(() => {
     const counts = { UNDER_UTILIZED: 0, NORMAL: 0, HIGH_USAGE: 0, HIGH_DEMAND: 0 };
@@ -86,34 +123,37 @@ export default function RoomPerformanceDashboard() {
     return Object.entries(counts)
       .filter(([, v]) => v > 0)
       .map(([label, value]) => ({ label, value, color: STATUS_COLORS[label] }));
-  }, [filteredPerformances]);
+  }, [filteredPerformances, computeStatus]);
 
   const sortedByOccupancy = useMemo(() => {
-    return [...filteredPerformances].sort((a, b) => b.occupancyRate - a.occupancyRate);
-  }, [filteredPerformances]);
+    return [...filteredPerformances].sort(
+      (a, b) => getOccupancyRate(b) - getOccupancyRate(a),
+    );
+  }, [filteredPerformances, getOccupancyRate]);
 
   const topByOccupancy = useMemo(() => {
     return sortedByOccupancy.slice(0, 6).map((p) => {
-      const r = roomMap[p.roomId];
+      const r = getRoomForPerformance(p);
+      const rate = getOccupancyRate(p);
       return {
         id: p._id || p.performanceId,
         name: r ? `${r.roomNumber} (${r.roomType})` : p.roomId,
-        rate: Math.round(p.occupancyRate),
+        rate,
       };
     });
-  }, [sortedByOccupancy, roomMap]);
+  }, [sortedByOccupancy, getOccupancyRate, getRoomForPerformance]);
 
   const cleanlinessChart = useMemo(() => {
     const sorted = [...filteredPerformances].sort((a, b) => (b.cleanlinessScore ?? 0) - (a.cleanlinessScore ?? 0));
-    const top = sorted.slice(0, 8);
+    const top = sorted.slice(0, 5);
     return {
       data: top.map((p) => Math.round(p.cleanlinessScore ?? 0)),
       labels: top.map((p) => {
-        const r = roomMap[p.roomId];
-        return r ? r.roomNumber : p.roomId;
+        const r = getRoomForPerformance(p);
+        return shortenRoomLabel(r ? r.roomNumber : p.roomId);
       }),
     };
-  }, [filteredPerformances, roomMap]);
+  }, [filteredPerformances, getRoomForPerformance]);
 
   const avgMetrics = useMemo(() => {
     if (!filteredPerformances.length) return { data: [], labels: [] };
@@ -124,20 +164,23 @@ export default function RoomPerformanceDashboard() {
       );
     return {
       data: [
-        avg("occupancyRate"),
+        Math.round(
+          filteredPerformances.reduce((sum, p) => sum + getOccupancyRate(p), 0) /
+            filteredPerformances.length,
+        ),
         avg("turnoverRate"),
         avg("cleanlinessScore"),
         avg("maintenanceScore"),
       ],
       labels: ["Avg Occupancy %", "Avg Turnover", "Cleanliness", "Maintenance"],
     };
-  }, [filteredPerformances]);
+  }, [filteredPerformances, getOccupancyRate]);
 
   const avgStayByStatus = useMemo(() => {
-    const entries = filteredPerformances.slice(0, 10).map((p) => {
-      const r = roomMap[p.roomId];
+    const entries = filteredPerformances.slice(0, 6).map((p) => {
+      const r = getRoomForPerformance(p);
       return {
-        room: r ? `${r.roomNumber}` : p.roomId,
+        room: shortenRoomLabel(r ? r.roomNumber : p.roomId),
         avg: Math.round((p.averageLengthOfStay || 0) * 10) / 10,
       };
     });
@@ -146,7 +189,7 @@ export default function RoomPerformanceDashboard() {
       data: entries.map((e) => e.avg),
       labels: entries.map((e) => `${e.room}: ${e.avg}d`),
     };
-  }, [filteredPerformances, roomMap]);
+  }, [filteredPerformances, getRoomForPerformance]);
 
   if (loading) {
     return (
@@ -157,10 +200,10 @@ export default function RoomPerformanceDashboard() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4">
       <div>
-        <h1 className="mb-2 text-2xl font-bold dark:text-white">Room Performance</h1>
-        <div className="mb-6 flex items-center justify-between">
+        <h1 className="mb-1 text-xl font-bold dark:text-white">Room Performance</h1>
+        <div className="mb-4 flex items-center justify-between gap-3">
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Occupancy rates, turnover times, cleanliness, and maintenance scores across all rooms.
           </p>
@@ -189,25 +232,25 @@ export default function RoomPerformanceDashboard() {
 
       {performances.length > 0 && (
         <>
-          <div className="mb-8 flex flex-wrap gap-4">
-            <div className="rounded-xl border bg-white p-4 shadow-sm dark:bg-slate-800 dark:border-slate-700 flex-1 min-w-[280px]">
-              <p className="mb-2 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Room Status Distribution</p>
-              <MiniPieChart slices={statusSlices} centerLabel={`${filteredPerformances.length}\nRooms`} />
+          <div className="mb-3 grid gap-3 xl:grid-cols-3">
+            <div className="rounded-xl border bg-white p-3 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+              <p className="mb-1.5 text-[11px] font-semibold uppercase text-slate-500 dark:text-slate-400">Room Status Distribution</p>
+              <MiniPieChart slices={statusSlices} centerLabel={`${filteredPerformances.length}\nRooms`} compact />
             </div>
-            <div className="rounded-xl border bg-white p-4 shadow-sm dark:bg-slate-800 dark:border-slate-700 flex-1 min-w-[280px]">
-              <p className="mb-2 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Highest Occupancy Rooms</p>
-              <div className="space-y-2">
+            <div className="rounded-xl border bg-white p-3 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+              <p className="mb-1.5 text-[11px] font-semibold uppercase text-slate-500 dark:text-slate-400">Highest Occupancy Rooms</p>
+              <div className="space-y-1.5">
                 {topByOccupancy.map((item, i) => (
-                  <div key={item.id} className="flex items-center gap-3">
-                    <span className="w-5 text-center text-sm font-bold text-slate-400">#{i + 1}</span>
+                  <div key={item.id} className="flex items-center gap-2">
+                    <span className="w-4 text-center text-xs font-bold text-slate-400">#{i + 1}</span>
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium dark:text-white">{item.name}</span>
-                        <span className="text-sm font-bold dark:text-white">{item.rate}%</span>
+                        <span className="truncate text-xs font-medium dark:text-white">{item.name}</span>
+                        <span className="ml-2 text-xs font-bold dark:text-white">{item.rate}%</span>
                       </div>
-                      <div className="mt-1 h-2 w-full rounded-full bg-slate-100 dark:bg-slate-700">
+                      <div className="mt-0.5 h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-700">
                         <div
-                          className="h-2 rounded-full bg-gradient-to-r from-violet-500 to-indigo-500"
+                          className="h-1.5 rounded-full bg-gradient-to-r from-violet-500 to-indigo-500"
                           style={{ width: `${item.rate}%` }}
                         />
                       </div>
@@ -216,21 +259,21 @@ export default function RoomPerformanceDashboard() {
                 ))}
               </div>
             </div>
-            <div className="rounded-xl border bg-white p-4 shadow-sm dark:bg-slate-800 dark:border-slate-700 flex-1 min-w-[280px]">
-              <p className="mb-2 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Cleanliness Scores</p>
-              <BarChart data={cleanlinessChart.data} labels={cleanlinessChart.labels} compact />
+            <div className="rounded-xl border bg-white p-3 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+              <p className="mb-1.5 text-[11px] font-semibold uppercase text-slate-500 dark:text-slate-400">Cleanliness Scores</p>
+              <BarChart data={cleanlinessChart.data} labels={cleanlinessChart.labels} compact heightClass="h-24" />
             </div>
           </div>
 
           {performances.length > 1 && (
-            <div className="mb-8 flex flex-wrap gap-4">
-              <div className="rounded-xl border bg-white p-4 shadow-sm dark:bg-slate-800 dark:border-slate-700 flex-1 min-w-[320px]">
-                <p className="mb-2 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Average Metrics</p>
-                <BarChart data={avgMetrics.data} labels={avgMetrics.labels} compact />
+            <div className="mb-3 grid gap-3 xl:grid-cols-2">
+              <div className="rounded-xl border bg-white p-3 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+                <p className="mb-1.5 text-[11px] font-semibold uppercase text-slate-500 dark:text-slate-400">Average Metrics</p>
+                <BarChart data={avgMetrics.data} labels={avgMetrics.labels} compact heightClass="h-24" />
               </div>
-              <div className="rounded-xl border bg-white p-4 shadow-sm dark:bg-slate-800 dark:border-slate-700 flex-1 min-w-[320px]">
-                <p className="mb-2 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Avg Length of Stay by Room</p>
-                <BarChart data={avgStayByStatus.data} labels={avgStayByStatus.labels} compact />
+              <div className="rounded-xl border bg-white p-3 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+                <p className="mb-1.5 text-[11px] font-semibold uppercase text-slate-500 dark:text-slate-400">Avg Length of Stay by Room</p>
+                <BarChart data={avgStayByStatus.data} labels={avgStayByStatus.labels} compact heightClass="h-24" />
               </div>
             </div>
           )}

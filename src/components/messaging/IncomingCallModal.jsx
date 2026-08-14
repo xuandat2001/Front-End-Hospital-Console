@@ -1,4 +1,4 @@
-import { Phone, PhoneOff } from "lucide-react";
+import { PhoneOff, Video } from "lucide-react";
 import useMessagingStore from "../../stores/useMessagingStore";
 
 function IncomingCallModal() {
@@ -13,7 +13,7 @@ function IncomingCallModal() {
   return (
     <div className="incoming-call-modal" role="dialog" aria-label="Incoming call">
       <div>
-        <strong>Incoming voice call</strong>
+        <strong>Incoming video call</strong>
         <span>{incomingCall.caller?.fullName || call.callerEllyId}</span>
       </div>
       <button
@@ -22,7 +22,7 @@ function IncomingCallModal() {
         onClick={() => acceptCall(call.callId)}
         type="button"
       >
-        <Phone size={16} />
+        <Video size={16} />
       </button>
       <button
         aria-label="Reject call"

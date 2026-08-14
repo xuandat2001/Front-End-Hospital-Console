@@ -1,6 +1,8 @@
 import { useState } from "react";
 import MiniPieChart from "../../../components/graphs/MiniPieChart";
 import usePerformanceData from "../hooks/usePerformanceData";
+import useAppointmentAnalyticsQuery from "../hooks/useAppointmentAnalyticsQuery";
+import { adaptPerformanceResponse } from "../adapters/appointmentAnalyticsAdapters";
 import { addDays, getLocalDateKey } from "../utils/appointmentHelpers";
 
 const cardClass = "appointment-card min-w-0 p-5";
@@ -725,7 +727,12 @@ export default function PerformanceTab({ appointments }) {
   const [activePerformanceTable, setActivePerformanceTable] =
     useState("department");
   const range = getPerformanceRange(periodDays);
-  const performance = usePerformanceData(appointments, range);
+  const fallbackPerformance = usePerformanceData(appointments, range);
+  const { data } = useAppointmentAnalyticsQuery("performance", {
+    from: `${range.start}T00:00:00.000`,
+    to: `${range.end}T23:59:59.999`,
+  });
+  const performance = data ? adaptPerformanceResponse(data, range) : fallbackPerformance;
 
   return (
     <div>

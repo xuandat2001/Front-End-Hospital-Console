@@ -56,7 +56,9 @@ export default function WardPlanning() {
     }
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    Promise.resolve().then(loadData);
+  }, [loadData]);
 
   const patientMap = useMemo(() => {
     const map = {};
@@ -193,50 +195,49 @@ export default function WardPlanning() {
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-black dark:text-white">Ward Planning</h1>
-        <p className="text-sm text-slate-500">Visual ward layout — drag patients between rooms to move them</p>
-      </div>
-
-      <div className="mb-4">
+    <div className="p-3">
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold text-black dark:text-white">Ward Planning</h1>
+          <p className="text-xs text-slate-500">Visual ward layout — drag patients between rooms to move them</p>
+        </div>
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search patient by name, ID, doctor, or department..."
-          className="w-full max-w-sm rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm outline-none focus:border-violet-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+          placeholder="Search patient, ID, doctor, or department..."
+          className="h-8 w-full max-w-xs rounded-lg border border-slate-300 bg-white px-3 text-xs outline-none focus:border-violet-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
         />
       </div>
 
-      <div className="mb-6 grid grid-cols-4 gap-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-          <p className="text-sm text-slate-500">Total Beds</p>
-          <p className="text-3xl font-bold text-black dark:text-white">{totalBeds}</p>
+      <div className="mb-3 grid grid-cols-4 gap-2">
+        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-[10px] font-semibold uppercase text-slate-500">Total Beds</p>
+          <p className="text-lg font-bold text-black dark:text-white">{totalBeds}</p>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-          <p className="text-sm text-slate-500">Occupied</p>
-          <p className="text-3xl font-bold text-red-600">{occupiedBeds}</p>
+        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-[10px] font-semibold uppercase text-slate-500">Occupied</p>
+          <p className="text-lg font-bold text-red-600">{occupiedBeds}</p>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-          <p className="text-sm text-slate-500">Available</p>
-          <p className="text-3xl font-bold text-green-600">{availableBeds}</p>
+        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-[10px] font-semibold uppercase text-slate-500">Available</p>
+          <p className="text-lg font-bold text-green-600">{availableBeds}</p>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-          <p className="text-sm text-slate-500">Surgery Beds</p>
-          <p className="text-3xl font-bold text-purple-600">{occupiedSurgeryBeds}/{totalSurgeryBeds}</p>
+        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-[10px] font-semibold uppercase text-slate-500">Surgery Beds</p>
+          <p className="text-lg font-bold text-purple-600">{occupiedSurgeryBeds}/{totalSurgeryBeds}</p>
         </div>
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-3">
         {floorChunks.map((chunk, ci) => (
-          <div key={ci} className="flex gap-6" style={{ alignItems: 'flex-start' }}>
+          <div key={ci} className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3" style={{ alignItems: 'flex-start' }}>
             {chunk.map(([floor, floorRooms]) => (
               <div key={floor} className="min-w-0 flex-1">
-                <h2 className="mb-3 text-lg font-bold text-slate-800 dark:text-slate-200">
+                <h2 className="mb-1.5 text-sm font-bold text-slate-800 dark:text-slate-200">
                   Floor {floor}
                 </h2>
-                <div className="space-y-3">
+                <div className="space-y-2">
               {floorRooms.map((room) => {
                 const pct = room.capacity > 0 ? Math.round((room.occupiedBeds / room.capacity) * 100) : 0;
                 const roomSurgeries = surgeryRoomMap[room.roomNumber] || surgeryRoomMap[room.ellyId] || [];
@@ -248,9 +249,9 @@ export default function WardPlanning() {
                 return (
                   <div
                     key={room._id}
-                    className={`rounded-xl border-2 bg-white p-4 shadow-sm transition-all dark:bg-slate-900 ${
+                    className={`rounded-lg border bg-white p-2.5 shadow-sm transition-all dark:bg-slate-900 ${
                       isDragOver
-                        ? 'border-violet-500 shadow-lg shadow-violet-200 dark:shadow-violet-900/30'
+                        ? 'border-violet-500 shadow-md shadow-violet-200 dark:shadow-violet-900/30'
                         : hasPatients
                         ? 'border-slate-200 dark:border-slate-700'
                         : 'border-dashed border-slate-300 dark:border-slate-600'
@@ -259,13 +260,13 @@ export default function WardPlanning() {
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, room)}
                   >
-                    <div className="mb-3 flex items-center justify-between">
-                      <div>
-                        <p className="font-bold text-slate-900 dark:text-white">{room.roomNumber?.trim()}</p>
-                        <p className="text-xs text-slate-500">{room.roomType} · {room.ellyId?.trim()}</p>
+                    <div className="mb-2 flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold text-slate-900 dark:text-white">{room.roomNumber?.trim()}</p>
+                        <p className="truncate text-[10px] text-slate-500">{room.roomType} · {room.ellyId?.trim()}</p>
                       </div>
                       <div className="text-right">
-                        <span className={`rounded px-2 py-0.5 text-xs font-semibold ${
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
                           room.status === 'AVAILABLE' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
                           room.status === 'FULL' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' :
                           'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'
@@ -275,23 +276,22 @@ export default function WardPlanning() {
                       </div>
                     </div>
 
-                    <div className="mb-3">
+                    <div className="mb-2">
                       <div className="flex items-center gap-2">
-                        <div className="h-2 flex-1 rounded-full bg-slate-200 dark:bg-slate-700">
+                        <div className="h-1.5 flex-1 rounded-full bg-slate-200 dark:bg-slate-700">
                           <div
-                            className={`h-2 rounded-full ${pct >= 100 ? 'bg-red-500' : pct > 60 ? 'bg-amber-500' : 'bg-green-500'}`}
+                            className={`h-1.5 rounded-full ${pct >= 100 ? 'bg-red-500' : pct > 60 ? 'bg-amber-500' : 'bg-green-500'}`}
                             style={{ width: `${pct}%` }}
                           />
                         </div>
-                        <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                        <span className="shrink-0 text-[10px] font-medium text-slate-600 dark:text-slate-400">
                           {room.occupiedBeds}/{room.capacity} {bedLabel}
                         </span>
                       </div>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       {(() => {
-                        const surgeryPatientIds = new Set(roomSurgeries.map((s) => s.patientId));
                         const filteredSurgeries = roomSurgeries.filter((s) => {
                           const matchedAdmission = roomPatients.find((a) => a.patientId === s.patientId);
                           return !matchedAdmission;
@@ -353,20 +353,20 @@ export default function WardPlanning() {
                                   draggable
                                   onDragStart={(e) => handleDragStart(e, a, room)}
                                   onDragEnd={handleDragEnd}
-                                  className={`cursor-grab rounded-lg border-l-4 p-3 text-xs active:cursor-grabbing ${borderColor}`}
+                                  className={`cursor-grab rounded-md border-l-4 p-2 text-[11px] active:cursor-grabbing ${borderColor}`}
                                 >
                                   <div className="flex items-start justify-between gap-2">
                                     <p className="truncate font-semibold text-slate-900 dark:text-white">
                                       {a.patient?.fullName || a.patientId}
                                     </p>
-                                    <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                                    <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
                                       {durationSince(a.admittedAt)}
                                     </span>
                                   </div>
                                   {matchingSurgery && (
-                                    <span className="mb-1 inline-flex items-center gap-1 rounded bg-purple-100 px-2 py-0.5 text-[10px] font-semibold text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                                    <span className="mb-1 inline-flex max-w-full items-center gap-1 rounded bg-purple-100 px-1.5 py-0.5 text-[9px] font-semibold text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
                                       <span className="h-1.5 w-1.5 rounded-full bg-purple-500" />
-                                      {matchingSurgery.status === 'SCHEDULED' ? 'Upcoming Surgery' : 'In Surgery'} · {matchingSurgery.procedureName}
+                                      <span className="truncate">{matchingSurgery.status === 'SCHEDULED' ? 'Upcoming Surgery' : 'In Surgery'} · {matchingSurgery.procedureName}</span>
                                     </span>
                                   )}
                                   <p className="mt-0.5 text-slate-500">
@@ -378,8 +378,8 @@ export default function WardPlanning() {
                                   <p className="text-slate-400">
                                     Bed {a.bedId || '-'} · {a.currentStatus}
                                   </p>
-                                  <div className="mt-1.5 flex items-center gap-1">
-                                    <span className="text-[10px] font-medium text-slate-400">Move to:</span>
+                                  <div className="mt-1 flex items-center gap-1">
+                                    <span className="text-[9px] font-medium text-slate-400">Move:</span>
                                     <select
                                       value=""
                                       onChange={(e) => {
@@ -388,7 +388,7 @@ export default function WardPlanning() {
                                         );
                                         if (target) handleRoomChange(a._id, target);
                                       }}
-                                      className="h-5 flex-1 rounded border border-slate-200 bg-white px-1 text-[10px] text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                                      className="h-5 min-w-0 flex-1 rounded border border-slate-200 bg-white px-1 text-[9px] text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
                                     >
                                       <option value="" disabled>Room...</option>
                                       {rooms
@@ -409,29 +409,29 @@ export default function WardPlanning() {
                               return (
                               <div
                                 key={s._id}
-                                className="cursor-default rounded-lg border-l-4 border-purple-400 bg-purple-50 p-3 text-xs dark:bg-purple-900/20"
+                                className="cursor-default rounded-md border-l-4 border-purple-400 bg-purple-50 p-2 text-[11px] dark:bg-purple-900/20"
                               >
-                                <p className="font-semibold text-purple-900 dark:text-purple-300">
+                                <p className="truncate font-semibold text-purple-900 dark:text-purple-300">
                                   {surgeryPatient?.fullName || s.patientId}
                                 </p>
-                                <p className="mt-0.5 text-purple-700 dark:text-purple-400">
+                                <p className="mt-0.5 truncate text-purple-700 dark:text-purple-400">
                                   {s.procedureName} · {s._sourceLabel || s.status}
                                 </p>
                               </div>
                               );
                             })}
                             {!hasPatients && !searchQuery.trim() && (
-                              <p className="py-2 text-center text-xs text-slate-400">
+                              <p className="py-1 text-center text-[11px] text-slate-400">
                                 {room.roomType === 'SURGERY' ? 'No surgeries scheduled' : 'No patients'}
                               </p>
                             )}
                             {hasPatients && totalVisible === 0 && searchQuery.trim() && (
-                              <p className="py-2 text-center text-xs text-slate-400">No matching patients</p>
+                              <p className="py-1 text-center text-[11px] text-slate-400">No matching patients</p>
                             )}
                             {showLimit && (
                               <button
                                 onClick={() => setExpandedRooms((prev) => ({ ...prev, [roomKey]: true }))}
-                                className="w-full rounded border border-slate-200 py-1 text-xs font-medium text-violet-600 hover:bg-slate-50 dark:border-slate-700 dark:text-violet-400 dark:hover:bg-slate-800"
+                                className="w-full rounded border border-slate-200 py-1 text-[11px] font-medium text-violet-600 hover:bg-slate-50 dark:border-slate-700 dark:text-violet-400 dark:hover:bg-slate-800"
                               >
                                 See more ({totalVisible - PATIENTS_PER_ROOM} more)
                               </button>
@@ -439,7 +439,7 @@ export default function WardPlanning() {
                             {isExpanded && (
                               <button
                                 onClick={() => setExpandedRooms((prev) => ({ ...prev, [roomKey]: false }))}
-                                className="w-full rounded border border-slate-200 py-1 text-xs font-medium text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+                                className="w-full rounded border border-slate-200 py-1 text-[11px] font-medium text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
                               >
                                 Show less
                               </button>

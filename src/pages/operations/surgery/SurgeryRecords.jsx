@@ -18,7 +18,7 @@ const TYPE_COLORS = {
   MAJOR: "#F97316",
 };
 
-export default function SurgeryRecords() {
+export default function SurgeryRecords({ onNavigateToFunction }) {
   const [surgeries, setSurgeries] = useState([]);
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -240,20 +240,36 @@ export default function SurgeryRecords() {
 
   return (
     <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Surgery Records</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <p className="max-w-3xl text-sm text-slate-500 dark:text-slate-400">
             {total} surgery records — track scheduled, in-progress, and completed surgeries
           </p>
         </div>
-        <button
-          onClick={() => setShowSearch(!showSearch)}
-          className="btn btn-primary"
-          type="button"
-        >
-          {showSearch ? "Hide Search" : "Search"}
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            onClick={() =>
+              onNavigateToFunction?.({
+                domain: "management",
+                subsection: "room",
+                functionId: "beds",
+                centerTab: "dashboard",
+              })
+            }
+            className="inline-flex max-w-40 items-center justify-center rounded-lg border border-slate-300 px-2.5 py-1.5 text-center text-xs font-medium leading-tight text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+            type="button"
+          >
+            ← Back to Room Occupancy
+          </button>
+          <button
+            onClick={() => setShowSearch(!showSearch)}
+            className="btn btn-primary"
+            type="button"
+          >
+            {showSearch ? "Hide Search" : "Search"}
+          </button>
+        </div>
       </div>
 
       <div className="mb-6 grid grid-cols-4 gap-4">
