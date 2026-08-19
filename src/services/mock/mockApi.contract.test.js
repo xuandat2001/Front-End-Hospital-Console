@@ -81,4 +81,26 @@ describe("prototype mock API contracts", () => {
       }),
     );
   });
+
+  it("returns patient reports in the nested shape consumed by PatientReports", async () => {
+    const response = await mockApiRequest("/intelligence/patient-reports?days=30");
+
+    expect(response.data).toEqual(
+      expect.objectContaining({
+        totals: expect.any(Object),
+        census: expect.objectContaining({
+          reports: expect.any(Array),
+        }),
+        demographics: expect.objectContaining({
+          departments: expect.any(Array),
+          ageGroups: expect.any(Array),
+          genderByDepartment: expect.any(Array),
+        }),
+        incidents: expect.objectContaining({
+          logs: expect.any(Array),
+        }),
+        compliance: expect.any(Object),
+      }),
+    );
+  });
 });

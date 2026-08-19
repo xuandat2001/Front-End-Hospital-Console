@@ -4,6 +4,7 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import PatientReports from "./PatientReports";
+import { intelligenceService } from "../../../services/intelligence/intelligenceApi";
 
 vi.mock("../../../services/intelligence/intelligenceApi", () => ({
   intelligenceService: {
@@ -15,6 +16,7 @@ vi.mock("../../../services/intelligence/intelligenceApi", () => ({
 describe("PatientReports dialogs", () => {
   beforeEach(() => {
     vi.spyOn(console, "error").mockImplementation(() => {});
+    intelligenceService.getPatientReports.mockRejectedValue(new Error("offline"));
   });
 
   afterEach(() => {
@@ -56,5 +58,49 @@ describe("PatientReports dialogs", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog", { name: "Recent Incident Logs" })).not.toBeInTheDocument();
     });
+  });
+
+  it("renders the legacy top-level reports mock shape without reading census.reports from undefined", async () => {
+    intelligenceService.getPatientReports.mockResolvedValue({
+      success: true,
+      data: {
+        totals: { total: 3, active: 3, inactive: 0 },
+        dailyCensus: [{ label: "Mon", total: 39 }],
+        demographics: [{ label: "18-39", total: 1 }],
+        incidents: [{ id: "inc-001", title: "Delayed discharge", severity: "Medium" }],
+        compliance: { score: 91, status: "Ready" },
+        reports: [
+          {
+            id: "legacy-report-1",
+            dateTime: "8/18 15:00",
+            reportName: "Legacy_Census_Report.pdf",
+            type: "ADT snapshot",
+            status: "Completed",
+            censusCount: 39,
+          },
+        ],
+      },
+    });
+
+    render(<PatientReports />);
+
+    expect(await screen.findByText("Patient Reports")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Historical Census Reports" }));
+
+    expect(screen.getByText("Legacy_Census_Report.pdf")).toBeInTheDocument();
+  });
+
+  it("renders an empty reports state when nested report config is missing", async () => {
+    intelligenceService.getPatientReports.mockResolvedValue({
+      success: true,
+      data: {},
+    });
+
+    render(<PatientReports />);
+
+    expect(await screen.findByText("Patient Reports")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Historical Census Reports" }));
+
+    expect(screen.getByText("No census reports in window")).toBeInTheDocument();
   });
 });

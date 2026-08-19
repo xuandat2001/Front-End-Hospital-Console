@@ -86,6 +86,37 @@ describe("dashboard center-tab navigation integrity", () => {
     ]);
   });
 
+  it("keeps every visible Reports tab mapped to a reports-capable destination", () => {
+    const reportTargets = collectTabTargets()
+      .filter((target) => target.centerTab === "reports")
+      .map(({ domain, subsection, functionId }) => ({
+        domain,
+        subsection,
+        functionId,
+      }));
+
+    expect(reportTargets).toEqual([
+      { domain: "overview", subsection: null, functionId: "overview-reports" },
+      { domain: "management", subsection: "staff", functionId: "staff-reports" },
+      { domain: "management", subsection: "patient", functionId: "patient-reports" },
+      { domain: "management", subsection: "room", functionId: "room-reports" },
+      { domain: "management", subsection: "icu", functionId: "icu-monitoring" },
+      { domain: "operations", subsection: "admission", functionId: "admission-reports" },
+      { domain: "operations", subsection: "surgery", functionId: "surgery-reports" },
+      { domain: "operations", subsection: "clinic-operations", functionId: "clinic-doctor-reports" },
+      { domain: "operations", subsection: "emergency-workflow", functionId: "emergency" },
+      {
+        domain: "operations",
+        subsection: "appointment-booking",
+        functionId: "appointment-booking-management",
+      },
+      { domain: "operations", subsection: "billing", functionId: "billing" },
+      { domain: "operations", subsection: "follow-up-care", functionId: "doctor-follow-up-care" },
+      { domain: "analytic", subsection: null, functionId: "intelligence-reports" },
+      { domain: "insight", subsection: null, functionId: "intelligence-insight-history" },
+    ]);
+  });
+
   it("defaults Surgery subsection navigation to Dashboard instead of Planning", () => {
     expect(
       resolveSubsectionNavigation(

@@ -10,6 +10,84 @@ const DEPT_PALETTE = [
 ];
 const GENDER_COLORS = { male: "#3B82F6", female: "#EF4444" };
 
+const EMPTY_REPORTS_SNAPSHOT = {
+  totals: { total: 0, active: 0, inactive: 0 },
+  census: {
+    completed: 0,
+    expected: 0,
+    rangeLabel: "selected period",
+    latest: "",
+    reports: [],
+  },
+  demographics: {
+    averageAge: 0,
+    genderSplit: { male: 0, female: 0 },
+    departments: [],
+    ageGroups: [],
+    genderByDepartment: [],
+  },
+  incidents: {
+    last7Days: 0,
+    awaitingReview: 0,
+    types: [],
+    logs: [],
+  },
+  compliance: { score: 0, factors: [] },
+};
+
+function arrayOrEmpty(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function normalizePatientReportsSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== "object") {
+    return EMPTY_REPORTS_SNAPSHOT;
+  }
+
+  const demographicsSource = Array.isArray(snapshot.demographics)
+    ? { ageGroups: snapshot.demographics }
+    : snapshot.demographics || {};
+  const incidentsSource = Array.isArray(snapshot.incidents)
+    ? { logs: snapshot.incidents, last7Days: snapshot.incidents.length }
+    : snapshot.incidents || {};
+  const censusReports = arrayOrEmpty(snapshot.census?.reports).length
+    ? snapshot.census.reports
+    : arrayOrEmpty(snapshot.reports);
+
+  return {
+    totals: {
+      ...EMPTY_REPORTS_SNAPSHOT.totals,
+      ...(snapshot.totals || {}),
+    },
+    census: {
+      ...EMPTY_REPORTS_SNAPSHOT.census,
+      ...(snapshot.census || {}),
+      reports: censusReports,
+    },
+    demographics: {
+      ...EMPTY_REPORTS_SNAPSHOT.demographics,
+      ...demographicsSource,
+      departments: arrayOrEmpty(demographicsSource.departments),
+      ageGroups: arrayOrEmpty(demographicsSource.ageGroups),
+      genderByDepartment: arrayOrEmpty(demographicsSource.genderByDepartment),
+      genderSplit: {
+        ...EMPTY_REPORTS_SNAPSHOT.demographics.genderSplit,
+        ...(demographicsSource.genderSplit || {}),
+      },
+    },
+    incidents: {
+      ...EMPTY_REPORTS_SNAPSHOT.incidents,
+      ...incidentsSource,
+      types: arrayOrEmpty(incidentsSource.types),
+      logs: arrayOrEmpty(incidentsSource.logs),
+    },
+    compliance: {
+      ...EMPTY_REPORTS_SNAPSHOT.compliance,
+      ...(snapshot.compliance || {}),
+    },
+  };
+}
+
 // Deterministic preview snapshot (same shape as the API) used only when the
 // intelligence service is unreachable, so the panel stays meaningful offline.
 function buildPreview() {
@@ -27,7 +105,7 @@ function buildPreview() {
       censusCount: 9 + (i % 3),
     });
   }
-  return {
+  return normalizePatientReportsSnapshot({
     totals: { total: 12, active: 10, inactive: 2 },
     census: {
       completed: 30,
@@ -67,7 +145,7 @@ function buildPreview() {
       ],
     },
     compliance: { score: 98.5, factors: [] },
-  };
+  });
 }
 
 function buildDeptColors(departments = []) {
@@ -95,7 +173,7 @@ export default function PatientReports() {
       try {
         const response = await intelligenceService.getPatientReports({ days: 30 });
         if (!cancelled) {
-          setData(response?.data || buildPreview());
+          setData(normalizePatientReportsSnapshot(response?.data));
           setPreview(false);
         }
       } catch (loadError) {

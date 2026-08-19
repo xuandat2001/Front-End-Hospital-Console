@@ -1211,19 +1211,63 @@ export const mockRegistrationPerformance = {
 
 export const mockPatientReportsSnapshot = {
   totals: { total: 3, active: 3, inactive: 0 },
-  dailyCensus: [
-    { label: "Mon", total: 39 },
-    { label: "Tue", total: 41 },
-    { label: "Wed", total: 43 },
-  ],
-  demographics: [
-    { label: "18-39", total: 1 },
-    { label: "40-59", total: 1 },
-    { label: "60+", total: 1 },
-  ],
-  incidents: [{ id: "inc-001", title: "Delayed discharge", severity: "Medium" }],
-  compliance: { score: 91, status: "Ready" },
-  reports: mockReports,
+  census: {
+    completed: 30,
+    expected: 30,
+    rangeLabel: "last 30 days",
+    latest: "August 18, 15:00",
+    reports: [
+      {
+        id: "census-2026-08-18",
+        date: "2026-08-18",
+        dateTime: "8/18 15:00",
+        reportName: "Census_Report_2026-08-18_1500.pdf",
+        type: "ADT snapshot",
+        status: "Completed",
+        censusCount: 43,
+      },
+      {
+        id: "census-2026-08-17",
+        date: "2026-08-17",
+        dateTime: "8/17 15:00",
+        reportName: "Census_Report_2026-08-17_1500.pdf",
+        type: "ADT snapshot",
+        status: "Completed",
+        censusCount: 41,
+      },
+    ],
+  },
+  demographics: {
+    averageAge: 44.8,
+    genderSplit: { male: 47, female: 53 },
+    departments: ["Cardiology", "Surgery", "Emergency"],
+    ageGroups: [
+      { label: "18-39", segments: { Cardiology: 1, Surgery: 0, Emergency: 1 }, total: 2 },
+      { label: "40-59", segments: { Cardiology: 1, Surgery: 1, Emergency: 0 }, total: 2 },
+      { label: "60+", segments: { Cardiology: 1, Surgery: 1, Emergency: 1 }, total: 3 },
+    ],
+    genderByDepartment: [
+      { label: "Cardiology", male: 45, female: 55 },
+      { label: "Surgery", male: 52, female: 48 },
+      { label: "Emergency", male: 50, female: 50 },
+    ],
+  },
+  incidents: {
+    last7Days: 1,
+    awaitingReview: 1,
+    types: ["Delayed discharge"],
+    logs: [
+      {
+        id: "inc-001",
+        date: "8/18",
+        type: "Delayed discharge",
+        description: "Ward discharge delayed pending transport confirmation.",
+        patient: "ELLY-PAT-001",
+        status: "Awaiting Review",
+      },
+    ],
+  },
+  compliance: { score: 91, status: "Ready", factors: [] },
 };
 
 export const mockInsights = [
