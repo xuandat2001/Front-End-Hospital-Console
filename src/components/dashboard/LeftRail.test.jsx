@@ -276,12 +276,18 @@ describe("LeftRail", () => {
     ).toBeInTheDocument();
     const group = screen.getByRole("group", { name: "Operations sections" });
     expect(
+      within(group).getByRole("button", { name: "Admissions" }),
+    ).toBeEnabled();
+    expect(
+      within(group).getByRole("button", { name: "Surgery" }),
+    ).toBeEnabled();
+    expect(
       within(group).getByRole("button", { name: "Emergency Workflow" }),
     ).toBeEnabled();
     expect(
       within(group).getByRole("button", { name: "Appointment Booking" }),
     ).toBeEnabled();
-    expect(within(group).getAllByRole("button")).toHaveLength(2);
+    expect(within(group).getAllByRole("button")).toHaveLength(4);
   });
 
   it("uses the same account action in the mobile navigation drawer", async () => {

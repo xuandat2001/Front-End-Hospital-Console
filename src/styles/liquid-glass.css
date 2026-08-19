@@ -1104,19 +1104,7 @@ body:has(.dashboard-shell) {
     .appointment-card,
     .metric-card,
     [class$="-card"],
-    [class*="-card "],
-    [class$="-panel"],
-    [class*="-panel "],
-    [class$="-drawer"],
-    [class*="-drawer "],
-    [class$="-popover"],
-    [class*="-popover "],
-    [class$="-modal"],
-    [class*="-modal "],
-    [class$="-menu"],
-    [class*="-menu "],
-    [class$="-flyout"],
-    [class*="-flyout "]
+    [class*="-card "]
   ):not(.liquid-glass-card-v2):not([class*="hospital-access"]):not(
     [class*="overlay"]
   ):not([class*="scrim"]):not([class*="backdrop"]):not(
@@ -1244,6 +1232,112 @@ body:has(.dashboard-shell) {
   box-shadow: var(--console-liquid-inset-shadow) !important;
 }
 
+/*
+ * Transient foreground surfaces need a real optical base. The general console
+ * material above is intentionally transparent for persistent dashboard chrome,
+ * but dialogs, drawers, popovers, and menus must remain readable over scrims.
+ */
+.liquid-glass
+  body:has(.dashboard-shell)
+  :is(
+    .dashboard-settings-page,
+    .profile-dropdown__menu,
+    .module-picker-menu,
+    .global-content-dropdown,
+    .messaging-panel,
+    .incoming-call-modal,
+    .active-call-panel,
+    .diagnostics-panel,
+    .diagnostics-sub-panel,
+    .document-modal-panel,
+    .knowledge-upload-modal,
+    .patient-solid-modal-panel,
+    .icu-patient-drawer-panel,
+    .emergency-case-drawer
+  ) {
+  border-color: color-mix(in srgb, var(--lg-glass-edge) 38%, transparent) !important;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 88% 6%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 34%),
+    linear-gradient(rgba(250, 252, 255, 0.97), rgba(240, 244, 252, 0.95)) !important;
+  background-color: rgba(248, 250, 255, 0.97) !important;
+  box-shadow:
+    0 30px 90px rgba(5, 10, 24, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.42) !important;
+  backdrop-filter: blur(18px) saturate(1.12) contrast(1.03) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.12) contrast(1.03) !important;
+}
+
+.dark.liquid-glass
+  body:has(.dashboard-shell)
+  :is(
+    .dashboard-settings-page,
+    .profile-dropdown__menu,
+    .module-picker-menu,
+    .global-content-dropdown,
+    .messaging-panel,
+    .incoming-call-modal,
+    .active-call-panel,
+    .diagnostics-panel,
+    .diagnostics-sub-panel,
+    .document-modal-panel,
+    .knowledge-upload-modal,
+    .patient-solid-modal-panel,
+    .icu-patient-drawer-panel,
+    .emergency-case-drawer
+  ) {
+  background:
+    radial-gradient(circle at 88% 6%, rgba(116, 92, 255, 0.18), transparent 36%),
+    linear-gradient(145deg, rgba(17, 24, 45, 0.98), rgba(5, 10, 24, 0.96)) !important;
+  background-color: rgba(8, 13, 28, 0.98) !important;
+  box-shadow:
+    0 34px 100px rgba(0, 0, 0, 0.66),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+}
+
+.liquid-glass
+  body:has(.dashboard-shell)
+  :is(
+    .dashboard-settings-page,
+    .messaging-panel,
+    .diagnostics-panel,
+    .diagnostics-sub-panel,
+    .document-modal-panel,
+    .knowledge-upload-modal,
+    .patient-solid-modal-panel,
+    .icu-patient-drawer-panel,
+    .emergency-case-drawer
+  )
+  :where(input, select, textarea):not([type="checkbox"]):not(
+    [type="radio"]
+  ):not([type="range"]) {
+  color: var(--text) !important;
+  background: rgba(255, 255, 255, 0.86) !important;
+  background-color: rgba(255, 255, 255, 0.86) !important;
+  box-shadow: var(--console-liquid-inset-shadow) !important;
+}
+
+.dark.liquid-glass
+  body:has(.dashboard-shell)
+  :is(
+    .dashboard-settings-page,
+    .messaging-panel,
+    .diagnostics-panel,
+    .diagnostics-sub-panel,
+    .document-modal-panel,
+    .knowledge-upload-modal,
+    .patient-solid-modal-panel,
+    .icu-patient-drawer-panel,
+    .emergency-case-drawer
+  )
+  :where(input, select, textarea):not([type="checkbox"]):not(
+    [type="radio"]
+  ):not([type="range"]) {
+  color: var(--text) !important;
+  background: rgba(15, 23, 42, 0.92) !important;
+  background-color: rgba(15, 23, 42, 0.92) !important;
+}
+
 /* Keep typed and browser-restored appointment values inside the dark glass
    surface. Chromium otherwise paints its pale autofill color over these two
    controlled text fields. */
@@ -1363,7 +1457,7 @@ html.liquid-glass body:has(.dashboard-shell) .ai-prompt-card > .message-composer
       color-mix(in srgb, var(--accent) 10%, transparent),
       transparent 42%
     ),
-    linear-gradient(rgba(248, 250, 255, 0.82), rgba(237, 242, 252, 0.78)) !important;
+    linear-gradient(rgba(248, 250, 255, 0.96), rgba(237, 242, 252, 0.94)) !important;
   box-shadow:
     0 28px 72px rgba(5, 10, 24, 0.28),
     inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
@@ -1385,7 +1479,7 @@ html.liquid-glass body:has(.dashboard-shell) .ai-prompt-card > .message-composer
       color-mix(in srgb, var(--accent) 12%, transparent),
       transparent 42%
     ),
-    linear-gradient(rgba(8, 4, 17, 0.84), rgba(3, 2, 9, 0.82)) !important;
+    linear-gradient(rgba(8, 4, 17, 0.97), rgba(3, 2, 9, 0.96)) !important;
 }
 
 /* Booking data needs a denser optical base than short forms. The lens stays

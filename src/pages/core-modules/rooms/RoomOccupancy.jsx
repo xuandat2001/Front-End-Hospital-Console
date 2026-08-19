@@ -51,7 +51,7 @@ export default function RoomOccupancy({ onNavigateToFunction }) {
           <button
             onClick={() =>
               onNavigateToFunction?.({
-                domain: "management",
+                domain: "operations",
                 subsection: "admission",
                 functionId: "admissions",
                 centerTab: "dashboard",
@@ -64,7 +64,7 @@ export default function RoomOccupancy({ onNavigateToFunction }) {
           <button
             onClick={() =>
               onNavigateToFunction?.({
-                domain: "management",
+                domain: "operations",
                 subsection: "surgery",
                 functionId: "surgery-records",
                 centerTab: "dashboard",

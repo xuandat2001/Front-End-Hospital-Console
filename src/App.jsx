@@ -1,20 +1,9 @@
-import { useEffect, useState } from "react";
-import { centerTabs } from "./data";
-import navData, {
-  getSubsections,
-  getFunction,
-  getDefaultFunction,
-  getSectionIds,
-} from "./tab-data";
-import { canAccessFunction } from "./constant/pagePermissions";
-import {
-  getPermissionsByRole,
-  getRoleLanding,
-  ROLES,
-} from "./constant/rbac";
+import { useCallback, useEffect, useState } from "react";
+import { ROLES } from "./constant/rbac";
 import LeftRail from "./components/dashboard/LeftRail";
 import RightRail from "./components/dashboard/RightRail";
 import DashboardContent from "./components/dashboard/DashboardContent";
+import PrototypeErrorBoundary from "./components/prototype/PrototypeErrorBoundary";
 import DocumentModal from "./components/document/DocumentModal";
 import DocumentModeOverlay from "./components/document/DocumentModeOverlay";
 import LenisScrollLayer from "./components/dashboard/LenisScrollLayer";
@@ -28,110 +17,86 @@ import ToastContainer from "./components/Toast";
 import AccessDenied from "./components/auth/AccessDenied";
 import useSessionStore from "./store/useSessionStore";
 import usePatientSearchStore from "./store/usePatientSearchStore";
+import useDocumentStore from "./store/useDocumentStore";
+import useMessagingStore from "./stores/useMessagingStore";
 import { PERMISSIONS } from "./constant/rbac";
 import { applyThemeClass, getInitialThemePreference } from "./utils/theme";
+import {
+  readStoredNavigation,
+  resolveCenterTabNavigation,
+  resolveDomainNavigation,
+  resolveRoleLandingNavigation,
+  resolveSafeNavigationState,
+  resolveSubsectionNavigation,
+  writeStoredNavigation,
+} from "./utils/dashboardNavigation";
 import "./App.css";
 
 const HOSPITAL_ACCESS_ROUTE = "/hospital-access";
 const DASHBOARD_ROUTE = "/";
-const SESSION_STORAGE_KEY = "ellyFrontendSession";
-const AUTH_STORAGE_KEY = "ellyAuthSession";
-
-function readStoredSession() {
-  try {
-    const stored =
-      localStorage.getItem(AUTH_STORAGE_KEY) ||
-      sessionStorage.getItem(SESSION_STORAGE_KEY);
-    return stored ? JSON.parse(stored) : null;
-  } catch {
-    return null;
-  }
-}
 
 function getSessionRole() {
-  const session = readStoredSession();
-  return session?.role || session?.currentUser?.role || ROLES.HOSPITAL_ADMIN;
+  return useSessionStore.getState().role || ROLES.HOSPITAL_ADMIN;
 }
 
 function getSessionPermissions() {
-  const session = readStoredSession();
-  return (
-    session?.permissions || getPermissionsByRole(getSessionRole())
-  );
+  const permissions = useSessionStore.getState().permissions;
+  return permissions?.length ? permissions : [];
+}
+
+function getInitialNavigation() {
+  const permissions = getSessionPermissions();
+  const role = getSessionRole();
+  const storedNavigation = readStoredNavigation();
+  const resolvedNavigation = resolveSafeNavigationState({
+    ...storedNavigation,
+    permissions,
+    role,
+  });
+
+  if (!storedNavigation.functionId) {
+    return resolvedNavigation;
+  }
+
+  const storedNavigationMatches =
+    storedNavigation.domain === resolvedNavigation.domain &&
+    (storedNavigation.subsection || null) === resolvedNavigation.subsection &&
+    storedNavigation.centerTab === resolvedNavigation.centerTab &&
+    storedNavigation.functionId === resolvedNavigation.functionId;
+
+  if (storedNavigationMatches) {
+    return resolvedNavigation;
+  }
+
+  return resolveRoleLandingNavigation({
+    permissions,
+    role,
+  });
 }
 
 function getInitialDomain() {
-  const permissions = getSessionPermissions();
-  const landing = getRoleLanding(getSessionRole());
-  const savedDomain = localStorage.getItem("activeDomain");
-
-  if (savedDomain && getSectionIds(permissions).includes(savedDomain)) {
-    return savedDomain;
-  }
-
-  return landing.domain;
+  return getInitialNavigation().domain;
 }
 
 function getInitialFunction() {
-  const permissions = getSessionPermissions();
-  const landing = getRoleLanding(getSessionRole());
-  const domain = getInitialDomain();
-  const savedFunction = localStorage.getItem("activeFunction");
-
-  if (savedFunction && canAccessFunction(savedFunction, permissions)) {
-    const subs = getSubsections(domain, permissions);
-    if (subs.length > 0) {
-      const mappedViaTab = subs.some((sub) =>
-        Object.values(sub.tabs || {}).includes(savedFunction),
-      );
-      if (mappedViaTab || subs.some((sub) => sub.id === savedFunction)) {
-        return savedFunction;
-      }
-    } else if (navData[domain]?.tabs) {
-      const tabFunctions = Object.values(navData[domain].tabs);
-      if (tabFunctions.includes(savedFunction)) {
-        return savedFunction;
-      }
-    }
-  }
-
-  if (landing.function && canAccessFunction(landing.function, permissions)) {
-    return landing.function;
-  }
-
-  return getDefaultFunction(domain, permissions) || landing.function || "command";
+  return getInitialNavigation().functionId;
 }
 
 function getInitialSubsection() {
-  const permissions = getSessionPermissions();
-  const landing = getRoleLanding(getSessionRole());
-  const domain = getInitialDomain();
-  const savedFunction = localStorage.getItem("activeFunction");
-  const subs = getSubsections(domain, permissions);
-
-  if (subs.length === 0) {
-    return landing.subsection || null;
-  }
-
-  for (const sub of subs) {
-    if (sub.id === savedFunction) return sub.id;
-    const tabFunctions = Object.values(sub.tabs || {});
-    if (tabFunctions.includes(savedFunction)) return sub.id;
-  }
-
-  return landing.subsection || subs[0].id;
+  return getInitialNavigation().subsection;
 }
 
 function applyRoleLanding(role) {
-  const landing = getRoleLanding(role);
-  localStorage.setItem("activeDomain", landing.domain);
-  localStorage.setItem("activeFunction", landing.function);
-  localStorage.setItem("activeCenterTab", "dashboard");
+  writeStoredNavigation(
+    resolveRoleLandingNavigation({
+      permissions: getSessionPermissions(),
+      role,
+    }),
+  );
 }
 
 function getInitialCenterTab() {
-  const saved = localStorage.getItem("activeCenterTab");
-  return centerTabs.some((t) => t.id === saved) ? saved : "dashboard";
+  return getInitialNavigation().centerTab || "dashboard";
 }
 
 function getCurrentPath() {
@@ -155,6 +120,7 @@ function HospitalDashboardApp() {
   const [isNavigationOpen, setIsNavigationOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [diagnosticsDepartments, setDiagnosticsDepartments] = useState([]);
+  const [transientResetKey, setTransientResetKey] = useState(0);
   const emergencyRealtime = useEmergencyRealtime();
   const registrationRealtime = useRegistrationRealtime();
 
@@ -172,8 +138,19 @@ function HospitalDashboardApp() {
   const canReadPatients = useSessionStore((state) => state.can(PERMISSIONS.PATIENT_READ));
   const currentUser = useSessionStore((state) => state.currentUser);
   const consoleType = useSessionStore((state) => state.consoleType);
+  const role = currentUser?.role || getSessionRole();
   const diagnosticsPatientEllyId =
     activeFunction === "patient-dashboard" ? activeEllyId : null;
+  const navigationKey = `${activeDomain}:${activeSubsection || ""}:${activeCenterTab}:${activeFunction}`;
+
+  const dismissTransientUi = useCallback(() => {
+    setIsNavigationOpen(false);
+    setIsSettingsOpen(false);
+    setDiagnosticsDepartments([]);
+    setTransientResetKey((key) => key + 1);
+    useDocumentStore.getState().exitDocumentMode();
+    useMessagingStore.getState().dismissTransientMessagingUi();
+  }, []);
 
   const dismissRegistrationToast = () => {
     if (incomingPayload?.eventId) {
@@ -183,10 +160,13 @@ function HospitalDashboardApp() {
   };
 
   useEffect(() => {
-    localStorage.setItem("activeDomain", activeDomain);
-    localStorage.setItem("activeFunction", activeFunction);
-    localStorage.setItem("activeCenterTab", activeCenterTab);
-  }, [activeDomain, activeFunction, activeCenterTab]);
+    writeStoredNavigation({
+      centerTab: activeCenterTab,
+      domain: activeDomain,
+      functionId: activeFunction,
+      subsection: activeSubsection,
+    });
+  }, [activeCenterTab, activeDomain, activeFunction, activeSubsection]);
 
   useEffect(() => {
     applyThemeClass(isDark);
@@ -200,17 +180,6 @@ function HospitalDashboardApp() {
     document.documentElement.style.removeProperty("--left-rail-width");
   }, []);
 
-  function handleWelcomeOpen() {
-    setActiveFunction("welcome");
-  }
-
-  useEffect(() => {
-    if (showWelcome) {
-      setShowWelcome(false);
-      handleWelcomeOpen();
-    }
-  }, []);
-
   useEffect(() => {
     const role = currentUser?.role;
     const title = role
@@ -219,96 +188,235 @@ function HospitalDashboardApp() {
     document.title = title;
   }, [currentUser?.role]);
 
-  const handleDomainChange = (domainId) => {
-    if (consoleType === "RESTRICTED") return;
+  const applyNavigation = useCallback((navigation) => {
+    setActiveDomain(navigation.domain);
+    setActiveSubsection(navigation.subsection || null);
+    setActiveFunction(navigation.functionId);
+    setActiveCenterTab(navigation.centerTab || "dashboard");
+    writeStoredNavigation(navigation);
+  }, []);
 
-    setActiveDomain(domainId);
-    setActiveSubsection(null);
-    setActiveCenterTab("dashboard");
-    setEmergencyNavigation(null);
-    setIsNavigationOpen(false);
-    clearActiveEllyId();
+  const isExactNavigationMatch = useCallback((requested, resolved) => {
+    if (!requested?.functionId || requested.functionId !== resolved.functionId) {
+      return false;
+    }
 
-    const fn = getDefaultFunction(domainId, permissions);
-    if (fn) setActiveFunction(fn);
-  };
+    if (requested.domain && requested.domain !== resolved.domain) {
+      return false;
+    }
 
-  const handleSubsectionSelect = (domainId, subsectionId) => {
-    setActiveDomain(domainId);
-    setActiveSubsection(subsectionId);
+    if (
+      requested.subsection !== undefined &&
+      (requested.subsection || null) !== resolved.subsection
+    ) {
+      return false;
+    }
 
-    const defaultTab = subsectionId === "surgery" ? "planning" : "dashboard";
-    const fn = getFunction(domainId, subsectionId, defaultTab);
-    setActiveFunction(fn || subsectionId);
-    setActiveCenterTab(defaultTab);
-    setEmergencyNavigation(null);
-    setIsNavigationOpen(false);
-    clearActiveEllyId();
-  };
+    if (
+      requested.centerTab &&
+      requested.centerTab !== (resolved.centerTab || "dashboard")
+    ) {
+      return false;
+    }
 
-  const handleCenterTabChange = (tabId) => {
-    setActiveCenterTab(tabId);
+    return true;
+  }, []);
 
-    const section = navData[activeDomain];
-    if (!section) return;
+  const updateDashboardHistory = useCallback((navigation, mode = "push") => {
+    const historyState = {
+      ...(window.history.state || {}),
+      dashboardNavigation: navigation,
+    };
 
-    if (activeSubsection && section.subsections?.[activeSubsection]) {
-      const fn = getFunction(activeDomain, activeSubsection, tabId);
-      setActiveFunction(fn || activeSubsection);
+    if (mode === "replace") {
+      window.history.replaceState(historyState, "", window.location.pathname || DASHBOARD_ROUTE);
       return;
     }
 
-    const fn = getFunction(activeDomain, null, tabId);
-    if (fn) setActiveFunction(fn);
+    window.history.pushState(historyState, "", window.location.pathname || DASHBOARD_ROUTE);
+  }, []);
+
+  const commitNavigation = useCallback(
+    (target, options = {}) => {
+      const resolved = resolveSafeNavigationState({
+        ...target,
+        permissions,
+        role,
+      });
+
+      if (!options.allowFallback && !isExactNavigationMatch(target, resolved)) {
+        if (import.meta.env.DEV) {
+          console.warn("[Prototype] Ignored invalid dashboard navigation", {
+            requested: target,
+            resolved,
+          });
+        }
+        return false;
+      }
+
+      dismissTransientUi();
+      applyNavigation(resolved);
+      setEmergencyNavigation(null);
+
+      if (options.clearReturnNavigation !== false) {
+        setReturnNavigation(null);
+      }
+
+      if (options.clearPatient !== false) {
+        clearActiveEllyId();
+      }
+
+      if (options.history !== false) {
+        updateDashboardHistory(resolved, options.history);
+      }
+
+      return true;
+    },
+    [
+      applyNavigation,
+      clearActiveEllyId,
+      dismissTransientUi,
+      isExactNavigationMatch,
+      permissions,
+      role,
+      updateDashboardHistory,
+    ],
+  );
+
+  const getSafeLandingNavigation = useCallback(
+    () =>
+      resolveRoleLandingNavigation({
+        permissions,
+        role,
+      }),
+    [permissions, role],
+  );
+
+  const handlePrototypePageError = useCallback(() => {
+    writeStoredNavigation(getSafeLandingNavigation());
+  }, [getSafeLandingNavigation]);
+
+  const handlePrototypeErrorReset = useCallback(() => {
+    setActiveModule("clinical-operations");
+    setSelectedRoomId(null);
+    commitNavigation(getSafeLandingNavigation(), {
+      allowFallback: true,
+      history: "replace",
+    });
+  }, [commitNavigation, getSafeLandingNavigation]);
+
+  const handleWelcomeOpen = useCallback(() => {
+    commitNavigation(
+      {
+        centerTab: "dashboard",
+        domain: "overview",
+        functionId: "welcome",
+        subsection: null,
+      },
+      { clearPatient: false },
+    );
+  }, [commitNavigation]);
+
+  useEffect(() => {
+    if (showWelcome) {
+      const timer = window.setTimeout(() => {
+        setShowWelcome(false);
+        handleWelcomeOpen();
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
+  }, [handleWelcomeOpen, showWelcome, setShowWelcome]);
+
+  const handleDomainChange = (domainId) => {
+    if (consoleType === "RESTRICTED") return;
+
+    commitNavigation(resolveDomainNavigation(domainId, permissions, role), {
+      allowFallback: true,
+    });
+  };
+
+  const handleSubsectionSelect = (domainId, subsectionId) => {
+    commitNavigation(
+      resolveSubsectionNavigation(domainId, subsectionId, permissions, role),
+      { allowFallback: true },
+    );
+  };
+
+  const handleCenterTabChange = (tabId) => {
+    commitNavigation(
+      resolveCenterTabNavigation({
+        activeDomain,
+        activeSubsection,
+        centerTab: tabId,
+        permissions,
+        role,
+      }),
+      { allowFallback: true },
+    );
   };
 
   const handleNotificationsOpen = () => {
     setReturnNavigation({
       domain: activeDomain,
+      subsection: activeSubsection,
       functionId: activeFunction,
+      centerTab: activeCenterTab,
     });
-    setActiveFunction("notifications");
-    setIsNavigationOpen(false);
+    commitNavigation(
+      {
+        centerTab: "dashboard",
+        domain: "overview",
+        functionId: "notifications",
+        subsection: null,
+      },
+      {
+        clearPatient: false,
+        clearReturnNavigation: false,
+      },
+    );
   };
 
   const handleNotificationsBack = () => {
     if (returnNavigation) {
-      setActiveDomain(returnNavigation.domain);
-      setActiveFunction(returnNavigation.functionId);
-      setReturnNavigation(null);
+      commitNavigation(returnNavigation);
       return;
     }
 
-    setActiveFunction(getInitialFunction());
+    commitNavigation(getSafeLandingNavigation(), { allowFallback: true });
   };
 
   const handlePatientSearch = (ellyId) => {
     const trimmed = (ellyId || "").trim();
     if (!trimmed || !canReadPatients) return;
 
-    setActiveDomain("management");
-    setActiveSubsection("patient");
-    setActiveFunction("patient-dashboard");
-    setActiveCenterTab("dashboard");
-    setEmergencyNavigation(null);
-    setReturnNavigation(null);
-    setIsNavigationOpen(false);
-    setActiveEllyId(trimmed);
+    if (
+      commitNavigation({
+        centerTab: "dashboard",
+        domain: "management",
+        functionId: "patient-dashboard",
+        subsection: "patient",
+      })
+    ) {
+      setActiveEllyId(trimmed);
+    }
   };
 
   useEffect(() => {
     if (!pendingOpenRecord || !canReadPatients) return;
-    setActiveDomain("management");
-    setActiveSubsection("patient");
-    setActiveFunction("patient-dashboard");
-    setActiveCenterTab("dashboard");
-    setEmergencyNavigation(null);
-    setReturnNavigation(null);
-    setIsNavigationOpen(false);
-    consumePendingOpenRecord();
-  }, [pendingOpenRecord, canReadPatients, consumePendingOpenRecord]);
+    const timer = window.setTimeout(() => {
+      commitNavigation({
+        centerTab: "dashboard",
+        domain: "management",
+        functionId: "patient-dashboard",
+        subsection: "patient",
+      });
+      consumePendingOpenRecord();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [pendingOpenRecord, canReadPatients, consumePendingOpenRecord, commitNavigation]);
 
   const handleModuleChange = (moduleValue) => {
+    dismissTransientUi();
     setActiveModule(moduleValue);
 
     if (moduleValue === "radiology") {
@@ -331,36 +439,42 @@ function HospitalDashboardApp() {
   const handleRoomSelect = (roomId) => {
     if (!roomId) return;
     setSelectedRoomId(roomId);
-    setActiveDomain("management");
-    setActiveFunction("room-management");
-    setActiveCenterTab("resources");
+    commitNavigation({
+      centerTab: "resources",
+      domain: "management",
+      functionId: "room-management",
+      subsection: "room",
+    });
   };
 
   const handleNavigateToFunction = (target) => {
     if (consoleType === "RESTRICTED") return;
     if (!target?.functionId) return;
 
-    setActiveDomain(target.domain || activeDomain);
-    setActiveSubsection(target.subsection ?? activeSubsection);
-    setActiveFunction(target.functionId);
-    setActiveCenterTab(target.centerTab || "dashboard");
-    setEmergencyNavigation(null);
-    setIsNavigationOpen(false);
-    clearActiveEllyId();
+    commitNavigation({
+      centerTab: target.centerTab || "dashboard",
+      domain: target.domain || activeDomain,
+      functionId: target.functionId,
+      subsection: target.subsection ?? activeSubsection,
+    });
   };
 
   const handleEmergencyRequestOpen = (alertId) => {
     if (!alertId) return;
 
-    setReturnNavigation(null);
-    setActiveDomain("operations");
-    setActiveFunction("emergency");
-    setActiveCenterTab("dashboard");
-    setIsNavigationOpen(false);
-    setEmergencyNavigation({
-      alertId,
-      navigationId: Date.now(),
-    });
+    if (
+      commitNavigation({
+        centerTab: "dashboard",
+        domain: "operations",
+        functionId: "emergency",
+        subsection: "emergency-workflow",
+      })
+    ) {
+      setEmergencyNavigation({
+        alertId,
+        navigationId: Date.now(),
+      });
+    }
   };
 
   const handleRegistrationRequestOpen = (registrationData) => {
@@ -375,6 +489,45 @@ function HospitalDashboardApp() {
       handlePatientSearch(registrationData.ellyId);
     }
   };
+
+  useEffect(() => {
+    const navigation = {
+      centerTab: activeCenterTab,
+      domain: activeDomain,
+      functionId: activeFunction,
+      subsection: activeSubsection,
+    };
+
+    updateDashboardHistory(navigation, "replace");
+  }, [
+    activeCenterTab,
+    activeDomain,
+    activeFunction,
+    activeSubsection,
+    updateDashboardHistory,
+  ]);
+
+  useEffect(() => {
+    const handlePopState = (event) => {
+      dismissTransientUi();
+      const restoredNavigation = event.state?.dashboardNavigation;
+      if (!restoredNavigation) return;
+
+      const resolved = resolveSafeNavigationState({
+        ...restoredNavigation,
+        permissions,
+        role,
+      });
+
+      applyNavigation(resolved);
+      setEmergencyNavigation(null);
+      setReturnNavigation(null);
+      clearActiveEllyId();
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [applyNavigation, clearActiveEllyId, dismissTransientUi, permissions, role]);
 
   return (
     <div className="dashboard-shell">
@@ -427,36 +580,44 @@ function HospitalDashboardApp() {
       />
 
       <main className="dashboard-main" id="main-content">
-        <DocumentModeOverlay>
-        <DashboardContent
-          activeModule={activeModule}
-          activeDomain={activeDomain}
-          activeFunction={activeFunction}
-          activeCenterTab={activeCenterTab}
-          activeSubsection={activeSubsection}
-          onDomainChange={handleDomainChange}
-          onModuleChange={handleModuleChange}
-          onCenterTabChange={handleCenterTabChange}
-          onSubsectionSelect={handleSubsectionSelect}
-          onPatientSearch={canReadPatients ? handlePatientSearch : undefined}
-          emergencyRealtime={emergencyRealtime}
-          registrationRealtime={registrationRealtime}
-          emergencyNavigation={emergencyNavigation}
-          onNavigationOpen={() => setIsNavigationOpen(true)}
-          onNotificationsOpen={handleNotificationsOpen}
-          onNotificationsBack={handleNotificationsBack}
-          onEmergencyRequestOpen={handleEmergencyRequestOpen}
-          onRegistrationRequestOpen={handleRegistrationRequestOpen}
-          onRoomSelect={handleRoomSelect}
-          selectedRoomId={selectedRoomId}
-          onNavigateToFunction={handleNavigateToFunction}
-        />
-        </DocumentModeOverlay>
+        <PrototypeErrorBoundary
+          pageId={activeFunction}
+          resetKey={navigationKey}
+          onError={handlePrototypePageError}
+          onReset={handlePrototypeErrorReset}
+        >
+          <DocumentModeOverlay>
+            <DashboardContent
+              activeModule={activeModule}
+              activeDomain={activeDomain}
+              activeFunction={activeFunction}
+              activeCenterTab={activeCenterTab}
+              activeSubsection={activeSubsection}
+              onDomainChange={handleDomainChange}
+              onModuleChange={handleModuleChange}
+              onCenterTabChange={handleCenterTabChange}
+              onSubsectionSelect={handleSubsectionSelect}
+              onPatientSearch={canReadPatients ? handlePatientSearch : undefined}
+              emergencyRealtime={emergencyRealtime}
+              registrationRealtime={registrationRealtime}
+              emergencyNavigation={emergencyNavigation}
+              onNavigationOpen={() => setIsNavigationOpen(true)}
+              onNotificationsOpen={handleNotificationsOpen}
+              onNotificationsBack={handleNotificationsBack}
+              onEmergencyRequestOpen={handleEmergencyRequestOpen}
+              onRegistrationRequestOpen={handleRegistrationRequestOpen}
+              onRoomSelect={handleRoomSelect}
+              selectedRoomId={selectedRoomId}
+              onNavigateToFunction={handleNavigateToFunction}
+            />
+          </DocumentModeOverlay>
+        </PrototypeErrorBoundary>
       </main>
 
       <RightRail
         emergencyRealtime={emergencyRealtime}
         onEmergencyRequestOpen={handleEmergencyRequestOpen}
+        transientResetKey={transientResetKey}
       />
       </div>
 
@@ -493,6 +654,9 @@ function App() {
   const loadMe = useSessionStore((state) => state.loadMe);
   const currentUser = useSessionStore((state) => state.currentUser);
   const consoleType = useSessionStore((state) => state.consoleType);
+  const role = useSessionStore((state) => state.role);
+  const clearSession = useSessionStore((state) => state.clearSession);
+  const hasUsableSession = Boolean(accessToken && workspace && currentUser && role);
 
   useEffect(() => {
     const syncPath = () => setRoutePath(getCurrentPath());
@@ -503,11 +667,21 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (workspace || routePath === HOSPITAL_ACCESS_ROUTE) return;
+    if (hasUsableSession || routePath === HOSPITAL_ACCESS_ROUTE) return;
 
     window.history.replaceState({}, "", HOSPITAL_ACCESS_ROUTE);
-    setRoutePath(HOSPITAL_ACCESS_ROUTE);
-  }, [workspace, routePath]);
+    const timer = window.setTimeout(() => {
+      setRoutePath(HOSPITAL_ACCESS_ROUTE);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [hasUsableSession, routePath]);
+
+  useEffect(() => {
+    if (!accessToken && !workspace && !currentUser) return;
+    if (hasUsableSession) return;
+
+    clearSession();
+  }, [accessToken, clearSession, currentUser, hasUsableSession, workspace]);
 
   useEffect(() => {
     if (!accessToken || workspace) return;
@@ -526,7 +700,7 @@ function App() {
     setRoutePath(DASHBOARD_ROUTE);
   };
 
-  if (!workspace || routePath === HOSPITAL_ACCESS_ROUTE) {
+  if (!hasUsableSession || routePath === HOSPITAL_ACCESS_ROUTE) {
     return <HospitalAccessPage onAccessGranted={handleAccessGranted} />;
   }
 

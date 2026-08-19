@@ -21,7 +21,13 @@ describe("useSessionStore permission hydration", () => {
       AUTH_STORAGE_KEY,
       JSON.stringify({
         accessToken: "test-token",
-        currentUser: { role: ROLES.HOSPITAL_ADMIN },
+        currentUser: { fullName: "Hospital Admin", role: ROLES.HOSPITAL_ADMIN },
+        activeWorkspace: {
+          workspaceId: "hospital-1",
+          workspaceName: "Demo Hospital",
+          workspaceType: "HOSPITAL",
+          role: ROLES.HOSPITAL_ADMIN,
+        },
         permissions: [PERMISSIONS.STAFF_READ, PERMISSIONS.PATIENT_READ],
         role: ROLES.HOSPITAL_ADMIN,
       }),
@@ -45,7 +51,13 @@ describe("useSessionStore permission hydration", () => {
       AUTH_STORAGE_KEY,
       JSON.stringify({
         accessToken: "test-token",
-        currentUser: { role: ROLES.NURSE },
+        currentUser: { fullName: "Nurse", role: ROLES.NURSE },
+        activeWorkspace: {
+          workspaceId: "hospital-1",
+          workspaceName: "Demo Hospital",
+          workspaceType: "HOSPITAL",
+          role: ROLES.NURSE,
+        },
         permissions: [PERMISSIONS.PATIENT_READ],
         role: ROLES.NURSE,
       }),
@@ -56,5 +68,26 @@ describe("useSessionStore permission hydration", () => {
     expect(useSessionStore.getState().permissions).toEqual([
       PERMISSIONS.PATIENT_READ,
     ]);
+  });
+
+  it("rejects incomplete stored sessions during hydration", async () => {
+    localStorage.setItem(
+      AUTH_STORAGE_KEY,
+      JSON.stringify({
+        accessToken: "test-token",
+        activeWorkspace: {
+          workspaceId: "hospital-1",
+          workspaceName: "Demo Hospital",
+          workspaceType: "HOSPITAL",
+        },
+        currentUser: null,
+      }),
+    );
+
+    const { default: useSessionStore } = await import("./useSessionStore");
+
+    expect(useSessionStore.getState().accessToken).toBeNull();
+    expect(useSessionStore.getState().workspace).toBeNull();
+    expect(localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
   });
 });

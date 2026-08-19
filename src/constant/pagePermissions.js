@@ -61,6 +61,7 @@ export const PAGE_PERMISSIONS = {
 
   "clinic-doctor-dashboard": [PERMISSIONS.CLINIC_READ, PERMISSIONS.DOCTOR_READ],
   "clinic-doctor-schedule": [PERMISSIONS.CLINIC_READ, PERMISSIONS.APPOINTMENT_READ],
+  "clinic-doctor-messages": PERMISSIONS.MESSAGE_READ,
   "clinic-doctor-patients": PERMISSIONS.PATIENT_READ,
   "clinic-doctor-surgery-request": [PERMISSIONS.CLINIC_READ, PERMISSIONS.DOCTOR_READ],
   "clinic-doctor-reports": PERMISSIONS.REPORT_READ,

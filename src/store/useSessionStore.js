@@ -8,6 +8,18 @@ import {
 
 const SESSION_STORAGE_KEY = "ellyFrontendSession";
 const AUTH_STORAGE_KEY = "ellyAuthSession";
+const VALID_ROLES = new Set(Object.values(ROLES));
+const VALID_CONSOLE_TYPES = new Set([
+  "HOSPITAL",
+  "DOCTOR_CLINIC",
+  "PHARMACY",
+  "RESTRICTED",
+]);
+
+function normalizeRole(role) {
+  const normalizedRole = String(role || "").toUpperCase();
+  return VALID_ROLES.has(normalizedRole) ? normalizedRole : null;
+}
 
 function readJsonStorage(storage, key) {
   try {
@@ -46,7 +58,7 @@ function clearStoredSession() {
 }
 
 function normalizeWorkspace(workspace) {
-  if (!workspace) return null;
+  if (!workspace || typeof workspace !== "object") return null;
 
   const workspaceType = workspace.workspaceType || workspace.type || "HOSPITAL";
   const workspaceEllyId =
@@ -59,13 +71,16 @@ function normalizeWorkspace(workspace) {
     workspace.name ||
     workspace.hospitalName ||
     "ELLY Workspace";
+  const workspaceId = workspace.workspaceId || workspace.id || workspaceEllyId;
+
+  if (!workspaceId && !workspaceEllyId) return null;
 
   return {
-    id: workspace.workspaceId || workspace.id || workspaceEllyId,
+    id: workspaceId,
     membershipId: workspace.membershipId || workspace.id || null,
     workspaceType,
     type: workspaceType,
-    workspaceId: workspace.workspaceId || workspace.id || workspaceEllyId,
+    workspaceId,
     workspaceEllyId,
     ellyId: workspaceEllyId,
     workspaceName,
@@ -78,7 +93,7 @@ function normalizeWorkspace(workspace) {
       workspaceType === "HOSPITAL"
         ? workspaceName
         : workspace.hospitalName || null,
-    role: workspace.role,
+    role: normalizeRole(workspace.role),
     permissions: workspace.permissions || [],
     departmentId: workspace.departmentId || null,
     departmentName: workspace.departmentName || null,
@@ -102,8 +117,12 @@ function resolvePermissions(role, explicitPermissions, workspacePermissions) {
 }
 
 function deriveConsoleType(role, workspace) {
-  const normalizedRole = String(role || "").toUpperCase();
+  const normalizedRole = normalizeRole(role);
   const workspaceType = String(workspace?.workspaceType || workspace?.type || "").toUpperCase();
+
+  if (!normalizedRole) {
+    return "RESTRICTED";
+  }
 
   if (normalizedRole === ROLES.HOSPITAL_ADMIN || workspaceType === "HOSPITAL") {
     return "HOSPITAL";
@@ -125,7 +144,7 @@ function deriveConsoleType(role, workspace) {
 }
 
 function buildCurrentUser(data, activeWorkspace, role) {
-  const user = data.user || {};
+  const user = data.currentUser || data.user || {};
   const profile = data.profileSnapshot || user.profileSnapshot || {};
 
   return {
@@ -159,6 +178,12 @@ function buildCurrentUser(data, activeWorkspace, role) {
   };
 }
 
+function normalizeConsoleType(consoleType, role, workspace) {
+  return VALID_CONSOLE_TYPES.has(consoleType)
+    ? consoleType
+    : deriveConsoleType(role, workspace);
+}
+
 function buildPersistedState(state) {
   return {
     accessToken: state.accessToken,
@@ -175,8 +200,19 @@ function buildPersistedState(state) {
 }
 
 function normalizeSessionData(data, previousState = {}) {
-  const activeWorkspace = normalizeWorkspace(data.activeWorkspace);
-  const role = data.role || activeWorkspace?.role || data.user?.role || null;
+  const activeWorkspace = normalizeWorkspace(
+    data.activeWorkspace ||
+      data.workspace ||
+      previousState.activeWorkspace ||
+      previousState.workspace,
+  );
+  const role = normalizeRole(
+    data.role ||
+      data.currentUser?.role ||
+      activeWorkspace?.role ||
+      data.user?.role ||
+      previousState.role,
+  );
   const permissions = resolvePermissions(
     role,
     data.permissions,
@@ -184,10 +220,11 @@ function normalizeSessionData(data, previousState = {}) {
   );
   const currentUser = buildCurrentUser(data, activeWorkspace, role);
   const consoleType =
-    data.consoleType ||
-    activeWorkspace?.consoleType ||
-    previousState.consoleType ||
-    deriveConsoleType(role, activeWorkspace);
+    normalizeConsoleType(
+      data.consoleType || activeWorkspace?.consoleType || previousState.consoleType,
+      role,
+      activeWorkspace,
+    );
 
   return {
     accessToken: data.accessToken || previousState.accessToken || null,
@@ -204,20 +241,33 @@ function normalizeSessionData(data, previousState = {}) {
   };
 }
 
-const storedSession = readSession();
-const initialWorkspace = normalizeWorkspace(
-  storedSession?.activeWorkspace || storedSession?.workspace,
-);
-const initialRole =
-  storedSession?.role ||
-  storedSession?.currentUser?.role ||
-  initialWorkspace?.role ||
-  null;
-const initialPermissions = resolvePermissions(
-  initialRole,
-  storedSession?.permissions,
-  initialWorkspace?.permissions,
-);
+function isCompleteSession(session) {
+  return Boolean(
+    session?.accessToken &&
+      session?.activeWorkspace &&
+      session?.currentUser &&
+      session?.role &&
+      session?.permissions?.length,
+  );
+}
+
+function normalizeStoredSession(session) {
+  if (!session || typeof session !== "object") return null;
+
+  const normalizedSession = normalizeSessionData(session);
+  return isCompleteSession(normalizedSession) ? normalizedSession : null;
+}
+
+const rawStoredSession = readSession();
+const storedSession = normalizeStoredSession(rawStoredSession);
+
+if (rawStoredSession && !storedSession) {
+  clearStoredSession();
+}
+
+const initialWorkspace = storedSession?.activeWorkspace || null;
+const initialRole = storedSession?.role || null;
+const initialPermissions = storedSession?.permissions || [];
 
 const useSessionStore = create((set, get) => ({
   accessToken: storedSession?.accessToken || null,
@@ -229,8 +279,7 @@ const useSessionStore = create((set, get) => ({
   permissions: initialPermissions,
   departmentId: storedSession?.departmentId || null,
   departmentName: storedSession?.departmentName || null,
-  consoleType:
-    storedSession?.consoleType || deriveConsoleType(initialRole, initialWorkspace),
+  consoleType: storedSession?.consoleType || "RESTRICTED",
   isAuthenticated: Boolean(storedSession?.accessToken),
   showWelcome: false,
 

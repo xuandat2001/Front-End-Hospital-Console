@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Icon from "./Icon";
 import {
   buildActiveNotifications,
@@ -69,7 +69,11 @@ function CompanyCard() {
   );
 }
 
-function RightRail({ emergencyRealtime, onEmergencyRequestOpen }) {
+function RightRail({
+  emergencyRealtime,
+  onEmergencyRequestOpen,
+  transientResetKey,
+}) {
   const [alerts, setAlerts] = useState(initialAlerts);
   const [knowledgeQuestion, setKnowledgeQuestion] = useState("");
   const [knowledgeAnswer, setKnowledgeAnswer] = useState("");
@@ -86,6 +90,13 @@ function RightRail({ emergencyRealtime, onEmergencyRequestOpen }) {
     emergencyRealtime,
     null,
   ).filter((alert) => alert.type === "emergency");
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setShowQuickUploadModal(false);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [transientResetKey]);
 
   const handleExamplePrompt = (prompt) => {
     setKnowledgeQuestion(prompt);

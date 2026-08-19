@@ -71,6 +71,28 @@ const navData = {
     label: "Operations",
     icon: "operations",
     subsections: {
+      admission: {
+        label: "Admissions",
+        requiredPermission: PERMISSIONS.ADMISSION_READ,
+        tabs: {
+          dashboard: "admissions",
+          performance: "admission-performance",
+          planning: "patient-workflow",
+          resources: "admission-management",
+          reports: "admission-reports",
+        },
+      },
+      surgery: {
+        label: "Surgery",
+        requiredPermission: PERMISSIONS.SURGERY_READ,
+        tabs: {
+          dashboard: "surgery-records",
+          performance: "surgery-performance",
+          planning: "surgery-planning",
+          resources: "surgery-management",
+          reports: "surgery-reports",
+        },
+      },
       "clinic-operations": {
         label: "My Clinic",
         requiredAny: [PERMISSIONS.CLINIC_READ, PERMISSIONS.DOCTOR_READ],

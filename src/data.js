@@ -302,6 +302,17 @@ export const workspacePages = {
       "Time-off blocks",
     ],
   },
+  "clinic-doctor-messages": {
+    title: "Clinic Messages",
+    description:
+      "Review direct and department conversations connected to clinic operations.",
+    items: [
+      "Direct messages",
+      "Department channels",
+      "Patient care threads",
+      "Call activity",
+    ],
+  },
   "clinic-doctor-patients": {
     title: "My Patients",
     description:

@@ -273,6 +273,25 @@ const useMessagingStore = create((set, get) => ({
     get().connectMessagingSocket();
   },
   closeMessaging: () => set({ isMessagingOpen: false }),
+  dismissTransientMessagingUi: () =>
+    set({
+      isMessagingOpen: false,
+      contextMenu: {
+        isOpen: false,
+        x: 0,
+        y: 0,
+        conversationId: null,
+      },
+      groupModal: {
+        isOpen: false,
+        prefilledMemberEllyIds: [],
+        sourceConversationId: null,
+      },
+      deleteConfirm: {
+        isOpen: false,
+        conversationId: null,
+      },
+    }),
   toggleMessaging: () => {
     const nextOpen = !get().isMessagingOpen;
     set({ isMessagingOpen: nextOpen });

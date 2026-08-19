@@ -7,6 +7,7 @@ import {
   buildDashboardBreadcrumbs,
   navigateDashboardBreadcrumb,
 } from "./dashboardBreadcrumbs";
+import { isKnownDashboardFunction } from "./dashboardFunctionRegistry";
 import OperationsDashboard from "./CommandsOverview";
 import WorkspacePlaceholder from "./WorkspacePlaceholder";
 import AccessDenied from "../auth/AccessDenied";
@@ -59,6 +60,44 @@ import ClinicSurgeryRequest from "../../pages/operations/surgery/ClinicSurgeryRe
 import ClinicDoctorDashboard from "../../pages/operations/surgery/ClinicDoctorDashboard";
 import WelcomePage from "../../pages/welcome/WelcomePage";
 
+function UnknownFunctionFallback({
+  activeCenterTab,
+  activeDomain,
+  activeFunction,
+  activeSubsection,
+}) {
+  return (
+    <div className="h-full overflow-y-auto p-4 sm:p-5">
+      <section className="dashboard-card bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-900">
+        <p className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-300">
+          Unknown prototype page
+        </p>
+        <h1 className="mt-1 text-2xl font-bold text-slate-950 dark:text-white">
+          No dashboard renderer is registered for this function.
+        </h1>
+        <dl className="mt-4 grid gap-2 text-sm text-slate-600 dark:text-slate-300 sm:grid-cols-2">
+          <div>
+            <dt className="font-bold text-slate-900 dark:text-white">Function ID</dt>
+            <dd>{activeFunction || "none"}</dd>
+          </div>
+          <div>
+            <dt className="font-bold text-slate-900 dark:text-white">Domain</dt>
+            <dd>{activeDomain || "none"}</dd>
+          </div>
+          <div>
+            <dt className="font-bold text-slate-900 dark:text-white">Subsection</dt>
+            <dd>{activeSubsection || "none"}</dd>
+          </div>
+          <div>
+            <dt className="font-bold text-slate-900 dark:text-white">Center tab</dt>
+            <dd>{activeCenterTab || "none"}</dd>
+          </div>
+        </dl>
+      </section>
+    </div>
+  );
+}
+
 function DashboardContent({
   activeModule,
   activeDomain,
@@ -83,7 +122,8 @@ function DashboardContent({
 }) {
   const permissions = useSessionStore((state) => state.permissions);
   const currentUser = useSessionStore((state) => state.currentUser);
-  const canViewPage = canAccessFunction(activeFunction, permissions);
+  const isKnownFunction = isKnownDashboardFunction(activeFunction);
+  const canViewPage = isKnownFunction && canAccessFunction(activeFunction, permissions);
   const showRolePlaceholder = usesRolePlaceholder(currentUser?.role);
   const hideFunctionTabBar = activeFunction === "icu-monitoring" || activeFunction === "welcome";
   const useCompactWorkspaceNavigation = activeFunction === "icu-monitoring";
@@ -109,7 +149,14 @@ function DashboardContent({
     "surgery-reports", "surgery-management",
   ].includes(activeFunction);
 
-  const pageContent = activeFunction === "welcome" ? (
+  const pageContent = !isKnownFunction ? (
+    <UnknownFunctionFallback
+      activeCenterTab={activeCenterTab}
+      activeDomain={activeDomain}
+      activeFunction={activeFunction}
+      activeSubsection={activeSubsection}
+    />
+  ) : activeFunction === "welcome" ? (
     <div className="h-full overflow-y-auto">
       <WelcomePage />
     </div>
@@ -314,8 +361,7 @@ function DashboardContent({
           <div className="h-full overflow-y-auto">
             <AnalyticsDashboard />
           </div>
-        ) : activeFunction.startsWith("intelligence-analytics") ||
-          [
+        ) : [
             "intelligence-workload",
             "intelligence-resources",
             "intelligence-reports",
@@ -323,8 +369,7 @@ function DashboardContent({
           <div className="h-full overflow-y-auto">
             <IntelligenceAnalytics activeFunction={activeFunction} />
           </div>
-        ) : activeFunction.startsWith("intelligence-insights") ||
-          [
+        ) : [
             "intelligence-recommendations",
             "intelligence-reasoning",
             "intelligence-evidence",
@@ -333,6 +378,12 @@ function DashboardContent({
           <div className="h-full overflow-y-auto">
             <IntelligenceInsights activeFunction={activeFunction} />
           </div>
+        ) : [
+            "clinic-doctor-schedule",
+            "clinic-doctor-messages",
+            "clinic-doctor-reports",
+          ].includes(activeFunction) ? (
+          <RolePagePlaceholder activeFunction={activeFunction} />
         ) : ["command", "analytics", "ai-insights"].includes(activeFunction) ? (
           <OperationsDashboard activeFunction={activeFunction} />
         ) : (
@@ -373,7 +424,12 @@ function DashboardContent({
           })
         }
       />
-      <div className="dashboard-content-stage">{pageContent}</div>
+      <div
+        className="dashboard-content-stage"
+        key={`${activeDomain}:${activeSubsection || ""}:${activeCenterTab}:${activeFunction}`}
+      >
+        {pageContent}
+      </div>
       <NotificationBar
         realtime={emergencyRealtime}
         registrationRealtime={registrationRealtime}
