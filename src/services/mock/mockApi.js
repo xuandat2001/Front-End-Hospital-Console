@@ -15,11 +15,15 @@ import {
   mockIcu,
   mockInsights,
   mockKnowledgeDocuments,
+  mockAdmissionPerformance,
+  mockAdmissionPerformanceStats,
   mockMessages,
   mockNotifications,
   mockPatientCensus,
   mockPatientPerformance,
+  mockPatientPerformanceRecords,
   mockPatientReportsSnapshot,
+  mockRoomPerformance,
   mockPatients,
   mockPerformance,
   mockRegistrationQueue,
@@ -27,7 +31,9 @@ import {
   mockReports,
   mockRooms,
   mockStaff,
+  mockStaffPerformance,
   mockSurgeries,
+  mockSurgeryPerformance,
   mockSurgeryRequests,
 } from "../../mocks/mockData";
 
@@ -914,9 +920,22 @@ export async function mockApiRequest(path, options = {}) {
   if (pathname.includes("/intelligence/analytics/staff-workload")) return analyticsSnapshot("staffWorkload");
   if (pathname.includes("/intelligence/analytics/inventory")) return analyticsSnapshot("inventory");
   if (pathname.includes("/intelligence/analytics/equipment")) return analyticsSnapshot("equipment");
+  if (pathname.includes("/intelligence/admission-performance/stats")) {
+    return item(mockAdmissionPerformanceStats);
+  }
+  if (pathname.includes("/intelligence/admission-performance")) return list(mockAdmissionPerformance);
+  if (pathname.includes("/intelligence/surgery-performance")) return list(mockSurgeryPerformance);
+  if (pathname.includes("/intelligence/room-performance")) return list(mockRoomPerformance);
+  if (pathname.includes("/intelligence/staff-performance")) return list(mockStaffPerformance);
   if (pathname.includes("/intelligence/patient-census")) return item(mockPatientCensus);
   if (pathname.includes("/intelligence/insights")) return list(mockInsights);
   if (pathname.includes("/intelligence/recommendations")) return list(mockInsights);
+  if (pathname.includes("/intelligence/patient-performance/records")) {
+    return list(mockPatientPerformanceRecords);
+  }
+  if (pathname.includes("/intelligence/patient-performance/doctor/")) {
+    return list(mockPatientPerformanceRecords);
+  }
   if (pathname.includes("/intelligence/patient-performance")) return item(mockPatientPerformance);
   if (pathname.includes("/intelligence/registration-performance")) return item(mockRegistrationPerformance);
   if (pathname.includes("/intelligence/patient-reports")) return item(mockPatientReportsSnapshot);

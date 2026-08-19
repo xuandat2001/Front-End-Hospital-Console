@@ -13,15 +13,19 @@ import FollowUpWeekSchedule from "./components/FollowUpWeekSchedule";
 import NextFollowUpCard from "./components/NextFollowUpCard";
 import useDoctorFollowUpDashboard from "./hooks/useDoctorFollowUpDashboard";
 import { taskId } from "./followUpUtils";
-
-function FollowUpTabPlaceholder({ tab }) {
-  const title = tab.charAt(0).toUpperCase() + tab.slice(1);
-  return <div className="p-4 sm:p-5"><section className="dashboard-card rounded-2xl border p-5"><p className="text-xs font-bold uppercase tracking-wider text-violet-300">Doctor workspace</p><h1 className="mt-1 text-2xl font-bold text-white">{title}</h1><p className="mt-2 text-sm text-slate-400">The Follow-up Care {title} tab is reserved for a future release.</p></section></div>;
-}
+import CenterTabPrototypePage from "../../prototype/CenterTabPrototypePage";
+import { followUpTabConfigs } from "../../prototype/centerTabPrototypeConfigs";
 
 export default function DoctorFollowUpCare({ activeTab = "dashboard" }) {
   const tab = String(activeTab || "dashboard").toLowerCase();
-  if (tab !== "dashboard") return <FollowUpTabPlaceholder tab={tab} />;
+  if (tab !== "dashboard") {
+    return (
+      <CenterTabPrototypePage
+        eyebrow="Doctor follow-up workspace"
+        {...followUpTabConfigs[tab]}
+      />
+    );
+  }
   return <DoctorFollowUpDashboard />;
 }
 

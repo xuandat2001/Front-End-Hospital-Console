@@ -60,9 +60,10 @@ beforeEach(() => {
 });
 
 describe("DoctorAppointmentBooking", () => {
-  it("keeps future tabs as placeholders without loading dashboard data", () => {
+  it("renders non-dashboard tabs as frontend prototype views without loading dashboard data", () => {
     render(<DoctorAppointmentBooking activeTab="performance" />);
-    expect(screen.getByRole("heading", { name: "Performance" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Appointment Performance" })).toBeInTheDocument();
+    expect(screen.getAllByText("Completion rate").length).toBeGreaterThan(0);
     expect(dashboardHook).not.toHaveBeenCalled();
   });
 

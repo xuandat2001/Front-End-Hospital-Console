@@ -32,9 +32,10 @@ describe("DoctorFollowUpCare", () => {
     expect(screen.getAllByText("OVERDUE").length).toBeGreaterThan(0);
   });
 
-  it("keeps non-dashboard center tabs as placeholders", () => {
+  it("renders non-dashboard center tabs as frontend prototype views", () => {
     render(<DoctorFollowUpCare activeTab="performance" />);
-    expect(screen.getByRole("heading", { name: "Performance" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Follow-up Performance" })).toBeInTheDocument();
+    expect(screen.getAllByText("Completion rate").length).toBeGreaterThan(0);
     expect(dashboardHook).not.toHaveBeenCalled();
   });
 });

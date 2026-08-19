@@ -50,4 +50,25 @@ describe("FunctionTabBar", () => {
       screen.queryByRole("button", { name: "Resources" }),
     ).not.toBeInTheDocument();
   });
+
+  it("shows ICU center tabs when ICU monitoring owns repeated tab modes", () => {
+    render(
+      <FunctionTabBar
+        activeCenterTab="performance"
+        activeDomain="management"
+        activeFunction="icu-monitoring"
+        activeSubsection="icu"
+        onCenterTabChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Dashboard" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Performance" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("button", { name: "Planning" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Resources" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Reports" })).toBeEnabled();
+  });
 });

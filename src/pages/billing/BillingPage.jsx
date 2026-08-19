@@ -10,6 +10,7 @@ import InvoiceToolbar from "./components/InvoiceToolbar";
 import NewInvoiceModal from "./components/NewInvoiceModal";
 import PaymentModal from "./components/PaymentModal";
 import RefundModal from "./components/RefundModal";
+import CenterTabPrototypePage from "../prototype/CenterTabPrototypePage";
 import "./billing.css";
 
 const DEFAULT_FILTERS = {
@@ -18,6 +19,73 @@ const DEFAULT_FILTERS = {
   minAmount: "",
   paymentMethod: "All",
   status: "All",
+};
+
+const billingTabConfigs = {
+  performance: {
+    title: "Billing Performance",
+    subtitle: "Revenue trends, collection rate, outstanding aging, payment success, and claims performance.",
+    metrics: [
+      { label: "Collection rate", value: "88.4%", caption: "+3.2% month over month" },
+      { label: "Payment success", value: "94.1%", caption: "Credit card and transfer" },
+      { label: "Claims acceptance", value: "86%", caption: "First-pass approval" },
+      { label: "Aging over 30 days", value: "$18.7K", caption: "Needs follow-up" },
+    ],
+    rows: [
+      { name: "Revenue trend review", owner: "Billing lead", status: "Improving", detail: "+12.5% from last month" },
+      { name: "Outstanding aging", owner: "Collections", status: "Review", detail: "Nine invoices over 30 days" },
+      { name: "Claims performance", owner: "Insurance desk", status: "On track", detail: "86% first-pass acceptance" },
+    ],
+    sections: [{ title: "Performance views", items: ["Revenue trends", "Collection rate", "Outstanding aging", "Payment success rate", "Claims performance"] }],
+  },
+  planning: {
+    title: "Billing Planning",
+    subtitle: "Revenue forecast, expected collections, upcoming due invoices, and claim forecasts.",
+    metrics: [
+      { label: "Forecast revenue", value: "$271K", caption: "Next month" },
+      { label: "Expected collections", value: "$83K", caption: "Next 14 days" },
+      { label: "Due invoices", value: "42", caption: "This week" },
+      { label: "Claim forecast", value: "$45K", caption: "Pending payer review" },
+    ],
+    rows: [
+      { name: "Upcoming due invoices", owner: "Billing operations", status: "42 open", detail: "$83K due in the next 14 days" },
+      { name: "Claim submission plan", owner: "Insurance desk", status: "Ready", detail: "23 claims staged for review" },
+      { name: "Revenue forecast", owner: "Finance", status: "Draft", detail: "Next-month projection prepared" },
+    ],
+    sections: [{ title: "Planning views", items: ["Revenue forecast", "Expected collections", "Upcoming due invoices", "Claim forecasts"] }],
+  },
+  resources: {
+    title: "Billing Resources",
+    subtitle: "Payment methods, insurance providers, billing codes, templates, and billing policies.",
+    metrics: [
+      { label: "Payment methods", value: "4", caption: "Prototype channels" },
+      { label: "Insurance providers", value: "12", caption: "Mock payer list" },
+      { label: "Billing codes", value: "148", caption: "Configured codes" },
+      { label: "Templates", value: "9", caption: "Invoice and claim forms" },
+    ],
+    rows: [
+      { name: "Payment method catalog", owner: "Finance ops", status: "Ready", detail: "Credit card, insurance, cash, transfer" },
+      { name: "Insurance provider list", owner: "Claims desk", status: "Current", detail: "12 approved mock providers" },
+      { name: "Billing templates", owner: "Billing admin", status: "Review", detail: "Invoice, refund, and claim templates" },
+    ],
+    sections: [{ title: "Resource library", items: ["Payment methods", "Insurance providers", "Billing codes", "Templates", "Billing policies"] }],
+  },
+  reports: {
+    title: "Billing Reports",
+    subtitle: "Revenue, invoice, outstanding balance, claims, and payment report prototypes.",
+    metrics: [
+      { label: "Reports ready", value: "5", caption: "Mock exports" },
+      { label: "Revenue report", value: "$248K", caption: "Current month" },
+      { label: "Outstanding", value: "$76K", caption: "Open balance" },
+      { label: "Claim total", value: "$45K", caption: "Pending review" },
+    ],
+    rows: [
+      { name: "Revenue report", owner: "Finance", status: "Ready", detail: "Monthly revenue and variance" },
+      { name: "Invoice report", owner: "Billing", status: "Ready", detail: "Status, due dates, and payment method" },
+      { name: "Claims report", owner: "Insurance desk", status: "Draft", detail: "Pending, approved, and rejected claims" },
+    ],
+    sections: [{ title: "Report set", items: ["Revenue report", "Invoice report", "Outstanding balances", "Claims report", "Payment report"] }],
+  },
 };
 
 function normalizeInvoice(invoice) {
@@ -91,7 +159,24 @@ function buildInvoiceFromForm(form, index) {
   });
 }
 
-export default function BillingPage({ initialInvoices = mockInvoices }) {
+export default function BillingPage({
+  activeTab = "dashboard",
+  initialInvoices = mockInvoices,
+}) {
+  const centerTab = String(activeTab || "dashboard").toLowerCase();
+  if (centerTab !== "dashboard") {
+    return (
+      <CenterTabPrototypePage
+        eyebrow="Billing workspace"
+        {...billingTabConfigs[centerTab]}
+      />
+    );
+  }
+
+  return <BillingDashboard initialInvoices={initialInvoices} />;
+}
+
+function BillingDashboard({ initialInvoices = mockInvoices }) {
   const [invoices, setInvoices] = useState(() => (initialInvoices || []).map(normalizeInvoice));
   const [activeTab, setActiveTab] = useState("all");
   const [searchValue, setSearchValue] = useState("");

@@ -5,6 +5,7 @@ import usePatientSearchStore from "../../../store/usePatientSearchStore";
 import useSessionStore from "../../../store/useSessionStore";
 import { ROLES } from "../../../constant/rbac";
 import { patientAccessService } from "../../../services/core-modules/patientAccessApi";
+import { clampPercent, extractCollection, finiteNumber } from "../../../utils/performanceDataContracts";
 
 const RISK_COLORS = {
   High: "#EF4444",
@@ -89,7 +90,11 @@ export default function PatientPerformance() {
 
       if (perfRes.status === "fulfilled") {
         setPerformance(perfRes.value?.data || null);
-        setRecords(recordsRes.status === "fulfilled" ? recordsRes.value?.data || [] : perfRes.value?.data?.records || []);
+        setRecords(
+          recordsRes.status === "fulfilled"
+            ? extractCollection(recordsRes.value)
+            : extractCollection(perfRes.value?.data?.records),
+        );
         setError("");
       } else {
         throw perfRes.reason;
@@ -97,7 +102,7 @@ export default function PatientPerformance() {
 
       setCensus(censusRes.status === "fulfilled" ? censusRes.value?.data || null : null);
       setApprovedPatients(
-        approvedPatientsRes.status === "fulfilled" ? approvedPatientsRes.value?.data || [] : [],
+        approvedPatientsRes.status === "fulfilled" ? extractCollection(approvedPatientsRes.value) : [],
       );
     } catch (loadError) {
       console.error(loadError);
@@ -108,29 +113,39 @@ export default function PatientPerformance() {
   }, [doctorId, doctorView, hospitalId]);
 
   useEffect(() => {
-    load(range.days);
+    let active = true;
+    queueMicrotask(() => {
+      if (active) load(range.days);
+    });
+    return () => {
+      active = false;
+    };
   }, [load, range.days]);
 
-  const readmission = performance?.readmission?.enabled
-    ? performance.readmission
-    : {
-        enabled: false,
-        available: false,
-        note:
-          performance?.readmission?.note ||
-          "Patient monitoring risks are not available yet.",
-        distribution: { high: 0, medium: 0, low: 0 },
-        high: 0,
-        medium: 0,
-        low: 0,
-        topAtRisk: [],
-      };
+  const readmission = useMemo(
+    () =>
+      performance?.readmission?.enabled
+        ? performance.readmission
+        : {
+            enabled: false,
+            available: false,
+            note:
+              performance?.readmission?.note ||
+              "Patient monitoring risks are not available yet.",
+            distribution: { high: 0, medium: 0, low: 0 },
+            high: 0,
+            medium: 0,
+            low: 0,
+            topAtRisk: [],
+          },
+    [performance],
+  );
 
   const riskSlices = useMemo(
     () => [
-      { label: "High", value: readmission.high ?? readmission.distribution?.high ?? 0, color: RISK_COLORS.High },
-      { label: "Medium", value: readmission.medium ?? readmission.distribution?.medium ?? 0, color: RISK_COLORS.Medium },
-      { label: "Low", value: readmission.low ?? readmission.distribution?.low ?? 0, color: RISK_COLORS.Low },
+      { label: "High", value: finiteNumber(readmission.high ?? readmission.distribution?.high), color: RISK_COLORS.High },
+      { label: "Medium", value: finiteNumber(readmission.medium ?? readmission.distribution?.medium), color: RISK_COLORS.Medium },
+      { label: "Low", value: finiteNumber(readmission.low ?? readmission.distribution?.low), color: RISK_COLORS.Low },
     ],
     [readmission],
   );
@@ -432,11 +447,11 @@ export default function PatientPerformance() {
         <KpiCard>
           <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">ALOS vs Target</p>
           <p className="mt-0.5 text-sm font-bold text-slate-900 dark:text-white">
-            {alos.overall}
-            <span className="text-[10px] font-semibold text-slate-400"> / {alos.target}d</span>
+            {finiteNumber(alos.overall)}
+            <span className="text-[10px] font-semibold text-slate-400"> / {finiteNumber(alos.target)}d</span>
           </p>
           <p className={`text-[10px] font-semibold ${aboveTarget ? "text-red-500" : "text-emerald-500"}`}>
-            {aboveTarget ? "▲" : "▼"} {aboveTarget ? "+" : ""}{alos.deltaDays}d
+            {aboveTarget ? "▲" : "▼"} {aboveTarget ? "+" : ""}{finiteNumber(alos.deltaDays)}d
           </p>
         </KpiCard>
         <KpiCard>
@@ -449,16 +464,16 @@ export default function PatientPerformance() {
         <KpiCard>
           <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">Velocity</p>
           <p className="mt-0.5 text-sm font-bold text-slate-900 dark:text-white">
-            {discharge.velocityPerDay}
-            <span className="text-[10px] font-semibold text-slate-400"> / {discharge.throughputTarget}</span>
+            {finiteNumber(discharge.velocityPerDay)}
+            <span className="text-[10px] font-semibold text-slate-400"> / {finiteNumber(discharge.throughputTarget)}</span>
           </p>
           <p className="text-[10px] text-slate-500">per day</p>
         </KpiCard>
         <KpiCard>
           <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">On-time</p>
-          <p className="mt-0.5 text-sm font-bold text-emerald-500">{discharge.onTimePct}%</p>
+          <p className="mt-0.5 text-sm font-bold text-emerald-500">{clampPercent(discharge.onTimePct)}%</p>
           <div className="mt-1 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700">
-            <div className="h-1.5 rounded-full bg-emerald-500" style={{ width: `${discharge.onTimePct}%` }} />
+            <div className="h-1.5 rounded-full bg-emerald-500" style={{ width: `${clampPercent(discharge.onTimePct)}%` }} />
           </div>
         </KpiCard>
       </div>
@@ -625,8 +640,8 @@ function KpiCard({ children }) {
 }
 
 function AlosBySpecialtyChart({ items, target }) {
-  const max = Math.max(...items.map((i) => i.alos), target, 1);
-  const targetPct = (target / max) * 100;
+  const max = Math.max(...items.map((i) => finiteNumber(i.alos)), finiteNumber(target), 1);
+  const targetPct = clampPercent((finiteNumber(target) / max) * 100);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -636,16 +651,16 @@ function AlosBySpecialtyChart({ items, target }) {
           style={{ bottom: `${targetPct}%` }}
         >
           <span className="absolute -top-3.5 right-0 rounded bg-amber-500/10 px-1 text-[8px] font-semibold text-amber-600">
-            Target {target}d
+            Target {finiteNumber(target)}d
           </span>
         </div>
         {items.map((item) => (
           <div key={item.specialty} className="flex h-full w-full flex-col items-center justify-end">
-            <span className="mb-0.5 text-[9px] font-bold text-slate-600 dark:text-slate-300">{item.alos}</span>
+            <span className="mb-0.5 text-[9px] font-bold text-slate-600 dark:text-slate-300">{finiteNumber(item.alos)}</span>
             <div
               className="w-full rounded-t-md bg-gradient-to-t from-violet-500 to-violet-300 dark:from-violet-600 dark:to-violet-400"
-              style={{ height: `${(item.alos / max) * 100}%` }}
-              title={`${item.specialty}: ${item.alos}d`}
+              style={{ height: `${clampPercent((finiteNumber(item.alos) / max) * 100)}%` }}
+              title={`${item.specialty}: ${finiteNumber(item.alos)}d`}
             />
           </div>
         ))}
@@ -668,17 +683,18 @@ function DischargeVelocityChart({ data, target, rangeLabel }) {
   const innerW = width - padding.left - padding.right;
   const innerH = height - padding.top - padding.bottom;
 
-  const maxY = Math.max(...data, target, 10);
+  const values = data.map((value) => finiteNumber(value));
+  const maxY = Math.max(...values, finiteNumber(target), 10);
   const stepX = data.length > 1 ? innerW / (data.length - 1) : innerW;
   const toX = (i) => padding.left + i * stepX;
   const toY = (v) => padding.top + innerH - (v / maxY) * innerH;
 
-  const points = data.map((v, i) => `${toX(i)},${toY(v)}`);
+  const points = values.map((v, i) => `${toX(i)},${toY(v)}`);
   const linePath = "M " + points.map((p) => p.replace(",", " ")).join(" L ");
   const areaPath = `${linePath} L ${toX(data.length - 1)} ${padding.top + innerH} L ${toX(0)} ${padding.top + innerH} Z`;
   const yTicks = [0, 2, 4, 6, 8, 10].filter((t) => t <= maxY);
-  const targetY = toY(target);
-  const labelEvery = Math.max(1, Math.round(data.length / 10));
+  const targetY = toY(finiteNumber(target));
+  const labelEvery = Math.max(1, Math.round(values.length / 10));
 
   return (
     <div className="h-full min-h-0">
@@ -716,8 +732,8 @@ function DischargeVelocityChart({ data, target, rangeLabel }) {
         />
         <path d={areaPath} fill="url(#dischargeAreaFit)" />
         <path d={linePath} fill="none" stroke="#3B82F6" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-        {data.map((_, i) =>
-          i % labelEvery === 0 || i === data.length - 1 ? (
+        {values.map((_, i) =>
+          i % labelEvery === 0 || i === values.length - 1 ? (
             <text
               key={i}
               x={toX(i)}

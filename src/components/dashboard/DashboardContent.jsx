@@ -52,14 +52,18 @@ import IntelligenceAnalytics from "../../pages/intelligence/IntelligenceAnalytic
 import AnalyticsDashboard from "../../pages/intelligence/analytics/AnalyticsDashboard";
 import IntelligencePerformance from "../../pages/intelligence/analytics/PerformanceAnalytics";
 import IntelligenceInsights from "../../pages/intelligence/IntelligenceInsights";
-import ReportList from "../../pages/reports/ReportList";
-import RoomReports from "../../pages/reports/RoomReports";
 import AdmissionPerformance from "../../pages/performance/AdmissionPerformance";
 import SurgeryPerformanceDashboard from "../../pages/performance/SurgeryPerformanceDashboard";
 import ClinicSurgeryRequest from "../../pages/operations/surgery/ClinicSurgeryRequest";
 import ClinicDoctorDashboard from "../../pages/operations/surgery/ClinicDoctorDashboard";
 import WelcomePage from "../../pages/welcome/WelcomePage";
 import BillingPage from "../../pages/billing/BillingPage";
+import CenterTabPrototypePage from "../../pages/prototype/CenterTabPrototypePage";
+import {
+  centerTabPrototypeConfigs,
+  clinicDoctorTabConfigs,
+  doctorSurgeryTabConfigs,
+} from "../../pages/prototype/centerTabPrototypeConfigs";
 
 function UnknownFunctionFallback({
   activeCenterTab,
@@ -71,10 +75,10 @@ function UnknownFunctionFallback({
     <div className="h-full overflow-y-auto p-4 sm:p-5">
       <section className="dashboard-card bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-900">
         <p className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-300">
-          Unknown prototype page
+          Page unavailable
         </p>
         <h1 className="mt-1 text-2xl font-bold text-slate-950 dark:text-white">
-          No dashboard renderer is registered for this function.
+          This prototype view has not been configured.
         </h1>
         <dl className="mt-4 grid gap-2 text-sm text-slate-600 dark:text-slate-300 sm:grid-cols-2">
           <div>
@@ -126,8 +130,8 @@ function DashboardContent({
   const isKnownFunction = isKnownDashboardFunction(activeFunction);
   const canViewPage = isKnownFunction && canAccessFunction(activeFunction, permissions);
   const showRolePlaceholder = usesRolePlaceholder(currentUser?.role);
-  const hideFunctionTabBar = activeFunction === "icu-monitoring" || activeFunction === "welcome";
-  const useCompactWorkspaceNavigation = activeFunction === "icu-monitoring";
+  const hideFunctionTabBar = activeFunction === "welcome";
+  const useCompactWorkspaceNavigation = false;
   const breadcrumbItems = useMemo(
     () =>
       buildDashboardBreadcrumbs({
@@ -145,6 +149,13 @@ function DashboardContent({
     isDoctorConsole && activeFunction === "appointment-booking-management";
   const doctorFollowUpActive =
     isDoctorConsole && activeFunction === "doctor-follow-up-care";
+  const clinicDoctorPrototypeActive =
+    isDoctorConsole &&
+    [
+      "clinic-doctor-schedule",
+      "clinic-doctor-messages",
+      "clinic-doctor-reports",
+    ].includes(activeFunction);
   const surgeryDoctorActive = isDoctorConsole && [
     "surgery-records", "surgery-performance", "surgery-planning",
     "surgery-reports", "surgery-management",
@@ -163,16 +174,14 @@ function DashboardContent({
     </div>
   ) : !canViewPage ? (
     <AccessDenied />
-  ) : surgeryDoctorActive ? (
-    <div className="h-full overflow-y-auto">
-      <ClinicSurgeryRequest />
-    </div>
   ) : showRolePlaceholder &&
     activeFunction !== "clinic-doctor-dashboard" &&
     activeFunction !== "clinic-doctor-surgery-request" &&
     !(isDoctorConsole && activeFunction.startsWith("patient-")) &&
     !doctorAppointmentActive &&
-    !doctorFollowUpActive ? (
+    !doctorFollowUpActive &&
+    !clinicDoctorPrototypeActive &&
+    !surgeryDoctorActive ? (
     <RolePagePlaceholder activeFunction={activeFunction} />
   ) : activeFunction === "clinic-doctor-dashboard" ? (
     <div className="h-full overflow-y-auto">
@@ -181,6 +190,24 @@ function DashboardContent({
   ) : activeFunction === "clinic-doctor-surgery-request" ? (
     <div className="h-full overflow-y-auto">
       <ClinicSurgeryRequest />
+    </div>
+  ) : clinicDoctorPrototypeActive ? (
+    <div className="h-full overflow-y-auto">
+      <CenterTabPrototypePage
+        eyebrow="Doctor clinic workspace"
+        {...clinicDoctorTabConfigs[activeFunction]}
+      />
+    </div>
+  ) : surgeryDoctorActive ? (
+    <div className="h-full overflow-y-auto">
+      {activeCenterTab === "planning" ? (
+        <ClinicSurgeryRequest />
+      ) : (
+        <CenterTabPrototypePage
+          eyebrow="Doctor surgery workspace"
+          {...doctorSurgeryTabConfigs[activeCenterTab]}
+        />
+      )}
     </div>
   ) : activeFunction === "notifications" ? (
           <div className="h-full overflow-y-auto">
@@ -221,7 +248,7 @@ function DashboardContent({
           </div>
         ) : activeFunction === "billing" ? (
           <div className="h-full overflow-y-auto">
-            <BillingPage />
+            <BillingPage activeTab={activeCenterTab} />
           </div>
         ) : activeFunction === "doctor-follow-up-care" ? (
           <div className="h-full overflow-y-auto">
@@ -250,9 +277,19 @@ function DashboardContent({
           <div className="h-full overflow-y-auto">
             <OverviewPerformance />
           </div>
-        ) : activeFunction === "overview-reports" ? (
+        ) : [
+            "overview-planning",
+            "overview-resources",
+            "overview-reports",
+            "staff-reports",
+            "room-reports",
+            "admission-reports",
+            "surgery-reports",
+          ].includes(activeFunction) ? (
           <div className="h-full overflow-y-auto">
-            <ReportList title="All Reports" showCreate />
+            <CenterTabPrototypePage
+              {...centerTabPrototypeConfigs[activeFunction]}
+            />
           </div>
         ) : activeFunction === "patient" ? (
           <div className="h-full overflow-y-auto">
@@ -285,22 +322,6 @@ function DashboardContent({
         ) : activeFunction === "patient-reports" ? (
           <div className="patient-fit-page h-full min-h-0 overflow-hidden">
             <PatientReportsView />
-          </div>
-        ) : activeFunction === "room-reports" ? (
-          <div className="h-full overflow-y-auto">
-            <RoomReports />
-          </div>
-        ) : activeFunction === "staff-reports" ? (
-          <div className="h-full overflow-y-auto">
-            <ReportList category="STAFF" title="Staff Reports" showCreate />
-          </div>
-        ) : activeFunction === "admission-reports" ? (
-          <div className="h-full overflow-y-auto">
-            <ReportList category="INCIDENT" title="Incident Reports" showCreate />
-          </div>
-        ) : activeFunction === "surgery-reports" ? (
-          <div className="h-full overflow-y-auto">
-            <ReportList category="MAINTENANCE" title="Maintenance Reports" showCreate />
           </div>
         ) : activeFunction === "room-management" ? (
           <div className="h-full overflow-y-auto">
@@ -344,7 +365,7 @@ function DashboardContent({
           </div>
         ) : activeFunction === "icu-monitoring" ? (
           <div className="h-full overflow-y-auto">
-            <IcuMonitoring />
+            <IcuMonitoring activeTab={activeCenterTab} />
           </div>
         ) : activeFunction === "surgery-performance" ? (
           <div className="h-full overflow-y-auto">
@@ -388,7 +409,12 @@ function DashboardContent({
             "clinic-doctor-messages",
             "clinic-doctor-reports",
           ].includes(activeFunction) ? (
-          <RolePagePlaceholder activeFunction={activeFunction} />
+          <div className="h-full overflow-y-auto">
+            <CenterTabPrototypePage
+              eyebrow="Doctor clinic workspace"
+              {...clinicDoctorTabConfigs[activeFunction]}
+            />
+          </div>
         ) : ["command", "analytics", "ai-insights"].includes(activeFunction) ? (
           <OperationsDashboard activeFunction={activeFunction} />
         ) : (

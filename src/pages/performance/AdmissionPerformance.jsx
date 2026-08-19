@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { admissionPerformanceService } from '../../services/performance/admissionPerformanceApi';
 import MiniPieChart from '../../components/graphs/MiniPieChart';
 import BarChart from '../../components/graphs/BarChart';
+import { extractCollection, finiteNumber } from '../../utils/performanceDataContracts';
 
 const TYPE_COLORS = {
   EMERGENCY: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
@@ -32,7 +33,7 @@ export default function AdmissionPerformance() {
         admissionPerformanceService.getAll(),
         admissionPerformanceService.getStats(),
       ]);
-      setRecords(recRes.data || []);
+      setRecords(extractCollection(recRes));
       setStats(statRes.data || null);
     } catch (err) {
       console.error(err);
@@ -41,47 +42,33 @@ export default function AdmissionPerformance() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    let active = true;
+    queueMicrotask(() => {
+      if (active) load();
+    });
+    return () => {
+      active = false;
+    };
+  }, [load]);
 
   const filtered = filter
     ? records.filter((r) =>
         [r.performanceId, r.admissionId, r.patientId, r.patientName, r.admissionType, r.dischargeOutcome]
-          .some((v) => v?.toLowerCase().includes(filter.toLowerCase()))
+          .some((v) => String(v || '').toLowerCase().includes(filter.toLowerCase()))
       )
     : records;
 
   const s = stats?.summary;
-  const avgSat = s?.avgSatisfaction != null ? Number(s.avgSatisfaction).toFixed(1) : '-';
+  const avgSat = s?.avgSatisfaction != null ? finiteNumber(s.avgSatisfaction).toFixed(1) : '-';
 
   const typeSlices = useMemo(() => {
-    if (!stats?.byAdmissionType) return [];
-    return stats.byAdmissionType.map((t) => ({
+    return extractCollection(stats?.byAdmissionType).map((t) => ({
       label: t._id,
-      value: t.count,
+      value: finiteNumber(t.count),
       color: TYPE_COLORS[t._id]?.match(/#[0-9a-fA-F]+/)?.[0] || '#6B7280',
     }));
   }, [stats]);
-
-  const outcomeSlices = useMemo(() => {
-    const counts = {};
-    records.forEach((r) => {
-      const o = r.dischargeOutcome || 'UNKNOWN';
-      counts[o] = (counts[o] || 0) + 1;
-    });
-    const colorMap = {
-      RECOVERED: '#22C55E',
-      IMPROVED: '#3B82F6',
-      TRANSFERRED: '#F59E0B',
-      DECEASED: '#EF4444',
-      ADMITTED: '#6B7280',
-      UNDER_TREATMENT: '#8B5CF6',
-    };
-    return Object.entries(counts).map(([label, value]) => ({
-      label,
-      value,
-      color: colorMap[label] || '#6B7280',
-    }));
-  }, [records]);
 
   const avgByType = useMemo(() => {
     const groups = {};
@@ -89,11 +76,11 @@ export default function AdmissionPerformance() {
       const t = r.admissionType || 'OTHER';
       if (!groups[t]) groups[t] = { count: 0, processing: 0, bed: 0, wait: 0, stay: 0, satisfaction: 0 };
       groups[t].count++;
-      groups[t].processing += r.admissionProcessingTime || 0;
-      groups[t].bed += r.bedAssignmentTime || 0;
-      groups[t].wait += r.waitTime || 0;
-      groups[t].stay += r.lengthOfStay || 0;
-      groups[t].satisfaction += r.patientSatisfaction || 0;
+      groups[t].processing += finiteNumber(r.admissionProcessingTime);
+      groups[t].bed += finiteNumber(r.bedAssignmentTime);
+      groups[t].wait += finiteNumber(r.waitTime);
+      groups[t].stay += finiteNumber(r.lengthOfStay);
+      groups[t].satisfaction += finiteNumber(r.patientSatisfaction);
     });
     const labels = Object.keys(groups);
     const avg = (field) => labels.map((t) => Math.round(groups[t][field] / groups[t].count));
@@ -134,12 +121,12 @@ export default function AdmissionPerformance() {
       {s && (
         <div className="grid grid-cols-7 gap-3">
           <MetricCard label="Total Cases" value={s.total} />
-          <MetricCard label="Average Processing Time" value={`${Math.round(s.avgProcessingTime || 0)} minutes`} />
-          <MetricCard label="Average Bed Assignment" value={`${Math.round(s.avgBedAssignmentTime || 0)} minutes`} />
-          <MetricCard label="Average Wait Time" value={`${Math.round(s.avgWaitTime || 0)} minutes`} />
-          <MetricCard label="Average Length of Stay" value={`${Number(s.avgLengthOfStay || 0).toFixed(1)} days`} />
+          <MetricCard label="Average Processing Time" value={`${Math.round(finiteNumber(s.avgProcessingTime))} minutes`} />
+          <MetricCard label="Average Bed Assignment" value={`${Math.round(finiteNumber(s.avgBedAssignmentTime))} minutes`} />
+          <MetricCard label="Average Wait Time" value={`${Math.round(finiteNumber(s.avgWaitTime))} minutes`} />
+          <MetricCard label="Average Length of Stay" value={`${finiteNumber(s.avgLengthOfStay).toFixed(1)} days`} />
           <MetricCard label="Average Satisfaction" value={avgSat} />
-          <MetricCard label="Readmissions" value={s.readmissions || 0} />
+          <MetricCard label="Readmissions" value={finiteNumber(s.readmissions)} />
         </div>
       )}
 
@@ -238,6 +225,11 @@ export default function AdmissionPerformance() {
         )}
       </div>
       </>)}
+      {!loading && records.length === 0 && !showSearch && (
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-400 dark:border-slate-700 dark:bg-slate-900">
+          No admission performance records found.
+        </div>
+      )}
     </div>
   );
 }

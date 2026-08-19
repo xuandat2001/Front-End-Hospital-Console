@@ -124,14 +124,20 @@ export function isValidNavigationTarget({
   if (!centerTabs.some((tab) => tab.id === centerTab)) return false;
   if (!canAccessFunction(functionId, permissions)) return false;
 
-  const resolvedTarget = findVisibleFunctionTarget(functionId, permissions);
+  const visibleDomainIds = getSectionIds(permissions);
+  if (!visibleDomainIds.includes(domain)) return false;
 
-  return Boolean(
-    resolvedTarget &&
-      resolvedTarget.domain === domain &&
-      resolvedTarget.subsection === (subsection || null) &&
-      resolvedTarget.centerTab === centerTab,
-  );
+  if (subsection) {
+    const visibleSubsectionIds = getSubsections(domain, permissions).map(
+      (item) => item.id,
+    );
+    return (
+      visibleSubsectionIds.includes(subsection) &&
+      getFunction(domain, subsection, centerTab) === functionId
+    );
+  }
+
+  return navData[domain]?.tabs?.[centerTab] === functionId;
 }
 
 export function resolveSafeNavigationState({
@@ -190,7 +196,7 @@ export function resolveSubsectionNavigation(
   role,
 ) {
   const effectivePermissions = getEffectivePermissions(role, permissions);
-  const defaultTab = subsection === "surgery" ? "planning" : "dashboard";
+  const defaultTab = "dashboard";
   const functionId = getFunction(domain, subsection, defaultTab);
 
   return resolveSafeNavigationState({

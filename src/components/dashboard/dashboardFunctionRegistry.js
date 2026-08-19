@@ -34,6 +34,8 @@ export const EXPLICIT_DASHBOARD_FUNCTION_IDS = [
   "intelligence-workload",
   "notifications",
   "overview-performance",
+  "overview-planning",
+  "overview-resources",
   "overview-reports",
   "patient",
   "patient-dashboard",

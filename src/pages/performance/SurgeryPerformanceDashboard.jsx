@@ -3,6 +3,7 @@ import { surgeryPerformanceService } from "../../services/performance/surgeryPer
 import { staffService } from "../../services/core-modules/staffApi";
 import MiniPieChart from "../../components/graphs/MiniPieChart";
 import BarChart from "../../components/graphs/BarChart";
+import { extractCollection, finiteNumber, safePercent } from "../../utils/performanceDataContracts";
 
 const OUTCOME_COLORS = {
   SUCCESSFUL: "#22C55E",
@@ -38,8 +39,8 @@ export default function SurgeryPerformanceDashboard() {
       const errs = [];
       if (perfRes.status === "fulfilled") {
         const raw = perfRes.value;
-        if (raw?.success && Array.isArray(raw.data)) {
-          setPerformances(raw.data);
+        if (raw?.success) {
+          setPerformances(extractCollection(raw));
         } else {
           errs.push(`surgery-performance API: unexpected response ${JSON.stringify(raw).slice(0, 200)}`);
         }
@@ -48,9 +49,9 @@ export default function SurgeryPerformanceDashboard() {
       }
       if (staffRes.status === "fulfilled") {
         const raw = staffRes.value;
-        if (raw?.success && Array.isArray(raw.data)) {
+        if (raw?.success) {
           const map = {};
-          raw.data.forEach((s) => { map[s.ellyId || s._id] = s; });
+          extractCollection(raw).forEach((s) => { map[s.ellyId || s._id] = s; });
           setDoctorMap(map);
         } else {
           errs.push(`staff API: unexpected response ${JSON.stringify(raw).slice(0, 200)}`);
@@ -107,7 +108,7 @@ export default function SurgeryPerformanceDashboard() {
     const completed = filteredPerformances.filter((p) => p.outcome !== "PENDING" && p.outcome !== "CANCELLED");
     if (!completed.length) return { data: [], labels: [] };
     const avg = (field) =>
-      Math.round(completed.reduce((s, p) => s + (p[field] || 0), 0) / completed.length);
+      Math.round(completed.reduce((s, p) => s + finiteNumber(p[field]), 0) / completed.length);
     return {
       data: [
         Math.round(avg("durationMinutes") / 60 * 10) / 10,
@@ -131,8 +132,9 @@ export default function SurgeryPerformanceDashboard() {
     const entries = Object.entries(byDoctor)
       .map(([id, data]) => ({
         id,
-        rate: Math.round((data.successful / data.total) * 100),
+        rate: Math.round(safePercent(data.successful, data.total)),
         total: data.total,
+        successful: data.successful,
         doctor: doctorMap[id],
       }))
       .sort((a, b) => b.rate - a.rate)
@@ -155,9 +157,10 @@ export default function SurgeryPerformanceDashboard() {
   };
 
   const formatDuration = (min) => {
-    if (min == null) return "—";
-    const h = Math.floor(min / 60);
-    const m = min % 60;
+    const minutes = finiteNumber(min, NaN);
+    if (!Number.isFinite(minutes)) return "—";
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
   };
 

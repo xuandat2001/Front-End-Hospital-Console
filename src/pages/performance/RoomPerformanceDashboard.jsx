@@ -3,17 +3,13 @@ import { roomPerformanceService } from "../../services/performance/roomPerforman
 import { roomService } from "../../services/core-modules/roomApi";
 import MiniPieChart from "../../components/graphs/MiniPieChart";
 import BarChart from "../../components/graphs/BarChart";
+import { clampPercent, extractCollection, finiteNumber } from "../../utils/performanceDataContracts";
 
 const STATUS_COLORS = {
   UNDER_UTILIZED: "#F59E0B",
   NORMAL: "#22C55E",
   HIGH_USAGE: "#3B82F6",
   HIGH_DEMAND: "#EF4444",
-};
-
-const toNumber = (value) => {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : null;
 };
 
 const shortenRoomLabel = (value) =>
@@ -39,8 +35,8 @@ export default function RoomPerformanceDashboard() {
       const errs = [];
       if (perfRes.status === "fulfilled") {
         const raw = perfRes.value;
-        if (raw?.success && Array.isArray(raw.data)) {
-          setPerformances(raw.data);
+        if (raw?.success) {
+          setPerformances(extractCollection(raw));
         } else {
           errs.push(`room-performance API: unexpected response ${JSON.stringify(raw).slice(0, 200)}`);
         }
@@ -49,9 +45,9 @@ export default function RoomPerformanceDashboard() {
       }
       if (roomRes.status === "fulfilled") {
         const raw = roomRes.value;
-        if (raw?.success && Array.isArray(raw.data)) {
+        if (raw?.success) {
           const map = {};
-          raw.data.forEach((r) => {
+          extractCollection(raw).forEach((r) => {
             [r.ellyId, r._id, r.id, r.roomNumber]
               .filter(Boolean)
               .forEach((key) => {
@@ -77,16 +73,16 @@ export default function RoomPerformanceDashboard() {
 
   const getOccupancyRate = useCallback((performance) => {
     const room = getRoomForPerformance(performance);
-    const recordedRate = toNumber(performance.occupancyRate);
-    const occupiedBeds = toNumber(room?.occupiedBeds);
-    const capacity = toNumber(room?.capacity);
+    const recordedRate = finiteNumber(performance.occupancyRate, NaN);
+    const occupiedBeds = finiteNumber(room?.occupiedBeds, NaN);
+    const capacity = finiteNumber(room?.capacity, NaN);
 
     if (occupiedBeds !== null && capacity > 0) {
       const liveRate = Math.round((occupiedBeds / capacity) * 100);
-      return Math.max(recordedRate ?? 0, liveRate);
+      return clampPercent(Math.max(Number.isFinite(recordedRate) ? recordedRate : 0, liveRate));
     }
 
-    return recordedRate ?? 0;
+    return clampPercent(Number.isFinite(recordedRate) ? recordedRate : 0);
   }, [getRoomForPerformance]);
 
   const computeStatus = useCallback((p) => {
@@ -147,7 +143,7 @@ export default function RoomPerformanceDashboard() {
     const sorted = [...filteredPerformances].sort((a, b) => (b.cleanlinessScore ?? 0) - (a.cleanlinessScore ?? 0));
     const top = sorted.slice(0, 5);
     return {
-      data: top.map((p) => Math.round(p.cleanlinessScore ?? 0)),
+      data: top.map((p) => Math.round(finiteNumber(p.cleanlinessScore))),
       labels: top.map((p) => {
         const r = getRoomForPerformance(p);
         return shortenRoomLabel(r ? r.roomNumber : p.roomId);
@@ -159,7 +155,7 @@ export default function RoomPerformanceDashboard() {
     if (!filteredPerformances.length) return { data: [], labels: [] };
     const avg = (field) =>
       Math.round(
-        filteredPerformances.reduce((s, p) => s + (p[field] || 0), 0) /
+        filteredPerformances.reduce((s, p) => s + finiteNumber(p[field]), 0) /
           filteredPerformances.length
       );
     return {
@@ -181,7 +177,7 @@ export default function RoomPerformanceDashboard() {
       const r = getRoomForPerformance(p);
       return {
         room: shortenRoomLabel(r ? r.roomNumber : p.roomId),
-        avg: Math.round((p.averageLengthOfStay || 0) * 10) / 10,
+        avg: Math.round(finiteNumber(p.averageLengthOfStay) * 10) / 10,
       };
     });
     entries.sort((a, b) => b.avg - a.avg);

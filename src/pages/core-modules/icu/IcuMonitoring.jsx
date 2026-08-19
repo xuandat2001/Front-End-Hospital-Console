@@ -6,6 +6,8 @@ import IcuSummaryPanel from "./IcuSummaryPanel";
 import IcuPatientDrawer from "./IcuPatientDrawer";
 import IcuVitalsTable from "./IcuVitalsTable";
 import { formatTime } from "../../../utils/dateFormat";
+import CenterTabPrototypePage from "../../prototype/CenterTabPrototypePage";
+import { icuTabPrototypeConfigs } from "../../prototype/centerTabPrototypeConfigs";
 
 const severityOptions = [
   { value: "", label: "All severity" },
@@ -142,7 +144,21 @@ function IcuFilterDropdown({ label, icon: Icon, options, value, onChange }) {
   );
 }
 
-export default function IcuMonitoring() {
+export default function IcuMonitoring({ activeTab = "dashboard" }) {
+  const tab = String(activeTab || "dashboard").toLowerCase();
+  if (tab !== "dashboard") {
+    return (
+      <CenterTabPrototypePage
+        eyebrow="ICU command"
+        {...icuTabPrototypeConfigs[tab]}
+      />
+    );
+  }
+
+  return <IcuMonitoringDashboard />;
+}
+
+function IcuMonitoringDashboard() {
   const [search, setSearch] = useState("");
   const [severity, setSeverity] = useState("");
   const [deviceStatus, setDeviceStatus] = useState("");

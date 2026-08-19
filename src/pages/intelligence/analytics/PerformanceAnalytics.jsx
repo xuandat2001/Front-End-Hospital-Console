@@ -7,8 +7,9 @@ import { staffService } from "../../../services/core-modules/staffApi";
 import { hospitalService } from "../../../services/core-modules/hospitalApi";
 import {
   avg, round, monthKey, monthLabel, pearsonCorr,
-  weightedMovingAverage, exponentialSmoothing, linearRegressionForecast, meanAbsolutePercentageError,
+  weightedMovingAverage, exponentialSmoothing, linearRegressionForecast,
 } from "../../../components/analytics/utils";
+import { extractCollection, finiteNumber, safePercent } from "../../../utils/performanceDataContracts";
 
 const KPI_DEFS = [
   { key: "satisfaction",    label: "Patient Satisfaction",  target: 4.2, unit: "/5",    goodDir: 1 },
@@ -35,7 +36,6 @@ const BOTTLENECK_STAGES = [
 
 export default function PerformanceAnalytics() {
   const [admissionRecords, setAdmissionRecords] = useState([]);
-  const [admissionStats, setAdmissionStats] = useState(null);
   const [surgeryRecords, setSurgeryRecords] = useState([]);
   const [roomRecords, setRoomRecords] = useState([]);
   const [staffRecords, setStaffRecords] = useState([]);
@@ -49,23 +49,21 @@ export default function PerformanceAnalytics() {
     setLoading(true);
     setError("");
     try {
-      const [adm, admStats, surg, room, staff, staffRes, deptRes] = await Promise.allSettled([
+      const [adm, surg, room, staff, staffRes, deptRes] = await Promise.allSettled([
         admissionPerformanceService.getAll(),
-        admissionPerformanceService.getStats(),
         surgeryPerformanceService.getAllPerformances(),
         roomPerformanceService.getAllPerformances(),
         performanceService.getAllPerformances(),
         staffService.getAllStaff(),
         hospitalService.getAllDepartmentsList(),
       ]);
-      if (adm.status === "fulfilled") setAdmissionRecords(adm.value.data || []);
-      if (admStats.status === "fulfilled") setAdmissionStats(admStats.value.data || null);
-      if (surg.status === "fulfilled") setSurgeryRecords(surg.value?.data || []);
-      if (room.status === "fulfilled") setRoomRecords(room.value?.data || []);
-      if (staff.status === "fulfilled") setStaffRecords(staff.value.data || []);
+      if (adm.status === "fulfilled") setAdmissionRecords(extractCollection(adm.value));
+      if (surg.status === "fulfilled") setSurgeryRecords(extractCollection(surg.value));
+      if (room.status === "fulfilled") setRoomRecords(extractCollection(room.value));
+      if (staff.status === "fulfilled") setStaffRecords(extractCollection(staff.value));
       if (staffRes.status === "fulfilled") {
         const raw = staffRes.value;
-        const list = raw?.data || (Array.isArray(raw) ? raw : []);
+        const list = extractCollection(raw);
         const map = {};
         list.forEach((s) => {
           const id = s.ellyId || s._id;
@@ -77,7 +75,7 @@ export default function PerformanceAnalytics() {
       }
       if (deptRes.status === "fulfilled") {
         const map = {};
-        (deptRes.value || []).forEach((d) => { map[d.ellyDepartmentId || d._id] = d.name || d; });
+        extractCollection(deptRes.value).forEach((d) => { map[d.ellyDepartmentId || d._id] = d.name || d; });
         setDeptMap(map);
       }
       const errs = [];
@@ -93,7 +91,15 @@ export default function PerformanceAnalytics() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    let active = true;
+    queueMicrotask(() => {
+      if (active) load();
+    });
+    return () => {
+      active = false;
+    };
+  }, [load]);
 
   const admissionByMonth = useMemo(() => {
     const groups = {};
@@ -102,10 +108,10 @@ export default function PerformanceAnalytics() {
       if (!mk) return;
       if (!groups[mk]) groups[mk] = { count: 0, processing: [], wait: [], stay: [], satisfaction: [], readmitted: 0 };
       groups[mk].count++;
-      groups[mk].processing.push(r.admissionProcessingTime || 0);
-      groups[mk].wait.push(r.waitTime || 0);
-      groups[mk].stay.push(r.lengthOfStay || 0);
-      groups[mk].satisfaction.push(r.patientSatisfaction || 0);
+      groups[mk].processing.push(finiteNumber(r.admissionProcessingTime));
+      groups[mk].wait.push(finiteNumber(r.waitTime));
+      groups[mk].stay.push(finiteNumber(r.lengthOfStay));
+      groups[mk].satisfaction.push(finiteNumber(r.patientSatisfaction));
       if (r.readmittedWithin30Days) groups[mk].readmitted++;
     });
     const sorted = Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
@@ -129,8 +135,8 @@ export default function PerformanceAnalytics() {
       groups[mk].count++;
       if (r.outcome === "SUCCESSFUL") groups[mk].successful++;
       if (r.complicationLevel && r.complicationLevel !== "NONE") groups[mk].complications++;
-      groups[mk].duration.push(r.durationMinutes || r.duration || 0);
-      groups[mk].satisfaction.push(r.patientSatisfactionScore || 0);
+      groups[mk].duration.push(finiteNumber(r.durationMinutes ?? r.duration));
+      groups[mk].satisfaction.push(finiteNumber(r.patientSatisfactionScore ?? r.patientSatisfaction));
     });
     const sorted = Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
     return {
@@ -149,10 +155,10 @@ export default function PerformanceAnalytics() {
       const deptId = s?.departmentId || "unknown";
       if (!deptGroups[deptId]) deptGroups[deptId] = { staffCount: 0, attendance: [], taskCompletion: [], teamwork: [], mental: [] };
       deptGroups[deptId].staffCount++;
-      deptGroups[deptId].attendance.push(p.attendanceRate || 0);
-      deptGroups[deptId].taskCompletion.push(p.taskCompletionRate || 0);
-      deptGroups[deptId].teamwork.push(p.teamworkScore || 0);
-      deptGroups[deptId].mental.push(p.mentalHealthScore || 0);
+      deptGroups[deptId].attendance.push(finiteNumber(p.attendanceRate));
+      deptGroups[deptId].taskCompletion.push(finiteNumber(p.taskCompletionRate));
+      deptGroups[deptId].teamwork.push(finiteNumber(p.teamworkScore));
+      deptGroups[deptId].mental.push(finiteNumber(p.mentalHealthScore));
     });
     const deptSurgery = {};
     surgeryRecords.forEach((r) => {
@@ -161,17 +167,17 @@ export default function PerformanceAnalytics() {
       if (!deptSurgery[deptId]) deptSurgery[deptId] = { count: 0, successful: 0, duration: [], satisfaction: [] };
       deptSurgery[deptId].count++;
       if (r.outcome === "SUCCESSFUL") deptSurgery[deptId].successful++;
-      deptSurgery[deptId].duration.push(r.durationMinutes || r.duration || 0);
-      deptSurgery[deptId].satisfaction.push(r.patientSatisfactionScore || 0);
+      deptSurgery[deptId].duration.push(finiteNumber(r.durationMinutes ?? r.duration));
+      deptSurgery[deptId].satisfaction.push(finiteNumber(r.patientSatisfactionScore ?? r.patientSatisfaction));
     });
     const deptAdmission = {};
     admissionRecords.forEach((r) => {
       const deptId = r.departmentId || "unknown";
       if (!deptAdmission[deptId]) deptAdmission[deptId] = { count: 0, wait: [], stay: [], satisfaction: [], readmitted: 0 };
       deptAdmission[deptId].count++;
-      deptAdmission[deptId].wait.push(r.waitTime || 0);
-      deptAdmission[deptId].stay.push(r.lengthOfStay || 0);
-      deptAdmission[deptId].satisfaction.push(r.patientSatisfaction || 0);
+      deptAdmission[deptId].wait.push(finiteNumber(r.waitTime));
+      deptAdmission[deptId].stay.push(finiteNumber(r.lengthOfStay));
+      deptAdmission[deptId].satisfaction.push(finiteNumber(r.patientSatisfaction));
       if (r.readmittedWithin30Days) deptAdmission[deptId].readmitted++;
     });
     return Object.entries(deptGroups)
@@ -186,10 +192,10 @@ export default function PerformanceAnalytics() {
         return {
           id, name: deptMap[id] || id, efficiency,
           staffCount: g.staffCount,
-          surgerySuccess: surg ? round((surg.successful / surg.count) * 100) : null,
+          surgerySuccess: surg ? round(safePercent(surg.successful, surg.count)) : null,
           surgeryCount: surg?.count || 0,
           avgStay: adm ? round(avg(adm.stay)) : null,
-          readmissionRate: adm ? (adm.count ? round((adm.readmitted / adm.count) * 100) : 0) : null,
+          readmissionRate: adm ? round(safePercent(adm.readmitted, adm.count)) : null,
           patientSatisfaction: adm ? round(avg(adm.satisfaction)) : null,
         };
       })
@@ -202,12 +208,12 @@ export default function PerformanceAnalytics() {
     if (admissionRecords.length < 5) return findings;
     const recent = admissionRecords.slice(-20);
     const older = admissionRecords.slice(0, 20);
-    const avgRecentWait = avg(recent.map((r) => r.waitTime || 0));
-    const avgOlderWait = avg(older.map((r) => r.waitTime || 0));
+    const avgRecentWait = avg(recent.map((r) => finiteNumber(r.waitTime)));
+    const avgOlderWait = avg(older.map((r) => finiteNumber(r.waitTime)));
     if (avgOlderWait > 0 && avgRecentWait > avgOlderWait * 1.15)
       findings.push({ issue: `Wait time increased ${round(((avgRecentWait - avgOlderWait) / avgOlderWait) * 100)}%`, severity: "warning" });
-    const avgRecentStay = avg(recent.map((r) => r.lengthOfStay || 0));
-    const avgOlderStay = avg(older.map((r) => r.lengthOfStay || 0));
+    const avgRecentStay = avg(recent.map((r) => finiteNumber(r.lengthOfStay)));
+    const avgOlderStay = avg(older.map((r) => finiteNumber(r.lengthOfStay)));
     if (avgOlderStay > 0 && avgRecentStay > avgOlderStay * 1.1)
       findings.push({ issue: `Length of stay increased ${round(((avgRecentStay - avgOlderStay) / avgOlderStay) * 100)}%`, severity: "warning" });
     if (admissionByMonth.satisfaction.length > 1) {
@@ -237,9 +243,9 @@ export default function PerformanceAnalytics() {
       if (!mk) return;
       if (!byMonth[mk]) byMonth[mk] = { admissions: 0, satisfaction: [], wait: [], stay: [] };
       byMonth[mk].admissions++;
-      byMonth[mk].satisfaction.push(r.patientSatisfaction || 0);
-      byMonth[mk].wait.push(r.waitTime || 0);
-      byMonth[mk].stay.push(r.lengthOfStay || 0);
+      byMonth[mk].satisfaction.push(finiteNumber(r.patientSatisfaction));
+      byMonth[mk].wait.push(finiteNumber(r.waitTime));
+      byMonth[mk].stay.push(finiteNumber(r.lengthOfStay));
     });
     const sortedMonths = Object.keys(byMonth).sort();
     const current = sortedMonths[sortedMonths.length - 1];
@@ -249,17 +255,17 @@ export default function PerformanceAnalytics() {
     const p = byMonth[prev];
     return {
       currentLabel: monthLabel(current), prevLabel: monthLabel(prev),
-      admissions: { current: c.admissions, prev: p.admissions, change: round(((c.admissions - p.admissions) / p.admissions) * 100) },
+      admissions: { current: c.admissions, prev: p.admissions, change: round(safePercent(c.admissions - p.admissions, p.admissions)) },
       satisfaction: { current: round(avg(c.satisfaction)), prev: round(avg(p.satisfaction)), change: round(avg(c.satisfaction) - avg(p.satisfaction)) },
-      waitTime: { current: round(avg(c.wait)), prev: round(avg(p.wait)), change: round(((avg(c.wait) - avg(p.wait)) / avg(p.wait || 1)) * 100) },
-      los: { current: round(avg(c.stay)), prev: round(avg(p.stay)), change: round(((avg(c.stay) - avg(p.stay)) / avg(p.stay || 1)) * 100) },
+      waitTime: { current: round(avg(c.wait)), prev: round(avg(p.wait)), change: round(safePercent(avg(c.wait) - avg(p.wait), avg(p.wait))) },
+      los: { current: round(avg(c.stay)), prev: round(avg(p.stay)), change: round(safePercent(avg(c.stay) - avg(p.stay), avg(p.stay))) },
     };
   }, [admissionRecords]);
 
   const roomUtilization = useMemo(() => {
     const statuses = {};
     roomRecords.forEach((r) => {
-      const occ = r.occupancyRate ?? 50;
+      const occ = finiteNumber(r.occupancyRate, 50);
       let status;
       if (occ < 30) status = "Under-utilized";
       else if (occ < 60) status = "Normal";
@@ -289,10 +295,9 @@ export default function PerformanceAnalytics() {
     const out = {};
 
     // Occupancy
-    const rates = roomRecords.map((r) => r.occupancyRate ?? 50);
+    const rates = roomRecords.map((r) => finiteNumber(r.occupancyRate, 50));
     if (rates.length >= 3) {
       const actual = round(avg(rates));
-      const recent = actual;
       const wma = round(weightedMovingAverage(rates, 3));
       const es = round(exponentialSmoothing(rates, 0.3));
       const lr = round(linearRegressionForecast(rates));
@@ -369,7 +374,7 @@ export default function PerformanceAnalytics() {
     const current = (arr) => arr.length ? arr[arr.length - 1] : 0;
     const calcChange = (arr) => {
       const [prev, curr] = recent2(arr);
-      return prev ? round(((curr - prev) / prev) * 100) : 0;
+      return round(safePercent(curr - prev, prev));
     };
     return {
       satisfaction:    { value: current(a.satisfaction),      change: calcChange(a.satisfaction) },

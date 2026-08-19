@@ -23,7 +23,10 @@ describe("DashboardContent unknown function fallback", () => {
       />,
     );
 
-    expect(screen.getByText("Unknown prototype page")).toBeInTheDocument();
+    expect(screen.getByText("Page unavailable")).toBeInTheDocument();
+    expect(
+      screen.getByText("This prototype view has not been configured."),
+    ).toBeInTheDocument();
     expect(screen.getByText("intelligence-analytics-typo")).toBeInTheDocument();
   });
 });

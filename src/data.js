@@ -93,6 +93,28 @@ export const workspacePages = {
       "Discharge planning",
     ],
   },
+  "overview-planning": {
+    title: "Overview Planning",
+    description:
+      "Plan hospital-wide capacity, admissions, discharges, transfers, and escalation work.",
+    items: [
+      "Capacity forecast",
+      "Discharge coordination",
+      "Transfer planning",
+      "Escalation routing",
+    ],
+  },
+  "overview-resources": {
+    title: "Overview Resources",
+    description:
+      "Review cross-hospital staff coverage, equipment readiness, diagnostic capacity, and supply risks.",
+    items: [
+      "Staff coverage",
+      "Equipment readiness",
+      "Diagnostic capacity",
+      "Critical supplies",
+    ],
+  },
   "surgery-management": {
     title: "Surgery Management",
     description: "Create, update, and manage surgery records in the system.",

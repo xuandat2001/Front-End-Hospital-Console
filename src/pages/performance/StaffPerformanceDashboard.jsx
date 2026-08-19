@@ -5,6 +5,7 @@ import { hospitalService } from "../../services/core-modules/hospitalApi";
 import StaffSearchBar from "../../components/staff/StaffSearchBar";
 import MiniPieChart from "../../components/graphs/MiniPieChart";
 import BarChart from "../../components/graphs/BarChart";
+import { clampPercent, extractCollection, finiteNumber } from "../../utils/performanceDataContracts";
 
 const RISK_COLORS = {
   LOW: "#22C55E",
@@ -29,17 +30,17 @@ export default function StaffPerformanceDashboard() {
       staffService.getAllStaff(),
       hospitalService.getAllDepartmentsList(),
     ])).then(([perfRes, staffRes, deptRes]) => {
-      if (perfRes.status === "fulfilled") setPerformances(perfRes.value.data || []);
+      if (perfRes.status === "fulfilled") setPerformances(extractCollection(perfRes.value));
       if (staffRes.status === "fulfilled") {
         const map = {};
-        (staffRes.value.data || []).forEach((s) => {
+        extractCollection(staffRes.value).forEach((s) => {
           map[s.ellyId || s._id] = s;
         });
         setStaffMap(map);
       }
       if (deptRes.status === "fulfilled") {
         const map = {};
-        (deptRes.value || []).forEach((d) => {
+        extractCollection(deptRes.value).forEach((d) => {
           map[d.ellyDepartmentId || d._id] = d.name;
         });
         setDeptMap(map);
@@ -82,14 +83,14 @@ export default function StaffPerformanceDashboard() {
       return {
         id: p._id || p.performanceId,
         name: s?.fullName || p.staffId,
-        rate: Math.round(getCasesRate(p)),
+        rate: Math.round(clampPercent(getCasesRate(p))),
       };
     });
   }, [sortedBySuccess, staffMap]);
 
   const avgScores = useMemo(() => {
     if (!filteredPerformances.length) return { data: [], labels: [] };
-    const avg = (field) => Math.round(filteredPerformances.reduce((s, p) => s + (p[field] || 0), 0) / filteredPerformances.length);
+    const avg = (field) => Math.round(filteredPerformances.reduce((s, p) => s + finiteNumber(p[field]), 0) / filteredPerformances.length);
     return {
       data: [avg("teamworkScore"), avg("mentalHealthScore"), avg("attendanceRate"), avg("taskCompletionRate")],
       labels: ["Teamwork", "Mental Health", "Attendance", "Task Completion"],
@@ -102,7 +103,7 @@ export default function StaffPerformanceDashboard() {
       const s = staffMap[p.staffId];
       const deptId = s?.departmentId || "unknown";
       if (!groups[deptId]) groups[deptId] = { total: 0, count: 0 };
-      groups[deptId].total += p.attendanceRate || 0;
+      groups[deptId].total += finiteNumber(p.attendanceRate);
       groups[deptId].count += 1;
     });
     const entries = Object.entries(groups).map(([id, { total, count }]) => ({
@@ -165,7 +166,7 @@ export default function StaffPerformanceDashboard() {
                   <div className="mt-1 h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-700">
                     <div
                       className="h-1.5 rounded-full bg-gradient-to-r from-violet-500 to-indigo-500"
-                      style={{ width: `${item.rate}%` }}
+                      style={{ width: `${clampPercent(item.rate)}%` }}
                     />
                   </div>
                 </div>

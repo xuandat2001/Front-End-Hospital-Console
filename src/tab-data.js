@@ -12,8 +12,8 @@ const navData = {
     tabs: {
       dashboard: "command",
       performance: "overview-performance",
-      planning: "surgery-planning",
-      resources: "staffing",
+      planning: "overview-planning",
+      resources: "overview-resources",
       reports: "overview-reports",
     },
   },
