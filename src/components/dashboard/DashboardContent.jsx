@@ -59,6 +59,7 @@ import SurgeryPerformanceDashboard from "../../pages/performance/SurgeryPerforma
 import ClinicSurgeryRequest from "../../pages/operations/surgery/ClinicSurgeryRequest";
 import ClinicDoctorDashboard from "../../pages/operations/surgery/ClinicDoctorDashboard";
 import WelcomePage from "../../pages/welcome/WelcomePage";
+import BillingPage from "../../pages/billing/BillingPage";
 
 function UnknownFunctionFallback({
   activeCenterTab,
@@ -217,6 +218,10 @@ function DashboardContent({
             ) : (
               <AppointmentBookingManagement activeTab={activeCenterTab} />
             )}
+          </div>
+        ) : activeFunction === "billing" ? (
+          <div className="h-full overflow-y-auto">
+            <BillingPage />
           </div>
         ) : activeFunction === "doctor-follow-up-care" ? (
           <div className="h-full overflow-y-auto">

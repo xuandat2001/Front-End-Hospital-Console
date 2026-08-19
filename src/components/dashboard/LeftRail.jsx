@@ -225,6 +225,13 @@ function RailContent({
                       onClick={() => handleSubClick(id, sub.id)}
                       type="button"
                     >
+                      {sub.icon && (
+                        <Icon
+                          className="dashboard-nav-subsection-icon"
+                          name={sub.icon}
+                          size={16}
+                        />
+                      )}
                       {sub.label}
                     </button>
                   ))}

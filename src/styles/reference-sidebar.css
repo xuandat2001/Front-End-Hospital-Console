@@ -683,6 +683,11 @@ html.liquid-glass
     -webkit-backdrop-filter: none !important;
   }
 
+  .reference-sidebar .dashboard-nav-subsection-icon {
+    flex: 0 0 auto;
+    color: currentColor;
+  }
+
   .dashboard-left-rail.reference-sidebar.is-content-collapsed
     .dashboard-nav-subsections.is-floating {
     position: absolute;

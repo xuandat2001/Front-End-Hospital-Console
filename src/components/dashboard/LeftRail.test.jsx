@@ -29,6 +29,7 @@ vi.mock("../../store/useSessionStore", () => ({
         "room:read",
         "emergency:read",
         "appointment:read",
+        "billing:read",
         "admission:read",
         "surgery:read",
         "intelligence:read",
@@ -287,7 +288,22 @@ describe("LeftRail", () => {
     expect(
       within(group).getByRole("button", { name: "Appointment Booking" }),
     ).toBeEnabled();
-    expect(within(group).getAllByRole("button")).toHaveLength(4);
+    expect(
+      within(group).getByRole("button", { name: "Billing" }),
+    ).toBeEnabled();
+    expect(within(group).getAllByRole("button")).toHaveLength(5);
+  });
+
+  it("navigates to Billing from the Operations subsection group", async () => {
+    const user = userEvent.setup();
+    const onSubsectionSelect = vi.fn();
+    renderRail({ onSubsectionSelect });
+
+    await user.click(screen.getByRole("button", { name: "Operations" }));
+    const group = screen.getByRole("group", { name: "Operations sections" });
+    await user.click(within(group).getByRole("button", { name: "Billing" }));
+
+    expect(onSubsectionSelect).toHaveBeenCalledWith("operations", "billing");
   });
 
   it("uses the same account action in the mobile navigation drawer", async () => {

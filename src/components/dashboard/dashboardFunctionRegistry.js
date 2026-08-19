@@ -9,6 +9,7 @@ export const EXPLICIT_DASHBOARD_FUNCTION_IDS = [
   "analytics",
   "appointment-booking-management",
   "beds",
+  "billing",
   "clinic-doctor-dashboard",
   "clinic-doctor-messages",
   "clinic-doctor-reports",

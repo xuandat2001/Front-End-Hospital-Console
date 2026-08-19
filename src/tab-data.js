@@ -126,6 +126,18 @@ const navData = {
           reports: "appointment-booking-management",
         },
       },
+      billing: {
+        label: "Billing",
+        icon: "billing",
+        requiredPermission: PERMISSIONS.BILLING_READ,
+        tabs: {
+          dashboard: "billing",
+          performance: "billing",
+          planning: "billing",
+          resources: "billing",
+          reports: "billing",
+        },
+      },
       "follow-up-care": {
         label: "Follow-up Care",
         requiredPermission: PERMISSIONS.FOLLOW_UP_READ,

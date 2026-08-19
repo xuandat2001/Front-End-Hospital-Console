@@ -32,6 +32,7 @@ export const PAGE_PERMISSIONS = {
 
   emergency: PERMISSIONS.EMERGENCY_READ,
   "appointment-booking-management": PERMISSIONS.APPOINTMENT_READ,
+  billing: PERMISSIONS.BILLING_READ,
   "doctor-follow-up-care": PERMISSIONS.FOLLOW_UP_READ,
 
   patient: PERMISSIONS.ADMISSION_READ,

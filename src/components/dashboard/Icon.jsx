@@ -121,6 +121,13 @@ const paths = {
       <path d="M13 3v5h5" />
     </>
   ),
+  billing: (
+    <>
+      <path d="M7 3h10v18H7Z" />
+      <path d="M9.5 7h5M9.5 10.5h5M9.5 14h3" />
+      <path d="M15 15.5c0 .9-.7 1.5-1.8 1.5H11m2.1-1.5H11m2.1 0c1 0 1.7-.6 1.7-1.4 0-.9-.7-1.4-1.8-1.4h-1.2" />
+    </>
+  ),
 };
 
 function Icon({ name, size = 20, strokeWidth = 1.8, className = "" }) {
